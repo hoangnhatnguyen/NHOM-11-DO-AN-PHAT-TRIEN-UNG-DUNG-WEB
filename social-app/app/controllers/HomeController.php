@@ -4,12 +4,6 @@ require_once __DIR__ . '/../models/Post.php';
 
 class HomeController extends BaseController {
 	public function index(): void {
-		$this->render('home/feed', [
-			'title' => 'Social App',
-		]);
-	}
-
-	public function newfeed(): void {
 		$posts = [];
 		$dbError = null;
 
@@ -20,7 +14,7 @@ class HomeController extends BaseController {
 		}
 
 		$this->render('home/feed', [
-			'title' => 'Newfeed',
+			'title' => 'Trang chủ',
 			'posts' => $posts,
 			'dbError' => $dbError,
 		]);

@@ -8,6 +8,7 @@ import {
 	doc,
 	setDoc,
 	updateDoc,
+	getDoc,
 	collection,
 	addDoc,
 	getDocs,
@@ -473,7 +474,10 @@ if (!root) {
 			} else {
 				// Update all conversation items in list without full re-render
 				state.conversations.forEach(c => {
-					if (!isHiddenByDelete(c)) {
+					// Always update active conversation, even if hidden
+					// (it might temporarily appear hidden due to race condition in timestamp comparison)
+					const shouldUpdate = c.id === state.activeConversationId || !isHiddenByDelete(c);
+					if (shouldUpdate) {
 						updateConversationItemInList(c.id);
 					}
 				});
@@ -507,10 +511,11 @@ if (!root) {
 		let isUnread = false;
 		if (conv.lastSenderId && String(conv.lastSenderId) !== String(state.me.id)) {
 			const readAt = conv.readAt?.[String(state.me.id)];
-			const lastMessageTime = conv.updatedAt?.toMillis?.() || conv.updatedAt;
-			const readAtTime = readAt?.toMillis?.() || readAt;
+			const lastMessageTime = toMillis(conv.updatedAt);
+			const readAtTime = toMillis(readAt);
 			
-			isUnread = !conv.isRead?.[String(state.me.id)] || (lastMessageTime && readAtTime && lastMessageTime > readAtTime);
+			// Unread nếu: chưa từng đọc, hoặc tin mới hơn lần đọc cuối
+			isUnread = !conv.isRead?.[String(state.me.id)] || (lastMessageTime > 0 && readAtTime > 0 && lastMessageTime > readAtTime);
 		}
 		
 		// Update preview text
@@ -555,8 +560,13 @@ if (!root) {
 				return haystack.includes(keyword);
 			});
 
-		// Filter hidden conversations by deletion
-		rows = rows.filter((item) => !isHiddenByDelete(item));
+		// Filter hidden conversations by deletion, but ALWAYS show active conversation
+		rows = rows.filter((item) => {
+			if (item.id === state.activeConversationId) {
+				return true; // Always show active conversation
+			}
+			return !isHiddenByDelete(item);
+		});
 
 		if (rows.length === 0) {
 			ui.conversationList.innerHTML = '<div class="chat-muted">Chưa có cuộc trò chuyện.</div>';
@@ -572,11 +582,11 @@ if (!root) {
 			let isUnread = false;
 			if (isFromOther) {
 				const readAt = item.readAt?.[String(state.me.id)];
-				const lastMessageTime = item.updatedAt?.toMillis?.() || item.updatedAt;
-				const readAtTime = readAt?.toMillis?.() || readAt;
+				const lastMessageTime = toMillis(item.updatedAt);
+				const readAtTime = toMillis(readAt);
 				
 				// Unread nếu: chưa từng đọc, hoặc tin mới hơn lần đọc cuối
-				isUnread = !item.isRead?.[String(state.me.id)] || (lastMessageTime && readAtTime && lastMessageTime > readAtTime);
+				isUnread = !item.isRead?.[String(state.me.id)] || (lastMessageTime > 0 && readAtTime > 0 && lastMessageTime > readAtTime);
 			}
 			
 			const lastMessageStyle = isUnread ? 'font-weight: 600;' : '';
@@ -1108,10 +1118,16 @@ if (!root) {
 	async function updateConversationMetaOnSend(conversationId, fields) {
 		const convRef = doc(state.db, 'conversations', conversationId);
 
+		// Get current conversation to preserve deletedFor field
+		const convSnapshot = await getDoc(convRef);
+		const currentData = convSnapshot.data() || {};
+
 		await updateDoc(convRef, {
 			...fields,
-			lastSenderId: String(state.me.id),
+			lastSenderId: Number(state.me.id), // Use number type for consistency
 			updatedAt: serverTimestamp(),
+			// Explicitly preserve deletedFor to ensure conversation reappears if hidden was deleted
+			...(currentData.deletedFor && { deletedFor: currentData.deletedFor }),
 		});
 	}
 
@@ -1202,14 +1218,24 @@ if (!root) {
 	}
 
 	function isHiddenByDelete(conversation) {
-		const deletedAt = conversation.deletedFor?.[String(state.me.id)];
+		if (!conversation) return true;
+		
+		const myId = String(state.me.id);
+		const deletedAt = conversation.deletedFor?.[myId];
+		
 		if (!deletedAt) {
-			return false;
+			return false; // Not deleted
 		}
 
 		// Hide only if deleted and no new messages after deletion
 		const lastMessageTime = toMillis(conversation.updatedAt);
 		const deletedTime = toMillis(deletedAt);
+		
+		// Safely compare - if either is 0 or negative, don't hide
+		if (lastMessageTime <= 0 || deletedTime <= 0) {
+			console.warn('[isHiddenByDelete] Invalid timestamps for', conversation.id, { lastMessageTime, deletedTime });
+			return false; // Can't determine, show it
+		}
 		
 		return lastMessageTime <= deletedTime;
 	}

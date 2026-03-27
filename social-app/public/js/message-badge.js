@@ -62,18 +62,28 @@
 				
 				const hasUnread = conversations.some(c => {
 					const lastSenderId = c.lastSenderId;
-					if (!lastSenderId || lastSenderId === userId) return false;
+					
+					// Check type safety - convert to string for comparison
+					const lastSenderIdStr = String(lastSenderId || '');
+					const userIdStr = String(userId);
+					
+					// Skip if no sender or from self
+					if (!lastSenderIdStr || lastSenderIdStr === userIdStr) {
+						return false;
+					}
 					
 					const deletedFor = c.deletedFor || {};
-					const deletedAt = deletedFor[String(userId)];
+					const deletedAt = deletedFor[userIdStr];
 					const lastMessageTime = c.updatedAt?.toMillis?.() || 0;
 					
 					// Hidden by delete
-					if (deletedAt && lastMessageTime <= deletedAt.toMillis?.()) return false;
+					if (deletedAt && lastMessageTime <= deletedAt.toMillis?.()) {
+						return false;
+					}
 					
-					const readAt = c.readAt?.[String(userId)];
+					const readAt = c.readAt?.[userIdStr];
 					const readAtTime = readAt?.toMillis?.() || 0;
-					const isRead = c.isRead?.[String(userId)];
+					const isRead = c.isRead?.[userIdStr];
 					
 					// Unread: chưa đọc HOẶC tin mới hơn lần đọc cuối
 					return !isRead || (lastMessageTime > readAtTime);

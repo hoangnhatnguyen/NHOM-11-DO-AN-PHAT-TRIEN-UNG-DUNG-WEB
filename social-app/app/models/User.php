@@ -3,6 +3,31 @@
 class User extends BaseModel {
 	protected string $table = 'users';
 
+	public function searchForChat(int $excludeUserId, string $query = '', int $limit = 20): array {
+		$limit = max(1, min($limit, 50));
+		$params = [
+			'exclude_id' => $excludeUserId,
+		];
+
+		$where = 'id <> :exclude_id';
+		if ($query !== '') {
+			$where .= ' AND (username LIKE :query OR email LIKE :query)';
+			$params['query'] = '%' . $query . '%';
+		}
+
+		$sql = "SELECT id, username, email, avatar_url FROM {$this->table} WHERE {$where} ORDER BY username ASC LIMIT :limit";
+		$stmt = $this->db->prepare($sql);
+
+		foreach ($params as $key => $value) {
+			$stmt->bindValue(':' . $key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+		}
+
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll();
+	}
+
 	public function findByEmail(string $email): ?array {
 		$stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE email = :email LIMIT 1");
 		$stmt->execute(['email' => $email]);

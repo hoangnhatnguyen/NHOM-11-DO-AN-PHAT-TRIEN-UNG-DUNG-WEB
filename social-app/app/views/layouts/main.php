@@ -6,7 +6,8 @@
 	<title><?= htmlspecialchars($title ?? APP_NAME) ?></title>
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-	<link href="<?= BASE_URL ?>/public/css/style.css" rel="stylesheet">
+	<!-- Main CSS with modular imports -->
+	<link href="<?= BASE_URL ?>/public/css/index.css" rel="stylesheet">
 </head>
 <body class="app-bg">
 	<?php include VIEW_PATH . 'partials/navbar.php'; ?>
@@ -14,6 +15,13 @@
 		<?php include $contentView; ?>
 	</main>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<!-- Global message badge loader -->
+	<script src="<?= BASE_URL ?>/public/js/message-badge.js" type="module"></script>
+	<?php foreach (($pageScripts ?? []) as $script): ?>
+		<?php $src = (string) ($script['src'] ?? ''); ?>
+		<?php if ($src === '') { continue; } ?>
+		<script src="<?= htmlspecialchars($src) ?>"<?= !empty($script['module']) ? ' type="module"' : '' ?>></script>
+	<?php endforeach; ?>
 </body>
 </html>
 

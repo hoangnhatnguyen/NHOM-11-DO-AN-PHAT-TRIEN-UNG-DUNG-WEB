@@ -12,6 +12,7 @@ require_once 'config/database.php';
 require_once 'app/core/Database.php';
 require_once 'app/core/BaseModel.php';
 require_once 'app/core/BaseController.php';
+require_once 'app/core/Avatar.php';
 require_once 'app/core/Logger.php';
 require_once 'app/core/Router.php';
 

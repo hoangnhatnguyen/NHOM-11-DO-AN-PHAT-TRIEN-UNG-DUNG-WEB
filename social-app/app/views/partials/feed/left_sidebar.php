@@ -20,9 +20,14 @@
 		<div class="d-flex align-items-center gap-2 sidebar-profile">
 			<div class="avatar-lg">T</div>
 			<div class="menu-label">
-				<div class="fw-semibold small">Tang Dien</div>
-				<div class="text-secondary small">@tangtd</div>
+				<div class="fw-semibold small"><?= htmlspecialchars($currentUser['username'] ?? 'Người dùng') ?></div>
+				<div class="text-secondary small"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
 			</div>
 		</div>
+
+		<form method="post" action="<?= BASE_URL ?>/logout" class="mt-2 menu-label">
+			<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+			<button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Đăng xuất</button>
+		</form>
 	</div>
 </aside>

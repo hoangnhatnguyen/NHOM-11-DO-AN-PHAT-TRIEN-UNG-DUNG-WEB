@@ -35,12 +35,63 @@ class BaseController {
 		}
 	}
 
+	protected function requireGuest(): void {
+		if (!empty($_SESSION['user'])) {
+			$this->redirect('/');
+		}
+	}
+
 	protected function requireAdmin(): void {
 		if (empty($_SESSION['user']) || (($_SESSION['user']['role'] ?? 'user') !== 'admin')) {
 			http_response_code(403);
 			echo '403 Forbidden';
 			exit;
 		}
+	}
+
+	protected function csrfToken(): string {
+		if (empty($_SESSION['_csrf_token'])) {
+			$_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+		}
+
+		return (string) $_SESSION['_csrf_token'];
+	}
+
+	protected function verifyCsrf(?string $token): bool {
+		$sessionToken = $_SESSION['_csrf_token'] ?? '';
+		if ($sessionToken === '' || $token === null || $token === '') {
+			return false;
+		}
+
+		return hash_equals((string) $sessionToken, $token);
+	}
+
+	protected function flash(string $key, ?string $message = null): ?string {
+		if ($message !== null) {
+			$_SESSION['_flash'][$key] = $message;
+			return null;
+		}
+
+		if (empty($_SESSION['_flash'][$key])) {
+			return null;
+		}
+
+		$value = (string) $_SESSION['_flash'][$key];
+		unset($_SESSION['_flash'][$key]);
+		return $value;
+	}
+
+	protected function setOldInput(array $input): void {
+		$_SESSION['_old_input'] = $input;
+	}
+
+	protected function old(string $key, string $default = ''): string {
+		$value = $_SESSION['_old_input'][$key] ?? $default;
+		return is_scalar($value) ? (string) $value : $default;
+	}
+
+	protected function clearOldInput(): void {
+		unset($_SESSION['_old_input']);
 	}
 }
 

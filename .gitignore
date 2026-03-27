@@ -6,3 +6,5 @@ social-app/.env
 social-app/vendor/
 social-app/storage/logs/*.log
 !social-app/storage/logs/.gitkeep
+social-app/public/uploads/chat/*
+!social-app/public/uploads/chat/.gitkeep

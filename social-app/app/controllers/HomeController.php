@@ -21,6 +21,7 @@ class HomeController extends BaseController {
 			'dbError' => $dbError,
 			'currentUser' => $_SESSION['user'] ?? null,
 			'csrfToken' => $this->csrfToken(),
+			'activeMenu' => 'home',
 		]);
 	}
 }

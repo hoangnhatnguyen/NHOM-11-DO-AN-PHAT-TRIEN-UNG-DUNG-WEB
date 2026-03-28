@@ -35,17 +35,22 @@ class AuthController extends BaseController {
 			$this->redirect('/login');
 		}
 
-		$identifier = trim((string) ($_POST['email'] ?? ''));
+		$email = trim((string) ($_POST['email'] ?? ''));
 		$password = (string) ($_POST['password'] ?? '');
-		$this->setOldInput(['email' => $identifier]);
+		$this->setOldInput(['email' => $email]);
 
-		if ($identifier === '' || $password === '') {
-			$this->flash('error', 'Vui lòng nhập tên đăng nhập/email và mật khẩu.');
+		if ($email === '' || $password === '') {
+			$this->flash('error', 'Vui lòng nhập email và mật khẩu.');
+			$this->redirect('/login');
+		}
+
+		if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			$this->flash('error', 'Email không hợp lệ.');
 			$this->redirect('/login');
 		}
 
 		try {
-			$user = $this->userModel->findByLoginIdentifier($identifier);
+			$user = $this->userModel->findByEmail($email);
 		} catch (Throwable $e) {
 			Logger::error('Login lookup error', ['message' => $e->getMessage()]);
 			$this->flash('error', 'Hệ thống đang bận. Vui lòng thử lại sau.');
@@ -54,7 +59,7 @@ class AuthController extends BaseController {
 		}
 
 		if ($user === null || !password_verify($password, (string) $user['password_hash'])) {
-			$this->flash('error', 'Tên đăng nhập/email hoặc mật khẩu không đúng.');
+			$this->flash('error', 'Email hoặc mật khẩu không đúng.');
 			$this->redirect('/login');
 		}
 

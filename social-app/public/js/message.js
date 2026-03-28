@@ -367,6 +367,44 @@ if (!root) {
 		setDetailPanelOpen(!ui.root.classList.contains('chat-detail-open'));
 	});
 
+	// User profile menu
+	const avatarBtn = document.getElementById('chatAvatarBtn');
+	const userMenu = document.getElementById('chatUserMenu');
+	if (avatarBtn && userMenu) {
+		avatarBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			userMenu.classList.toggle('active');
+		});
+
+		// Close menu when clicking outside
+		document.addEventListener('click', () => {
+			userMenu.classList.remove('active');
+		});
+
+		// Prevent menu from closing when clicking inside it
+		userMenu.addEventListener('click', (e) => {
+			e.stopPropagation();
+		});
+	}
+
+	// Logout handler
+	const logoutBtn = document.getElementById('logoutBtn');
+	if (logoutBtn) {
+		logoutBtn.addEventListener('click', (e) => {
+			e.preventDefault();
+			const csrf = logoutBtn.getAttribute('data-csrf');
+			const logoutUrl = logoutBtn.getAttribute('data-logout-url');
+
+			// Create form dynamically
+			const form = document.createElement('form');
+			form.method = 'POST';
+			form.action = logoutUrl;
+			form.innerHTML = `<input type="hidden" name="_csrf" value="${csrf}">`;
+			document.body.appendChild(form);
+			form.submit();
+		});
+	}
+
 	// Empty state button
 	const emptyStateBtn = document.getElementById('chatEmptyStateBtn');
 	if (emptyStateBtn) {

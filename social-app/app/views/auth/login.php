@@ -14,17 +14,17 @@
 				<form method="post" action="<?= BASE_URL ?>/login" novalidate>
 					<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 
-					<label class="form-label auth-label">Nhập tên đăng nhập hoặc email của bạn</label>
+					<label class="form-label auth-label">Email của bạn</label>
 					<input
-						type="text"
+						type="email"
 						class="form-control auth-input mb-3"
 						name="email"
-						placeholder="Tên đăng nhập hoặc Email"
+						placeholder="Email"
 						value="<?= htmlspecialchars($oldEmail ?? '') ?>"
 						required
 					>
 
-					<label class="form-label auth-label">Nhập mật khẩu</label>
+					<label class="form-label auth-label">Mật khẩu</label>
 					<input
 						type="password"
 						class="form-control auth-input mb-3"

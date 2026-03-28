@@ -3,15 +3,28 @@ FROM php:8.1-apache
 # Enable mod_rewrite & mod_headers
 RUN a2enmod rewrite headers
 
-# Install PHP extensions
+# Install PHP extensions & dependencies
 RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
     libcurl4-openssl-dev \
+    libxml2-dev \
     pkg-config \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd curl pdo pdo_mysql \
+    && docker-php-ext-install -j$(nproc) \
+        gd \
+        curl \
+        pdo \
+        pdo_mysql \
+        json \
+        mbstring \
+        fileinfo \
+        zip \
+        xml \
+        bcmath \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer

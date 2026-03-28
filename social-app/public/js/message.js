@@ -356,32 +356,30 @@ if (!root) {
 
 		ui.blockBtn.addEventListener('click', async () => {
 			await toggleBlockUser();
-		});
-
-		ui.openDetailBtn.addEventListener('click', () => {
-			setDetailPanelOpen(!ui.root.classList.contains('chat-detail-open'));
-		});
-
-		// Empty state button
-		const emptyStateBtn = document.getElementById('chatEmptyStateBtn');
-		if (emptyStateBtn) {
-			emptyStateBtn.addEventListener('click', () => {
-				const modal = new bootstrap.Modal('#chatNewConversationModal');
-				modal.show();
-			});
+		const conversation = state.conversationsMap.get(state.activeConversationId);
+		if (conversation) {
+			syncHeaderAndDetails(conversation);
+			updateComposerBlockedState(conversation);
 		}
+	});
 
-		ui.newConversationBtn.addEventListener('click', () => {
+	ui.openDetailBtn.addEventListener('click', () => {
+		setDetailPanelOpen(!ui.root.classList.contains('chat-detail-open'));
+	});
+
+	// Empty state button
+	const emptyStateBtn = document.getElementById('chatEmptyStateBtn');
+	if (emptyStateBtn) {
+		emptyStateBtn.addEventListener('click', () => {
 			const modal = new bootstrap.Modal('#chatNewConversationModal');
 			modal.show();
 		});
-
-		// New conversation modal
-		const searchInput = document.getElementById('chatNewConvSearch');
-		const suggestionsDiv = document.getElementById('chatNewConvSuggestions');
-		if (searchInput) {
-			searchInput.addEventListener('input', debounce(async () => {
-				const keyword = searchInput.value.trim().toLowerCase();
+	}
+	
+	const suggestionsDiv = document.getElementById('chatNewConvSuggestions');
+	if (ui.searchInput) {
+		ui.searchInput.addEventListener('input', debounce(async () => {
+			const keyword = ui.searchInput.value.trim().toLowerCase();
 				if (keyword.length < 1) {
 					suggestionsDiv.innerHTML = '';
 					return;
@@ -411,14 +409,13 @@ if (!root) {
 						const modal = bootstrap.Modal.getInstance('#chatNewConversationModal');
 						if (modal) modal.hide();
 						await startConversationByUserId(userId);
-						searchInput.value = '';
+						ui.searchInput.value = '';
 						suggestionsDiv.innerHTML = '';
 					});
 				});
 			}, 300));
 		}
 	}
-
 	async function subscribeConversations() {
 		if (state.unsubConversations) {
 			state.unsubConversations();
@@ -736,6 +733,7 @@ if (!root) {
 			}
 			state.activePeer = null;
 			subscribePeerPresence(0);
+			updateComposerBlockedState(null);
 			return;
 		}
 
@@ -755,8 +753,73 @@ if (!root) {
 		subscribePeerPresence(conversation.peer.id);
 
 		const myId = String(state.me.id);
-		const isBlocked = (conversation.blockedBy || []).includes(myId);
-		ui.blockBtn.textContent = isBlocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng';
+		const peerId = String(conversation.peer?.id || '');
+		const blockedBy = conversation.blockedBy || [];
+		const iBlockedThem = blockedBy.includes(myId);
+		const theyBlockedMe = blockedBy.includes(peerId);
+		
+		// Only show block button if they haven't blocked me
+		if (theyBlockedMe) {
+			ui.blockBtn.style.display = 'none';
+		} else {
+			ui.blockBtn.style.display = 'block';
+			ui.blockBtn.textContent = iBlockedThem ? 'Bỏ chặn người dùng' : 'Chặn người dùng';
+		}
+		
+		updateComposerBlockedState(conversation);
+	}
+
+	function updateComposerBlockedState(conversation) {
+		const myId = String(state.me.id);
+		const peerId = conversation ? String(conversation.peer?.id || '') : '';
+		const blockedBy = conversation?.blockedBy || [];
+		
+		// Check if I blocked them or if they blocked me
+		const iBlockedThem = blockedBy.includes(myId);
+		const theyBlockedMe = blockedBy.includes(peerId);
+		const isBlocked = iBlockedThem || theyBlockedMe;
+		
+		// Get parent of composer form to insert blocked message outside the form
+		const composerParent = ui.composerForm.parentElement;
+		let blockedMsg = composerParent?.querySelector('.chat-blocked-message');
+		
+		if (isBlocked) {
+			// Hide the composer form
+			ui.composerForm.style.display = 'none';
+			
+			if (!blockedMsg) {
+				blockedMsg = document.createElement('div');
+				blockedMsg.className = 'chat-blocked-message';
+				blockedMsg.style.cssText = `
+					background: #fef2f2;
+					border: 1px solid #dc2626;
+					border-radius: 8px;
+					padding: 12px 16px;
+					color: #7f1d1d;
+					font-size: 0.9375rem;
+					text-align: center;
+					font-weight: 500;
+					line-height: 1.4;
+				`;
+				composerParent?.appendChild(blockedMsg);
+			}
+			
+			// Update message text
+			if (iBlockedThem) {
+				blockedMsg.textContent = 'Bạn đã chặn người dùng này. Không thể nhắn tin.';
+			} else {
+				blockedMsg.textContent = `Bạn đã bị ${conversation?.peer?.username || 'người dùng này'} chặn.`;
+			}
+			
+			blockedMsg.style.display = 'block';
+		} else {
+			// Show the composer form
+			ui.composerForm.style.display = 'grid';
+			
+			if (blockedMsg) {
+				blockedMsg.style.display = 'none';
+			}
+		}
 	}
 
 	function subscribeMessages(conversationId) {
@@ -1003,7 +1066,15 @@ if (!root) {
 
 		const conversation = state.conversationsMap.get(state.activeConversationId);
 		if (conversation && isConversationBlocked(conversation)) {
-			toast('Không thể gửi vì cuộc trò chuyện đang bị chặn.');
+			const myId = String(state.me.id);
+			const blockedBy = conversation.blockedBy || [];
+			const iBlockedThem = blockedBy.includes(myId);
+			
+			if (iBlockedThem) {
+				toast('Bạn đã chặn người dùng này.');
+			} else {
+				toast(`Bạn đã bị ${conversation.peer?.username || 'người dùng này'} chặn.`);
+			}
 			return;
 		}
 
@@ -1040,7 +1111,15 @@ if (!root) {
 
 		const conversation = state.conversationsMap.get(state.activeConversationId);
 		if (conversation && isConversationBlocked(conversation)) {
-			toast('Không thể gửi vì cuộc trò chuyện đang bị chặn.');
+			const myId = String(state.me.id);
+			const blockedBy = conversation.blockedBy || [];
+			const iBlockedThem = blockedBy.includes(myId);
+			
+			if (iBlockedThem) {
+				toast('Bạn đã chặn người dùng này.');
+			} else {
+				toast(`Bạn đã bị ${conversation.peer?.username || 'người dùng này'} chặn.`);
+			}
 			return;
 		}
 
@@ -1181,9 +1260,9 @@ if (!root) {
 		const blockedBy = conversation.blockedBy || [];
 		const isBlocked = blockedBy.includes(myId);
 
+		// Only update blockedBy field, don't update updatedAt to prevent notification creation
 		await updateDoc(doc(state.db, 'conversations', state.activeConversationId), {
 			blockedBy: isBlocked ? arrayRemove(myId) : arrayUnion(myId),
-			updatedAt: serverTimestamp(),
 		});
 	}
 

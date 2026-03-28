@@ -365,6 +365,16 @@
 	border: none !important;
 }
 
+.chat-bubble img,
+.chat-bubble video {
+	max-width: 320px;
+	max-height: 400px;
+	width: 100%;
+	height: auto;
+	display: block;
+	border-radius: 8px;
+}
+
 .chat-bubble.their {
 	background: #fff;
 	border: 1px solid #1a6291;

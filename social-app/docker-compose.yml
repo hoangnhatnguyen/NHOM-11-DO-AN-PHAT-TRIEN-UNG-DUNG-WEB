@@ -6,4 +6,7 @@ services:
     container_name: php-app
     ports:
       - "80:80"
+    volumes:
+      - .:/var/www/html
+      - ./.env:/var/www/html/.env
     restart: always

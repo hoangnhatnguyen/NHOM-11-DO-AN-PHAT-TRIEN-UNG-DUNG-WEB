@@ -367,12 +367,133 @@ if (!root) {
 		setDetailPanelOpen(!ui.root.classList.contains('chat-detail-open'));
 	});
 
+	// User profile menu
+	const avatarBtn = document.getElementById('chatAvatarBtn');
+	const userMenu = document.getElementById('chatUserMenu');
+	if (avatarBtn && userMenu) {
+		avatarBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			userMenu.classList.toggle('active');
+		});
+
+		// Close menu when clicking outside
+		document.addEventListener('click', () => {
+			userMenu.classList.remove('active');
+		});
+
+		// Prevent menu from closing when clicking inside it
+		userMenu.addEventListener('click', (e) => {
+			e.stopPropagation();
+		});
+	}
+
+	// Logout handler
+	const logoutBtn = document.getElementById('logoutBtn');
+	if (logoutBtn) {
+		logoutBtn.addEventListener('click', (e) => {
+			e.preventDefault();
+			const csrf = logoutBtn.getAttribute('data-csrf');
+			const logoutUrl = logoutBtn.getAttribute('data-logout-url');
+
+			// Create form dynamically
+			const form = document.createElement('form');
+			form.method = 'POST';
+			form.action = logoutUrl;
+			form.innerHTML = `<input type="hidden" name="_csrf" value="${csrf}">`;
+			document.body.appendChild(form);
+			form.submit();
+		});
+	}
+
 	// Empty state button
 	const emptyStateBtn = document.getElementById('chatEmptyStateBtn');
 	if (emptyStateBtn) {
 		emptyStateBtn.addEventListener('click', () => {
 			const modal = new bootstrap.Modal('#chatNewConversationModal');
 			modal.show();
+		});
+	}
+
+	// New conversation modal - Load following users
+	const newConvModal = document.getElementById('chatNewConversationModal');
+	const newConvSearch = document.getElementById('chatNewConvSearch');
+	const newConvSuggestions = document.getElementById('chatNewConvSuggestions');
+
+	if (newConvModal) {
+		newConvModal.addEventListener('show.bs.modal', async () => {
+			// Load all following users when modal opens
+			try {
+				const response = await fetch(`${state.baseUrl}/user-api/follow?action=following&limit=20`);
+				const data = await response.json();
+				const users = data?.following ?? [];
+				renderNewConvSuggestions(users);
+			} catch (error) {
+				console.error('Error loading following list:', error);
+				newConvSuggestions.innerHTML = '';
+			}
+		});
+	}
+
+	if (newConvSearch) {
+		newConvSearch.addEventListener('input', debounce(async () => {
+			const keyword = newConvSearch.value.trim().toLowerCase();
+
+			if (keyword.length < 1) {
+				// Load all following users when search is empty
+				try {
+				const response = await fetch(`${state.baseUrl}/user-api/follow?action=following&limit=20`);
+				} catch (error) {
+					console.error('Error loading following list:', error);
+					newConvSuggestions.innerHTML = '';
+				}
+				return;
+			}
+
+			// Search in following users
+			try {
+				const response = await fetch(`${state.baseUrl}/user-api/follow?action=following&limit=100`);
+				const data = await response.json();
+				const allFollowing = data?.following ?? [];
+
+				// Filter by keyword
+				const filteredUsers = allFollowing.filter(user =>
+					user.username?.toLowerCase().includes(keyword) ||
+					user.email?.toLowerCase().includes(keyword)
+				);
+
+				renderNewConvSuggestions(filteredUsers.slice(0, 20));
+			} catch (error) {
+				console.error('Error searching following:', error);
+				newConvSuggestions.innerHTML = '';
+			}
+		}, 300));
+	}
+
+	function renderNewConvSuggestions(users) {
+		newConvSuggestions.innerHTML = users.map((user) => {
+			const avatarColor = avatarColorByName(user.username);
+			return `
+				<div class="d-flex align-items-center gap-2 p-2 border-bottom chat-user-suggestion" data-user-id="${user.id}" style="cursor: pointer;">
+					<div style="width: 40px; height: 40px; border-radius: 50%; background: ${avatarColor.bg}; color: ${avatarColor.fg}; display: flex; align-items: center; justify-content: center; font-weight: 600;">
+						${user.username?.charAt(0).toUpperCase() || 'U'}
+					</div>
+					<div>
+						<div style="font-weight: 500;">${escapeHtml(user.username)}</div>
+						<small style="color: #6b7280;">${escapeHtml(user.email)}</small>
+					</div>
+				</div>
+			`;
+		}).join('');
+
+		newConvSuggestions.querySelectorAll('.chat-user-suggestion').forEach((el) => {
+			el.addEventListener('click', async () => {
+				const userId = Number(el.dataset.userId);
+				const modal = bootstrap.Modal.getInstance('#chatNewConversationModal');
+				if (modal) modal.hide();
+				await startConversationByUserId(userId);
+				newConvSearch.value = '';
+				newConvSuggestions.innerHTML = '';
+			});
 		});
 	}
 	

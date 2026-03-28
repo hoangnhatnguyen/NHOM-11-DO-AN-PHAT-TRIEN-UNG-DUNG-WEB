@@ -13,6 +13,7 @@ return [
 
         // ============ USERS & DISCOVERY ============
         '/users/finder' => 'UserController@finder',
+        '/user-api/follow' => 'UserController@apiFollow',
 
         // ============ AUTHENTICATION ============
         '/login' => 'AuthController@showLogin',
@@ -28,6 +29,9 @@ return [
         '/logout' => 'AuthController@logout',
         '/forgot-password' => 'AuthController@sendResetLink',
         '/reset-password/{token}' => 'AuthController@resetPassword',
+
+        // ============ USERS & DISCOVERY ============
+        '/user-api/follow' => 'UserController@apiFollow',
 
         // ============ MESSAGES & CHAT ============
         '/chat-api/upload' => 'MessageController@apiUpload',

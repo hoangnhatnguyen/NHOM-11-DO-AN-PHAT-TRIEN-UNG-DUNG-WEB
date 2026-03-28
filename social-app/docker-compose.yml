@@ -3,25 +3,7 @@ version: '3.8'
 services:
   app:
     build: .
-    container_name: social-app
+    container_name: php-app
     ports:
       - "80:80"
-      - "443:443"
-    environment:
-      - DB_HOST=${DB_HOST:-rds.amazonaws.com}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_NAME=${DB_NAME:-social_app}
-      - DB_USER=${DB_USER:-admin}
-      - DB_PASS=${DB_PASS:-password}
-      - APP_ENV=${APP_ENV:-production}
-      - APP_DEBUG=${APP_DEBUG:-false}
-    volumes:
-      - ./storage/logs:/var/www/html/storage/logs
-      - ./public/uploads:/var/www/html/public/uploads
-    restart: unless-stopped
-    networks:
-      - social-app-network
-
-networks:
-  social-app-network:
-    driver: bridge
+    restart: always

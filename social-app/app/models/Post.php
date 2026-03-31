@@ -431,6 +431,42 @@ class Post extends BaseModel {
         return (int) $stmt->fetchColumn();
     }
 
+    public function getSavedPostsByUser(int $userId): array {
+        $stmt = $this->db->prepare("
+            SELECT
+                p.id,
+                p.content,
+                p.created_at,
+                u.username,
+                pm.media_url
+            FROM saved_posts sp
+            JOIN posts p ON p.id = sp.post_id
+            JOIN users u ON u.id = p.user_id
+            LEFT JOIN post_media pm ON pm.id = (
+                SELECT pm2.id
+                FROM post_media pm2
+                WHERE pm2.post_id = p.id
+                ORDER BY pm2.id ASC
+                LIMIT 1
+            )
+            WHERE sp.user_id = :user_id
+            ORDER BY p.id DESC
+        ");
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll();
+    }
+
+    public function removeSavedPost(int $postId, int $userId): void {
+        $stmt = $this->db->prepare("
+            DELETE FROM saved_posts
+            WHERE post_id = :post_id AND user_id = :user_id
+        ");
+        $stmt->execute([
+            'post_id' => $postId,
+            'user_id' => $userId,
+        ]);
+    }
+
     public function isSaved(int $postId, int $userId): bool {
         $stmt = $this->db->prepare("
             SELECT 1 FROM saved_posts WHERE post_id = :post_id AND user_id = :user_id LIMIT 1

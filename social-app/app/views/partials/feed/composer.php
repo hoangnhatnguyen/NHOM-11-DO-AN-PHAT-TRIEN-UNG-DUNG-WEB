@@ -11,14 +11,8 @@
                         rows="2"
                         placeholder="Hãy viết gì đó..."
                         oninput="autoResize(this)"></textarea>
-            <!-- PREVIEW IMAGE -->
             <div id="feedPreviewContainer" class="mt-3 d-none">
-                <div class="preview-wrapper position-relative">
-                    <img id="feedPreviewImage" class="img-fluid rounded-4 w-100">
-
-                    <button type="button" class="bi bi-x text-white preview-remove"
-                            onclick="removePreview()"></button>
-                </div>
+                <div id="feedPreviewGrid" class="post-media-grid"></div>
             </div>
         </div>            
     </div>
@@ -60,7 +54,7 @@
         <div>
                 <label class="btn btn-light btn-sm rounded-pill">
                     <i class="bi bi-image"></i>
-                    <input type="file" name="media[]" id="feedFileInput" hidden>
+                    <input type="file" name="media[]" id="feedFileInput" hidden multiple accept="image/*,video/*">
                 </label>
             </div>
         <button class="btn btn-primary rounded-pill px-4">Đăng</button>
@@ -75,13 +69,25 @@ function autoResize(el) {
 document.addEventListener("DOMContentLoaded", function () {
 
     const feedfileInput = document.getElementById("feedFileInput");
-    const feedpreviewImage = document.getElementById("feedPreviewImage");
     const feedpreviewContainer = document.getElementById("feedPreviewContainer");
+    const feedPreviewGrid = document.getElementById("feedPreviewGrid");
 
     const feedtextarea = document.querySelector("textarea[name='content']");
-    const feedsubmitBtn = document.getElementById("btnSubmit");
+    let selectedFiles = [];
+
+    function syncInputFiles() {
+        try {
+            const dt = new DataTransfer();
+            selectedFiles.forEach(function (file) { dt.items.add(file); });
+            feedfileInput.files = dt.files;
+        } catch (e) {
+            // Ignore if DataTransfer is not supported.
+        }
+    }
 
     function checkEnableButton() {
+        const submitBtn = document.getElementById("btnSubmit");
+        if (!submitBtn || !feedtextarea || !feedfileInput) return;
         const hasText = feedtextarea.value.trim().length > 0;
         const hasImage = feedfileInput.files.length > 0;
 
@@ -97,30 +103,82 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    feedfileInput.addEventListener("change", function () {
-        const file = this.files[0];
-        if (!file) return;
+    function removeNewMediaAt(index) {
+        if (index < 0 || index >= selectedFiles.length) return;
+        selectedFiles.splice(index, 1);
+        syncInputFiles();
+        renderPreview();
+        checkEnableButton();
+    }
 
-        if (!file.type.startsWith("image/")) {
-            alert("Vui lòng chọn ảnh!");
+    function renderPreview() {
+        if (!feedPreviewGrid) return;
+        feedPreviewGrid.innerHTML = "";
+
+        const files = selectedFiles.slice();
+        if (!files.length) {
+            feedpreviewContainer.classList.add("d-none");
             return;
         }
 
-        const reader = new FileReader();
+        files.forEach(function (file, index) {
+            if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+                return;
+            }
 
-        reader.onload = function (e) {
-            feedpreviewImage.src = e.target.result;
-            feedpreviewContainer.classList.remove("d-none");
+            const item = document.createElement("div");
+            item.className = "post-media-item";
 
-            console.log("Preview loaded OK"); // debug
-        };
+            const wrapper = document.createElement("div");
+            wrapper.className = "preview-wrapper position-relative";
 
-        reader.readAsDataURL(file);
+            if (file.type.startsWith("video/")) {
+                const video = document.createElement("video");
+                video.className = "w-100";
+                video.controls = true;
+                video.playsInline = true;
+                video.src = URL.createObjectURL(file);
+                wrapper.appendChild(video);
+            } else {
+                const img = document.createElement("img");
+                img.className = "img-fluid w-100";
+                img.alt = "";
+                img.src = URL.createObjectURL(file);
+                wrapper.appendChild(img);
+            }
+
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "bi bi-x text-white preview-remove";
+            removeBtn.setAttribute("aria-label", "Xóa media");
+            removeBtn.addEventListener("click", function () {
+                removeNewMediaAt(index);
+            });
+            wrapper.appendChild(removeBtn);
+
+            item.appendChild(wrapper);
+            feedPreviewGrid.appendChild(item);
+        });
+
+        feedpreviewContainer.classList.remove("d-none");
+    }
+
+    feedfileInput.addEventListener("change", function () {
+        const incoming = Array.from(feedfileInput.files || []);
+        if (incoming.length) {
+            selectedFiles = selectedFiles.concat(incoming);
+            syncInputFiles();
+        }
+        renderPreview();
+        checkEnableButton();
     });
 
     window.removePreview = function () {
         feedpreviewContainer.classList.add("d-none");
-        feedpreviewImage.src = "";
+        if (feedPreviewGrid) {
+            feedPreviewGrid.innerHTML = "";
+        }
+        selectedFiles = [];
         feedfileInput.value = "";
 
         checkEnableButton();

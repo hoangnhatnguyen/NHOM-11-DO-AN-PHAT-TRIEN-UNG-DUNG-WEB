@@ -26,7 +26,7 @@
 
 			<?php if (!empty($media ?? [])): ?>
 				<div class="mb-3">
-					<div class="row g-2" id="existingMediaGrid">
+					<div class="post-media-grid" id="existingMediaGrid">
 						<?php foreach ($media as $m): ?>
 							<?php
 							$mediaId = (int) ($m['id'] ?? 0);
@@ -36,12 +36,12 @@
 							}
 							$isVideo = (($m['media_type'] ?? '') === 'video');
 							?>
-							<div class="col-12 col-md-6" id="media-item-<?= $mediaId ?>">
+							<div class="post-media-item" id="media-item-<?= $mediaId ?>">
 								<div class="preview-wrapper position-relative">
 									<?php if ($isVideo): ?>
-										<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4" playsinline></video>
+										<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100" playsinline></video>
 									<?php else: ?>
-										<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 w-100" alt="">
+										<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid w-100" alt="">
 									<?php endif; ?>
 
 									<button type="button" class="bi bi-x text-white preview-remove" onclick="removeMedia(<?= $mediaId ?>)"></button>
@@ -54,7 +54,7 @@
 			<?php endif; ?>
 
 			<div class="mb-3 d-none" id="newPreviewContainer">
-				<div class="row g-2" id="newPreviewGrid"></div>
+				<div class="post-media-grid" id="newPreviewGrid"></div>
 			</div>
 
 			<div class="d-flex justify-content-between align-items-center">
@@ -104,6 +104,8 @@
 </article>
 
 <script>
+let editSelectedFiles = [];
+
 function autoResize(el) {
 	el.style.height = "auto";
 	el.style.height = el.scrollHeight + "px";
@@ -128,25 +130,27 @@ function initPrivacyFromValue() {
 
 function removeMedia(mediaId) {
 	const mediaItem = document.getElementById("media-item-" + mediaId);
+	const checkbox = document.getElementById("remove-media-" + mediaId);
+	if (checkbox) {
+		checkbox.checked = true;
+	}
 	if (!mediaItem) return;
-	mediaItem.remove();
+	mediaItem.classList.add("d-none");
 }
 
 function removeNewMediaAt(index) {
+	if (index < 0 || index >= editSelectedFiles.length) return;
+	editSelectedFiles.splice(index, 1);
 	const fileInput = document.getElementById("editfileInput");
-	if (!fileInput || !fileInput.files || !fileInput.files.length) return;
-
-	try {
-		const dt = new DataTransfer();
-		Array.from(fileInput.files).forEach(function (file, i) {
-			if (i !== index) dt.items.add(file);
-		});
-		fileInput.files = dt.files;
-	} catch (e) {
-		// Fallback: browser không hỗ trợ DataTransfer set files.
-		fileInput.value = "";
+	if (fileInput) {
+		try {
+			const dt = new DataTransfer();
+			editSelectedFiles.forEach(function (file) { dt.items.add(file); });
+			fileInput.files = dt.files;
+		} catch (e) {
+			// Ignore if DataTransfer is not supported.
+		}
 	}
-
 	renderNewMediaPreview();
 }
 
@@ -157,7 +161,7 @@ function renderNewMediaPreview() {
 	if (!fileInput || !previewContainer || !previewGrid) return;
 
 	previewGrid.innerHTML = "";
-	const files = Array.from(fileInput.files || []);
+	const files = editSelectedFiles.slice();
 	if (!files.length) {
 		previewContainer.classList.add("d-none");
 		return;
@@ -165,21 +169,21 @@ function renderNewMediaPreview() {
 
 	files.forEach(function (file, index) {
 		const col = document.createElement("div");
-		col.className = "col-12 col-md-6";
+		col.className = "post-media-item";
 
 		const wrapper = document.createElement("div");
 		wrapper.className = "preview-wrapper position-relative";
 
 		if (file.type.startsWith("video/")) {
 			const video = document.createElement("video");
-			video.className = "w-100 rounded-4";
+			video.className = "w-100";
 			video.controls = true;
 			video.playsInline = true;
 			video.src = URL.createObjectURL(file);
 			wrapper.appendChild(video);
 		} else {
 			const img = document.createElement("img");
-			img.className = "img-fluid rounded-4 w-100";
+			img.className = "img-fluid w-100";
 			img.alt = "";
 			img.src = URL.createObjectURL(file);
 			wrapper.appendChild(img);
@@ -207,8 +211,25 @@ document.addEventListener("DOMContentLoaded", function () {
 	if (textarea) autoResize(textarea);
 
 	const fileInput = document.getElementById("editfileInput");
+	function syncInputFiles() {
+		try {
+			const dt = new DataTransfer();
+			editSelectedFiles.forEach(function (file) { dt.items.add(file); });
+			fileInput.files = dt.files;
+		} catch (e) {
+			// Ignore if DataTransfer is not supported.
+		}
+	}
+
 	if (fileInput) {
-		fileInput.addEventListener("change", renderNewMediaPreview);
+		fileInput.addEventListener("change", function () {
+			const incoming = Array.from(fileInput.files || []);
+			if (incoming.length) {
+				editSelectedFiles = editSelectedFiles.concat(incoming);
+				syncInputFiles();
+			}
+			renderNewMediaPreview();
+		});
 	}
 });
 </script>

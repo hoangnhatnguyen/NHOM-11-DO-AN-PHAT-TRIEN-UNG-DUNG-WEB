@@ -9,6 +9,7 @@ return [
 
         // ============ MESSAGES & CHAT ============
         '/messages' => 'MessageController@index',
+        '/saved' => 'SavedPostController@index',
         '/chat-api/bootstrap' => 'MessageController@apiBootstrap',
         '/chat-api/users' => 'MessageController@apiUsers',
         '/chat-api/users/{id}' => 'MessageController@apiUser',
@@ -42,5 +43,6 @@ return [
 
         // ============ MESSAGES & CHAT ============
         '/chat-api/upload' => 'MessageController@apiUpload',
+        '/saved/unsave' => 'SavedPostController@unsave',
     ],
 ];

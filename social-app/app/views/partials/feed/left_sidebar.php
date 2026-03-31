@@ -17,7 +17,7 @@ $userId = (int) ($currentUser['id'] ?? 0);
 			<li><a class="nav-link" href="#"><i class="bi bi-bell"></i><span class="menu-label">Thông báo</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-search"></i><span class="menu-label">Tìm kiếm</span></a></li>
 			<li>
-				<a class="nav-link" href="<?= BASE_URL ?>/saved">
+				<a class="nav-link <?= $activeMenu === 'saved' ? 'active' : '' ?>" href="<?= BASE_URL ?>/saved">
 					<i class="bi bi-bookmark"></i><span class="menu-label">Lưu</span>
 				</a>
 			</li>

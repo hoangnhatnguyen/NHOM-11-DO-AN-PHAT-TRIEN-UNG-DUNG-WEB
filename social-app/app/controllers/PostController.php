@@ -181,9 +181,22 @@ class PostController extends BaseController {
         $postId = (int) $id;
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
         $content = trim((string) ($_POST['content'] ?? ''));
+        $postModel = new Post();
         if ($content !== '') {
-            (new Post())->addComment($postId, $userId, $content);
+            $postModel->addComment($postId, $userId, $content);
         }
+
+        if ($this->isAjaxRequest()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => true,
+                'kind' => 'comment',
+                'postId' => $postId,
+                'comment_count' => $postModel->countComments($postId),
+            ]);
+            exit;
+        }
+
         $this->redirect('/post/' . $postId);
     }
 
@@ -200,12 +213,31 @@ class PostController extends BaseController {
 
         $postModel = new Post();
         if ($content === '' || !$postModel->isCommentBelongsToPost($parentCommentId, $postId)) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode([
+                    'ok' => false,
+                    'message' => 'Nội dung phản hồi không hợp lệ.',
+                ]);
+                exit;
+            }
             $this->redirect('/post/' . $postId . '#comment-' . $parentCommentId);
             return;
         }
 
         // Store nested reply directly into `comments` with parent_id/level.
         $postModel->addReplyToComment($postId, $parentCommentId, $userId, $content);
+        if ($this->isAjaxRequest()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => true,
+                'kind' => 'reply',
+                'postId' => $postId,
+                'parent_comment_id' => $parentCommentId,
+                'comment_count' => $postModel->countComments($postId),
+            ]);
+            exit;
+        }
         $this->redirect('/post/' . $postId . '#comment-' . $parentCommentId);
     }
 

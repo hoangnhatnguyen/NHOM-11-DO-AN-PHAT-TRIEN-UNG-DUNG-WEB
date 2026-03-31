@@ -70,8 +70,9 @@ $autoExpand = ((int) $depth) >= 1;
 	<form
 		method="POST"
 		action="<?= BASE_URL ?>/post/<?= (int) $postId ?>/comment/<?= (int) $nodeId ?>/reply"
-		class="mb-2 d-none"
+		class="mb-2 d-none ajax-post-reply"
 		id="reply-form-<?= $nodeId ?>"
+		data-post-id="<?= (int) $postId ?>"
 	>
 		<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken) ?>">
 		<div class="input-group input-group-sm rounded-4 p-1 bg-light ms-3">

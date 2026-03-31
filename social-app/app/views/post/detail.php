@@ -33,6 +33,18 @@ if (!function_exists('format_comment_time_vi')) {
 	}
 }
 ?>
+<?php
+$visibleValue = (string) ($post['visible'] ?? 'public');
+$visibleIcon = 'bi-globe2';
+$visibleLabel = 'Công khai';
+if ($visibleValue === 'followers') {
+	$visibleIcon = 'bi-people';
+	$visibleLabel = 'Người theo dõi';
+} elseif ($visibleValue === 'private') {
+	$visibleIcon = 'bi-lock';
+	$visibleLabel = 'Chỉ mình tôi';
+}
+?>
 
 <div class="mb-3">
 	<a href="<?= BASE_URL ?>/" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3" id="back-to-post">
@@ -47,7 +59,10 @@ if (!function_exists('format_comment_time_vi')) {
                 <div class="avatar-sm"><?= strtoupper(substr($post['author_name'], 0, 1)) ?></div>
                 <div>
                     <h5 class="fw-semibold mb-0"><?= htmlspecialchars($post['author_name'] ?? '') ?></h5>
-                    <div class="small text-secondary"><?= htmlspecialchars((string) $post['created_at']) ?></div>
+                    <div class="small text-secondary d-inline-flex align-items-center gap-1">
+						<span><?= htmlspecialchars((string) $post['created_at']) ?></span>
+						<i class="bi <?= htmlspecialchars($visibleIcon, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($visibleLabel, ENT_QUOTES, 'UTF-8') ?>"></i>
+					</div>
                 </div>
             </div>
 
@@ -96,40 +111,47 @@ if (!function_exists('format_comment_time_vi')) {
 		<hr class="my-3">
 
 		<div class="d-flex align-items-center gap-4 flex-wrap mb-3 small">
-			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/like" class="m-0 d-inline-flex align-items-center gap-1">
+			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/like" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-like" data-post-id="<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>" aria-label="Yêu thích">
-					<i class="bi <?= !empty($post['is_liked']) ? 'bi-heart-fill' : 'bi-heart' ?>"></i>
+				<button id="like-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>" aria-label="Yêu thích">
+					<i id="like-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_liked']) ? 'bi-heart-fill' : 'bi-heart' ?>"></i>
 				</button>
-				<span class="<?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>"><?= (int) ($post['like_count'] ?? 0) ?></span>
+				<span id="like-count-<?= (int) $post['id'] ?>" class="<?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>"><?= (int) ($post['like_count'] ?? 0) ?></span>
 			</form>
 
 			<a href="#comment-box" class="text-decoration-none d-inline-flex align-items-center gap-1 text-secondary" aria-label="Bình luận">
 				<i class="bi bi-chat"></i>
-				<span><?= (int) ($post['comment_count'] ?? 0) ?></span>
+				<span id="detail-comment-count"><?= (int) ($post['comment_count'] ?? 0) ?></span>
 			</a>
 
-			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/share" class="m-0 d-inline-flex align-items-center gap-1">
-				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 text-secondary" aria-label="Chia sẻ">
+			<div class="m-0 d-inline-flex align-items-center gap-1">
+				<button
+					type="button"
+					class="btn btn-link text-decoration-none p-0 border-0 text-secondary open-share-modal-btn"
+					aria-label="Chia sẻ"
+					data-post-id="<?= (int) $post['id'] ?>"
+					data-share-url="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/share"
+					data-share-link="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>"
+					data-csrf="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+				>
 					<i class="bi bi-share"></i>
 				</button>
-				<span class="text-secondary"><?= (int) ($post['share_count'] ?? 0) ?></span>
-			</form>
+				<span id="share-count-<?= (int) $post['id'] ?>" class="text-secondary"><?= (int) ($post['share_count'] ?? 0) ?></span>
+			</div>
 
 			<!-- Save post -->
-            <form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/save" class="m-0 d-inline-flex align-items-center gap-1">
+            <form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/save" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-save" data-post-id="<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>" aria-label="Lưu bài viết">
-					<i class="bi <?= !empty($post['is_saved']) ? 'bi-bookmark-fill' : 'bi-bookmark' ?>"></i>
+				<button id="save-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>" aria-label="Lưu bài viết">
+					<i id="save-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_saved']) ? 'bi-bookmark-fill' : 'bi-bookmark' ?>"></i>
 				</button>
-				<span class="<?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>"><?= (int) ($post['save_count'] ?? 0) ?></span>
+				<span id="save-count-<?= (int) $post['id'] ?>" class="<?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>"><?= (int) ($post['save_count'] ?? 0) ?></span>
 			</form>
 		</div>
 
         <hr class="my-3">
 		<!-- Comment form -->
-		<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/comment" class="mb-3" id="comment-box">
+		<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/comment" class="mb-3 ajax-post-comment" id="comment-box" data-post-id="<?= (int) $post['id'] ?>">
 			<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 			<div class="input-group rounded-4 p-2 bg-light">
 				<input type="text" name="content" class="form-control border-0 bg-light" placeholder="Viết bình luận..." required>
@@ -140,7 +162,7 @@ if (!function_exists('format_comment_time_vi')) {
 		</form>
 
 		<!-- Comment section -->
-        <div class="mt-2">
+        <div class="mt-2" id="detail-comments-section">
 			<h6 class="fw-semibold mb-2">Bình luận</h6>
 			<?php $postId = (int) ($post['id'] ?? 0); ?>
 			<?php if (empty($commentsTree ?? [])): ?>
@@ -158,3 +180,66 @@ if (!function_exists('format_comment_time_vi')) {
 </article>
 
 <script src="/public/js/comment.js"></script>
+<script>
+(function () {
+	const postId = <?= (int) ($post['id'] ?? 0) ?>;
+
+	function updateCommentCount(count) {
+		const countEl = document.getElementById('detail-comment-count');
+		if (countEl && typeof count !== 'undefined') {
+			countEl.textContent = String(count);
+		}
+	}
+
+	function wireAjaxCommentForms() {
+		document.querySelectorAll('form.ajax-post-comment, form.ajax-post-reply').forEach(function (form) {
+			if (form.dataset.ajaxBound === '1') return;
+			form.dataset.ajaxBound = '1';
+			form.addEventListener('submit', function (e) {
+				e.preventDefault();
+				const body = new FormData(form);
+				fetch(form.action, {
+					method: 'POST',
+					body: body,
+					headers: { 'X-Requested-With': 'XMLHttpRequest' }
+				})
+					.then(function (res) { return res.json(); })
+					.then(function (data) {
+						if (!data || !data.ok) {
+							return;
+						}
+						updateCommentCount(data.comment_count);
+						if (form.matches('.ajax-post-comment')) {
+							const input = form.querySelector('input[name="content"]');
+							if (input) input.value = '';
+						}
+						refreshCommentsSection();
+					})
+					.catch(function () {
+						form.submit();
+					});
+			});
+		});
+	}
+
+	function refreshCommentsSection() {
+		fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+			.then(function (res) { return res.text(); })
+			.then(function (html) {
+				const parser = new DOMParser();
+				const doc = parser.parseFromString(html, 'text/html');
+				const next = doc.getElementById('detail-comments-section');
+				const curr = document.getElementById('detail-comments-section');
+				if (next && curr) {
+					curr.innerHTML = next.innerHTML;
+					wireAjaxCommentForms();
+					if (typeof window.bindCommentToggles === 'function') {
+						window.bindCommentToggles(document);
+					}
+				}
+			});
+	}
+
+	wireAjaxCommentForms();
+})();
+</script>

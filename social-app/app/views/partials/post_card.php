@@ -10,16 +10,30 @@ $isSaved = !empty($post['is_saved']);
 $shareCount = (int) ($post['share_count'] ?? 0);
 $saveCount = (int) ($post['save_count'] ?? 0);
 ?>
-<article class="card border-0 shadow-sm rounded-4 mb-3 position-relative">
-	<a href="<?= BASE_URL ?>/post/<?= $postId ?>" class="stretched-link text-decoration-none" style="z-index:0;"></a>
+<?php
+$visibleValue = (string) ($post['visible'] ?? 'public');
+$visibleIcon = 'bi-globe2';
+$visibleLabel = 'Công khai';
+if ($visibleValue === 'followers') {
+	$visibleIcon = 'bi-people';
+	$visibleLabel = 'Người theo dõi';
+} elseif ($visibleValue === 'private') {
+	$visibleIcon = 'bi-lock';
+	$visibleLabel = 'Chỉ mình tôi';
+}
+?>
+<article class="card border-0 shadow-sm rounded-4 mb-3 position-relative post-card-clickable" data-detail-url="<?= BASE_URL ?>/post/<?= $postId ?>">
 	<div class="card-body p-3 p-md-4 position-relative" style="z-index:2;">
 		<div class="d-flex align-items-start justify-content-between mb-3">
-			<div class="d-flex align-items-center gap-2">
+			<div class="d-flex align-items-center gap-2 post-card-no-detail">
 				<div class="avatar-sm"><?= strtoupper(substr($author, 0, 1)) ?></div>
 				<div>
-					<div class="fw-semibold"><?= htmlspecialchars($author) ?></div>
-					<div class="small text-secondary"><?= htmlspecialchars((string) $createdAt) ?></div>
-				</div>
+                    <h5 class="fw-semibold mb-0"><?= htmlspecialchars($post['author_name'] ?? '') ?></h5>
+                    <div class="small text-secondary d-inline-flex align-items-center gap-1">
+						<span><?= htmlspecialchars((string) $post['created_at']) ?></span>
+						<i class="bi <?= htmlspecialchars($visibleIcon, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($visibleLabel, ENT_QUOTES, 'UTF-8') ?>"></i>
+					</div>
+                </div>
 			</div>
 			<?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
                 <div class="dropdown">
@@ -49,8 +63,22 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 		<div class="mb-3">
   			<p class="mb-0"><?= nl2br(htmlspecialchars($content)) ?></p>
 			<?php if (!empty($post['media'])): ?>
+				<?php
+					$validMedia = [];
+					foreach (($post['media'] ?? []) as $m) {
+						$srcCheck = media_public_src((string) ($m['media_url'] ?? ''));
+						if ($srcCheck !== '') {
+							$validMedia[] = $m;
+						}
+					}
+					$maxPreviewMedia = 4;
+					$previewMedia = array_slice($validMedia, 0, $maxPreviewMedia);
+					$remainingMediaCount = max(0, count($validMedia) - $maxPreviewMedia);
+				?>
+				<?php if (!empty($previewMedia)): ?>
 				<div class="mt-3">
-					<?php foreach ($post['media'] as $media): ?>
+					<div class="post-card-media-grid">
+					<?php foreach ($previewMedia as $index => $media): ?>
 						<?php
 							$src = media_public_src((string) ($media['media_url'] ?? ''));
 							if ($src === '') {
@@ -59,13 +87,25 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 							$isVideo = (($media['media_type'] ?? '') === 'video');
 							?>
 							<?php if ($isVideo): ?>
-							<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4 mb-2" playsinline></video>
+							<div class="post-card-media-item<?= ($remainingMediaCount > 0 && $index === $maxPreviewMedia - 1) ? ' has-more-overlay' : '' ?>">
+								<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 h-100" playsinline></video>
+								<?php if ($remainingMediaCount > 0 && $index === $maxPreviewMedia - 1): ?>
+									<div class="post-card-more-overlay">+<?= $remainingMediaCount ?></div>
+								<?php endif; ?>
+							</div>
 							<?php else: ?>
-							<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>"
-								class="img-fluid rounded-4 mb-2" alt="">
+							<div class="post-card-media-item<?= ($remainingMediaCount > 0 && $index === $maxPreviewMedia - 1) ? ' has-more-overlay' : '' ?>">
+								<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>"
+									class="w-100 h-100" alt="">
+								<?php if ($remainingMediaCount > 0 && $index === $maxPreviewMedia - 1): ?>
+									<div class="post-card-more-overlay">+<?= $remainingMediaCount ?></div>
+								<?php endif; ?>
+							</div>
 							<?php endif; ?>
 					<?php endforeach; ?>
+					</div>
 				</div>
+				<?php endif; ?>
 			<?php endif; ?>
 		</div>
 
@@ -92,18 +132,20 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 					<i class="bi bi-chat"></i>
 					<span><?= $comments ?></span>
 				</a>
-				<form
-					method="POST"
-					action="<?= BASE_URL ?>/post/<?= $postId ?>/share"
-					class="m-0 d-inline-flex align-items-center gap-1 ajax-post-share"
-					data-post-id="<?= $postId ?>"
-				>
-					<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-					<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 text-secondary" aria-label="Chia sẻ">
+				<div class="m-0 d-inline-flex align-items-center gap-1">
+					<button
+						type="button"
+						class="btn btn-link text-decoration-none p-0 border-0 text-secondary open-share-modal-btn"
+						aria-label="Chia sẻ"
+						data-post-id="<?= $postId ?>"
+						data-share-url="<?= BASE_URL ?>/post/<?= $postId ?>/share"
+						data-share-link="<?= BASE_URL ?>/post/<?= $postId ?>"
+						data-csrf="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+					>
 						<i class="bi bi-share"></i>
 					</button>
 					<span id="share-count-<?= $postId ?>" class="text-secondary"><?= $shareCount ?></span>
-				</form>
+				</div>
 			</div>
 			<form
 					method="POST"
@@ -125,4 +167,32 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 		</div>
 	</div>
 </article>
-</a>
+<script>
+(function () {
+	const cards = document.querySelectorAll('.post-card-clickable');
+	cards.forEach(function (card) {
+		if (card.dataset.boundClick === '1') return;
+		card.dataset.boundClick = '1';
+		card.addEventListener('click', function (e) {
+			const target = e.target;
+			if (!target) return;
+			if (
+				target.closest('.post-card-no-detail') ||
+				target.closest('a') ||
+				target.closest('button') ||
+				target.closest('form') ||
+				target.closest('input') ||
+				target.closest('textarea') ||
+				target.closest('select') ||
+				target.closest('label')
+			) {
+				return;
+			}
+			const url = card.getAttribute('data-detail-url');
+			if (url) {
+				window.location.href = url;
+			}
+		});
+	});
+})();
+</script>

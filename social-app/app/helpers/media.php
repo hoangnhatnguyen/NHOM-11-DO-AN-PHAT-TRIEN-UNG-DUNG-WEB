@@ -11,7 +11,21 @@ function media_public_src(string $mediaUrl): string {
 	if ($mediaUrl === '') {
 		return '';
 	}
-	$mediaUrl = ltrim(str_replace('\\', '/', $mediaUrl), '/');
+
+	$normalized = str_replace('\\', '/', $mediaUrl);
+	if (
+		strpos($normalized, 'http://') === 0 ||
+		strpos($normalized, 'https://') === 0 ||
+		strpos($normalized, '//') === 0 ||
+		strpos($normalized, 'data:') === 0
+	) {
+		return $normalized;
+	}
+
+	$mediaUrl = ltrim($normalized, '/');
+	if (strpos($mediaUrl, 'public/') === 0) {
+		return BASE_URL . '/' . $mediaUrl;
+	}
 	if (strpos($mediaUrl, 'media/') === 0) {
 		return BASE_URL . '/public/' . $mediaUrl;
 	}

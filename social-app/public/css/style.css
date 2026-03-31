@@ -955,21 +955,6 @@
 }
 
 /* ============ FEED RESPONSIVE ============ */
-.preview-wrapper {
-    position: relative;
-    border-radius: 16px;
-    overflow: hidden;
-}
-
-.preview-remove {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0,0,0,0.6);
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-}
 #previewContainer {
     width: 100%;
 }

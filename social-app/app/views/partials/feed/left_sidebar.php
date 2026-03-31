@@ -14,8 +14,8 @@ $userId = (int) ($currentUser['id'] ?? 0);
 				</a>
 			</li>
 			<li><a class="nav-link <?= $activeMenu === 'messages' ? 'active' : '' ?>" href="<?= BASE_URL ?>/messages"><i class="bi bi-envelope"></i><span class="menu-label">Tin nhắn</span></a></li>
-			<li><a class="nav-link" href="#"><i class="bi bi-bell"></i><span class="menu-label">Thông báo</span></a></li>
-			<li><a class="nav-link" href="#"><i class="bi bi-search"></i><span class="menu-label">Tìm kiếm</span></a></li>
+			<li><a class="nav-link <?= $activeMenu === 'notifications' ? 'active' : '' ?>" href="<?= BASE_URL ?>/notifications"><i class="bi bi-bell"></i><span class="menu-label">Thông báo</span></a></li>
+			<li><a class="nav-link <?= $activeMenu === 'search' ? 'active' : '' ?>" href="<?= BASE_URL ?>/search"><i class="bi bi-search"></i><span class="menu-label">Tìm kiếm</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-bookmark"></i><span class="menu-label">Lưu</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-person"></i><span class="menu-label">Trang</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-gear"></i><span class="menu-label">Cài đặt</span></a></li>

@@ -44,19 +44,6 @@ class User extends BaseModel {
 		return $result === false ? null : $result;
 	}
 
-	public function findByLoginIdentifier(string $identifier): ?array {
-		$stmt = $this->db->prepare(
-			"SELECT * FROM {$this->table} WHERE email = :email OR username = :username LIMIT 1"
-		);
-		$stmt->execute([
-			'email' => $identifier,
-			'username' => $identifier,
-		]);
-		$result = $stmt->fetch();
-
-		return $result === false ? null : $result;
-	}
-
 	public function createUser(array $data): int {
 		$stmt = $this->db->prepare(
 			"INSERT INTO {$this->table} (username, email, password_hash, role, is_active, created_at, updated_at)\n\t\t\t VALUES (:username, :email, :password_hash, :role, :is_active, NOW(), NOW())"

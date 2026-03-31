@@ -22,10 +22,28 @@ $meColor = Avatar::colors($meName);
 			<button class="chat-rail-btn" type="button" data-label="Thông báo" title="Thông báo" aria-label="Thông báo"><i class="bi bi-bell"></i></button>
 			<button class="chat-rail-btn" type="button" data-label="Tìm kiếm" title="Tìm kiếm" aria-label="Tìm kiếm"><i class="bi bi-search"></i></button>
 			<button class="chat-rail-btn" type="button" data-label="Đã lưu" title="Đã lưu" aria-label="Đã lưu"><i class="bi bi-bookmark"></i></button>
-			<button class="chat-rail-btn" type="button" data-label="Tài khoản" title="Tài khoản" aria-label="Tài khoản"><i class="bi bi-person"></i></button>
+			<button class="chat-rail-btn" type="button" data-label="Trang cá nhân" title="Trang cá nhân" aria-label="Trang cá nhân"><i class="bi bi-person"></i></button>
 			<button class="chat-rail-btn" type="button" data-label="Cài đặt" title="Cài đặt" aria-label="Cài đặt"><i class="bi bi-gear"></i></button>
-			<button class="chat-rail-btn" id="chatNewConversationBtn" type="button" data-label="Tạo chat" title="Tạo chat" aria-label="Tạo cuộc trò chuyện"><i class="bi bi-plus-lg"></i></button>
-			<div class="chat-rail-avatar" style="--avatar-bg: <?= htmlspecialchars($meColor['bg']) ?>; --avatar-fg: <?= htmlspecialchars($meColor['fg']) ?>;"><?= htmlspecialchars($meInitial) ?></div>
+			<button class="chat-rail-btn" id="chatNewConversationBtn" type="button" data-label="Tạo" title="Tạo" aria-label="Tạo"><i class="bi bi-plus-circle-fill"></i></button>
+			
+			<div class="chat-rail-avatar-container">
+				<button class="chat-rail-avatar" id="chatAvatarBtn" style="--avatar-bg: <?= htmlspecialchars($meColor['bg']) ?>; --avatar-fg: <?= htmlspecialchars($meColor['fg']) ?>;" title="Thông tin tài khoản" aria-label="Thông tin tài khoản"><?= htmlspecialchars($meInitial) ?></button>
+				
+				<div class="chat-user-menu" id="chatUserMenu">
+					<div class="chat-user-menu-header">
+						<div class="chat-user-menu-avatar" style="--avatar-bg: <?= htmlspecialchars($meColor['bg']) ?>; --avatar-fg: <?= htmlspecialchars($meColor['fg']) ?>;"><?= htmlspecialchars($meInitial) ?></div>
+						<div>
+							<div class="chat-user-menu-name"><?= htmlspecialchars($meName) ?></div>
+							<div class="chat-user-menu-email"><?= htmlspecialchars($me['email'] ?? '') ?></div>
+						</div>
+					</div>
+					<div class="chat-user-menu-divider"></div>
+					<button type="button" class="chat-user-menu-item" id="logoutBtn" data-csrf="<?= htmlspecialchars((string) ($csrfToken ?? '')) ?>" data-logout-url="<?= BASE_URL ?>/logout">
+						<i class="bi bi-box-arrow-right"></i>
+						<span>Đăng xuất</span>
+					</button>
+				</div>
+			</div>
 		</aside>
 
 		<section class="chat-conversations-panel">

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: php-app
+    volumes:
+      - .:/var/www/html
+      - ./.env:/var/www/html/.env
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true

@@ -1,9 +1,24 @@
 <?php
+require_once __DIR__ . '/../../models/Follow.php';
+
 $targetId = $targetId ?? '';
 $targetUser = $targetUser ?? null;
 $error = $error ?? null;
 $currentUser = $currentUser ?? [];
 $currentUserId = (int) ($currentUser['id'] ?? 0);
+$targetUserId = 0;
+
+// Check follow status if viewing another user
+$isFollowing = false;
+$canFollow = false;
+$followModel = new Follow();
+if ($targetUser) {
+    $targetUserId = (int) ($targetUser['id'] ?? 0);
+    if ($targetUserId !== $currentUserId) {
+        $isFollowing = $followModel->isFollowing($currentUserId, $targetUserId);
+        $canFollow = true; // Can follow this user
+    }
+}
 ?>
 
 <div class="container" style="max-width: 900px;">
@@ -47,19 +62,43 @@ $currentUserId = (int) ($currentUser['id'] ?? 0);
                         <div class="avatar-lg" style="background: <?= htmlspecialchars($targetColor['bg']) ?>; color: <?= htmlspecialchars($targetColor['fg']) ?>;">
                             <?= htmlspecialchars(Avatar::initials($targetName)) ?>
                         </div>
-                        <div>
-                            <div class="fw-bold fs-5 mb-0"><?= htmlspecialchars($targetName) ?></div>
-                            <div class="text-secondary">ID: <?= $targetUserId ?></div>
-                            <div class="text-secondary"><?= htmlspecialchars($targetEmail) ?></div>
+                    <div>
+                        <div class="fw-bold fs-5 mb-0"><?= htmlspecialchars($targetName) ?></div>
+                        <div class="text-secondary">ID: <?= $targetUserId ?></div>
+                        <div class="text-secondary"><?= htmlspecialchars($targetEmail) ?></div>
+                        <div class="mt-2">
+                            <span class="badge bg-info">
+                                <?= $followModel->countFollowers($targetUserId) ?> Followers
+                            </span>
+                            <span class="badge bg-info">
+                                <?= $followModel->countFollowing($targetUserId) ?> Following
+                            </span>
                         </div>
                     </div>
+                </div>
 
+                <div class="mt-3">
                     <?php if ($canChat): ?>
-                        <a href="<?= BASE_URL ?>/messages?user=<?= $targetUserId ?>" class="btn btn-primary">
-                            <i class="bi bi-chat-dots me-1"></i> Chat với user này
+                        <?php if (!($targetUserId === $currentUserId)): ?>
+                            <?php if ($canFollow): ?>
+                                <button
+                                    class="btn btn-sm <?= $isFollowing ? 'btn-outline-primary' : 'btn-primary' ?>"
+                                    id="followBtn"
+                                    data-user-id="<?= $targetUserId ?>"
+                                    data-following="<?= $isFollowing ? 'true' : 'false' ?>"
+                                >
+                                    <?= $isFollowing ? 'Đang theo dõi' : 'Theo dõi' ?>
+                                </button>
+                            <?php else: ?>
+                                <span class="badge bg-danger">Không thể theo dõi user này</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
+
+                        <a href="<?= BASE_URL ?>/messages?user=<?= $targetUserId ?>" class="btn btn-primary btn-sm">
+                            <i class="bi bi-chat-dots me-1"></i> Chat
                         </a>
                     <?php else: ?>
-                        <button type="button" class="btn btn-secondary" disabled>
+                        <button type="button" class="btn btn-secondary btn-sm" disabled>
                             Không thể chat với chính bạn
                         </button>
                     <?php endif; ?>
@@ -68,3 +107,71 @@ $currentUserId = (int) ($currentUser['id'] ?? 0);
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const followBtn = document.getElementById('followBtn');
+    if (!followBtn) return;
+
+    followBtn.addEventListener('click', async function () {
+        const userId = parseInt(this.dataset.userId);
+        const isFollowing = this.dataset.following === 'true';
+
+        try {
+            this.disabled = true;
+            const action = isFollowing ? 'unfollow' : 'follow';
+            const formData = new FormData();
+            formData.append('target_id', userId);
+
+            const response = await fetch(
+                `<?= BASE_URL ?>/user-api/follow?action=${action}`,
+                {
+                    method: 'POST',
+                    body: formData
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Error');
+            }
+
+            // Update button state
+            this.dataset.following = isFollowing ? 'false' : 'true';
+            this.textContent = isFollowing ? 'Theo dõi' : 'Đang theo dõi';
+            this.classList.toggle('btn-primary');
+            this.classList.toggle('btn-outline-primary');
+
+            // Show toast notification
+            const message = isFollowing ? 'Đã hủy theo dõi' : 'Đã theo dõi user';
+            showToast(message, 'success');
+        } catch (error) {
+            console.error('Follow error:', error);
+            showToast(error.message || 'Lỗi khi thực hiện hành động', 'danger');
+        } finally {
+            this.disabled = false;
+        }
+    });
+
+    function showToast(message, type = 'info') {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        const toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        toastContainer.innerHTML = toastHtml;
+        document.body.appendChild(toastContainer);
+
+        const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
+        toast.show();
+
+        setTimeout(() => toastContainer.remove(), 3000);
+    }
+});
+</script>

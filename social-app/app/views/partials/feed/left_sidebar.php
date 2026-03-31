@@ -16,10 +16,19 @@ $userId = (int) ($currentUser['id'] ?? 0);
 			<li><a class="nav-link <?= $activeMenu === 'messages' ? 'active' : '' ?>" href="<?= BASE_URL ?>/messages"><i class="bi bi-envelope"></i><span class="menu-label">Tin nhắn</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-bell"></i><span class="menu-label">Thông báo</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-search"></i><span class="menu-label">Tìm kiếm</span></a></li>
-			<li><a class="nav-link" href="#"><i class="bi bi-bookmark"></i><span class="menu-label">Đã lưu</span></a></li>
-			<li><a class="nav-link" href="#"><i class="bi bi-person"></i><span class="menu-label">Trang cá nhân</span></a></li>
+			<li>
+				<a class="nav-link" href="<?= BASE_URL ?>/saved">
+					<i class="bi bi-bookmark"></i><span class="menu-label">Lưu</span>
+				</a>
+			</li>
+			<li><a class="nav-link" href="#"><i class="bi bi-person"></i><span class="menu-label">Trang</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-gear"></i><span class="menu-label">Cài đặt</span></a></li>
-			<li><a class="nav-link" href="#"><i class="bi bi-plus-circle-fill"></i><span class="menu-label">Tạo</span></a></li>
+			<li>
+				<a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#createPostModal">
+					<i class="bi bi-plus-circle-fill"></i>
+					<span class="menu-label">Tạo</span>
+				</a>
+			</li>
 		</ul>
 
 		<div class="sidebar-divider"></div>
@@ -40,3 +49,14 @@ $userId = (int) ($currentUser['id'] ?? 0);
 		</form>
 	</div>
 </aside>
+
+<?php
+$modalId = "createPostModal";
+$modalTitle = "Đăng bài";
+
+ob_start();
+include VIEW_PATH . 'post/create.php';
+$modalBody = ob_get_clean();
+
+include VIEW_PATH . 'partials/modal.php';
+?>

@@ -70,5 +70,34 @@ class User extends BaseModel {
 			'id' => $userId,
 		]);
 	}
+
+	public function updateProfile(int $id, string $bio): bool {
+    $stmt = $this->db->prepare("UPDATE users SET bio = :bio WHERE id = :id");
+    return $stmt->execute(['bio'=>$bio,'id'=>$id]);
+}
+
+public function updateAvatar(int $id, string $url): bool {
+    $stmt = $this->db->prepare("UPDATE users SET avatar_url = :url WHERE id = :id");
+    return $stmt->execute(['url'=>$url,'id'=>$id]);
+}
+
+public function getStats(int $userId): array {
+    return [
+        'posts' => $this->db->query("SELECT COUNT(*) FROM posts WHERE user_id = $userId")->fetchColumn(),
+        'followers' => $this->db->query("SELECT COUNT(*) FROM follows WHERE following_id = $userId")->fetchColumn(),
+        'following' => $this->db->query("SELECT COUNT(*) FROM follows WHERE follower_id = $userId")->fetchColumn(),
+    ];
+}
+public function getBadges($userId) {
+    $stmt = $this->db->prepare("SELECT * FROM user_badges WHERE user_id=?");
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll();
+}
+
+public function addBadge($userId, $name) {
+    $stmt = $this->db->prepare("INSERT INTO user_badges(user_id,name) VALUES(?,?)");
+    return $stmt->execute([$userId,$name]);
+}
+
 }
 

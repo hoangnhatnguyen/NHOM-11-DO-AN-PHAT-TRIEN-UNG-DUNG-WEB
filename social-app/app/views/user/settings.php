@@ -1,0 +1,67 @@
+<div class="container">
+    <div class="card p-4">
+
+        <h5 class="mb-3">Quyền riêng tư</h5>
+
+        <!-- FOLLOW -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span>Ai có thể theo dõi bạn</span>
+
+            <select id="privacy_follow" class="form-select w-auto">
+                <option value="everyone">Mọi người</option>
+                <option value="mutual">Bạn chung</option>
+            </select>
+        </div>
+
+        <!-- COMMENT -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span>Ai có thể bình luận bài viết của bạn</span>
+
+            <select id="privacy_comment" class="form-select w-auto">
+                <option value="everyone">Mọi người</option>
+                <option value="mutual">Bạn chung</option>
+            </select>
+        </div>
+
+        <hr>
+
+        <h5>Danh sách chặn</h5>
+
+        <ul id="blockedList" class="list-unstyled">
+            <?php foreach($blocked as $u): ?>
+                <li class="d-flex justify-content-between mb-2">
+                    <span><?= $u['username'] ?></span>
+                    <button class="btn btn-sm btn-danger unblock" data-id="<?= $u['id'] ?>">Hủy chặn</button>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+
+    </div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+
+// AUTO SAVE (KHÔNG CẦN NÚT LƯU)
+["privacy_follow", "privacy_comment"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", () => {
+        fetch(BASE + "/setting-api/update-privacy", {
+            method: "POST",
+            body: new URLSearchParams({
+                privacy_follow: document.getElementById("privacy_follow").value,
+                privacy_comment: document.getElementById("privacy_comment").value
+            })
+        });
+    });
+});
+
+// UNBLOCK
+document.querySelectorAll(".unblock").forEach(btn => {
+    btn.onclick = () => {
+        fetch(BASE + "/setting-api/unblock", {
+            method: "POST",
+            body: new URLSearchParams({ id: btn.dataset.id })
+        }).then(() => btn.parentElement.remove());
+    };
+});
+</script>

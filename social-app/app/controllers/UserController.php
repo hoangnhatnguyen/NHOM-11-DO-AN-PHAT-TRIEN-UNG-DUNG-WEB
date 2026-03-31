@@ -12,141 +12,190 @@ class UserController extends BaseController {
 		$this->followModel = new Follow();
 	}
 
-	public function finder(): void {
+	// // ===== PROFILE =====
+	// public function profile(string $username): void {
+	// 	$this->requireAuth();
+
+	// 	$user = $this->userModel->findByUsername($username);
+	// 	if (!$user) {
+	// 		echo "User not found"; return;
+	// 	}
+
+	// 	$stats = $this->userModel->getStats($user['id']);
+
+	// 	$this->render('user/profile', [
+	// 		'user'=>$user,
+	// 		'stats'=>$stats,
+	// 		'isOwner'=>$_SESSION['user']['id'] == $user['id']
+	// 	]);
+	// }
+	public function profile(string $username): void {
+    $this->requireAuth();
+
+    $user = (new User())->findByUsername($username);
+    if (!$user) {
+        echo "User not found"; return;
+    }
+
+    $stats = (new User())->getStats($user['id']);
+
+    require_once __DIR__ . '/../models/UserBadge.php';
+    $badges = (new UserBadge())->getByUser($user['id']);
+
+    $this->render('user/profile', [
+        'user'=>$user,
+        'stats'=>$stats,
+        'badges'=>$badges,
+        'isOwner'=>$_SESSION['user']['id'] == $user['id']
+    ]);
+}
+
+	
+	public function updateProfile(): void {
 		$this->requireAuth();
 
-		$id = (int) ($_GET['id'] ?? 0);
-		$targetUser = null;
-		$error = null;
+		$this->userModel->updateProfile(
+			$_SESSION['user']['id'],
+			$_POST['bio'] ?? ''
+		);
 
-		if ($id > 0) {
-			try {
-				$targetUser = $this->userModel->findById($id);
-			} catch (Throwable $e) {
-				Logger::error('User finder error', [
-					'message' => $e->getMessage(),
-					'id' => $id,
-				]);
+		echo json_encode(['success'=>true]);
+	}
+public function uploadAvatar(): void {
+    $this->requireAuth();
 
-				$error = 'Không thể tải thông tin user lúc này.';
-			}
+    if (!isset($_FILES['avatar'])) {
+        echo json_encode(['error'=>'No file']);
+        return;
+    }
 
-			if ($targetUser === null && $error === null) {
-				$error = 'Không tìm thấy user với ID đã nhập.';
-			}
-		}
+    $file = $_FILES['avatar'];
 
-		$this->render('user/finder', [
-			'title' => 'Test User Profile',
-			'currentUser' => $_SESSION['user'] ?? null,
-			'targetId' => $id > 0 ? $id : '',
-			'targetUser' => $targetUser,
-			'error' => $error,
+    $filename = time() . '_' . basename($file['name']);
+    $path = '/public/uploads/' . $filename;
+
+    move_uploaded_file($file['tmp_name'], APP_ROOT . $path);
+
+    
+    (new User())->updateAvatar($_SESSION['user']['id'], $path);
+
+ 
+    $_SESSION['user']['avatar_url'] = $path;
+
+    echo json_encode(['url'=>$path]);
+}
+
+	
+	public function apiPosts(): void {
+		header('Content-Type: application/json');
+
+		$userId = (int)($_GET['user_id'] ?? 0);
+
+		$db = Database::getInstance()->getConnection();
+
+		$stmt = $db->prepare("
+			SELECT p.*, pm.media_url
+			FROM posts p
+			LEFT JOIN post_media pm ON p.id = pm.post_id
+			WHERE p.user_id = ?
+			ORDER BY p.created_at DESC
+		");
+
+		$stmt->execute([$userId]);
+
+		echo json_encode([
+			'posts' => $stmt->fetchAll(PDO::FETCH_ASSOC)
 		]);
 	}
 
-	public function apiFollow(): void {
+	// ===== FOLLOWERS =====
+	public function apiFollowers(): void {
 		header('Content-Type: application/json');
 
-		$currentUserId = $_SESSION['user']['id'] ?? null;
-		if (!$currentUserId) {
-			http_response_code(401);
-			echo json_encode(['error' => 'Unauthorized']);
-			return;
-		}
+		$userId = (int)($_GET['user_id'] ?? 0);
 
-		$action = $_GET['action'] ?? '';
+		$data = $this->followModel->getFollowers($userId);
 
-		try {
-			switch ($action) {
-				case 'follow':
-					$targetId = (int) ($_POST['target_id'] ?? 0);
-					
-					if ($targetId <= 0 || $targetId === $currentUserId) {
-						http_response_code(400);
-						echo json_encode(['error' => 'Invalid target user']);
-						return;
-					}
-
-					if ($this->followModel->follow($currentUserId, $targetId)) {
-						echo json_encode(['success' => true, 'message' => 'Following user']);
-					} else {
-						http_response_code(400);
-						echo json_encode(['error' => 'Already following or error occurred']);
-					}
-					break;
-
-				case 'unfollow':
-					$targetId = (int) ($_POST['target_id'] ?? 0);
-					
-					if ($targetId <= 0) {
-						http_response_code(400);
-						echo json_encode(['error' => 'Invalid target user']);
-						return;
-					}
-
-					if ($this->followModel->unfollow($currentUserId, $targetId)) {
-						echo json_encode(['success' => true, 'message' => 'Unfollowed user']);
-					} else {
-						http_response_code(400);
-						echo json_encode(['error' => 'Not following this user']);
-					}
-					break;
-
-				case 'check':
-					$targetId = (int) ($_GET['target_id'] ?? 0);
-					
-					if ($targetId <= 0) {
-						http_response_code(400);
-						echo json_encode(['error' => 'Invalid target user']);
-						return;
-					}
-
-					$isFollowing = $this->followModel->isFollowing($currentUserId, $targetId);
-					echo json_encode([
-						'success' => true,
-						'isFollowing' => $isFollowing
-					]);
-					break;
-
-				case 'followers':
-				$userId = (int) ($_GET['user_id'] ?? $currentUserId);
-				$limit = min((int) ($_GET['limit'] ?? 10), 100);
-				$offset = (int) ($_GET['offset'] ?? 0);
-
-				$followers = $this->followModel->getFollowers($userId, $limit, $offset);
-				$count = $this->followModel->countFollowers($userId);
-
-				echo json_encode([
-					'success' => true,
-					'followers' => $followers,
-					'total' => $count
-				]);
-				break;
-
-			case 'following':
-				$userId = (int) ($_GET['user_id'] ?? $currentUserId);
-				$limit = min((int) ($_GET['limit'] ?? 10), 100);
-				$offset = (int) ($_GET['offset'] ?? 0);
-					$following = $this->followModel->getFollowing($userId, $limit, $offset);
-					$count = $this->followModel->countFollowing($userId);
-
-					echo json_encode([
-						'success' => true,
-						'following' => $following,
-						'total' => $count
-					]);
-					break;
-
-				default:
-					http_response_code(400);
-					echo json_encode(['error' => 'Invalid action']);
-					break;
-			}
-		} catch (Exception $e) {
-			http_response_code(500);
-			echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
-		}
+		echo json_encode(['followers'=>$data]);
 	}
-}
 
+	// ===== FOLLOWING =====
+	public function apiFollowing(): void {
+		header('Content-Type: application/json');
+
+		$userId = (int)($_GET['user_id'] ?? 0);
+
+		$data = $this->followModel->getFollowing($userId);
+
+		echo json_encode(['following'=>$data]);
+	}
+
+	// ===== REMOVE FOLLOWER =====
+	public function removeFollower(): void {
+		$this->requireAuth();
+
+		$targetId = (int)$_POST['target_id'];
+
+		$this->followModel->removeFollower($_SESSION['user']['id'], $targetId);
+
+		echo json_encode(['success'=>true]);
+	}
+
+	// ===== UNFOLLOW =====
+	public function unfollow(): void {
+		$this->requireAuth();
+
+		$targetId = (int)$_POST['target_id'];
+
+		$this->followModel->unfollow($_SESSION['user']['id'], $targetId);
+
+		echo json_encode(['success'=>true]);
+	}
+
+	// ===== ACTIVITY (REAL DATA) =====
+	public function apiActivity(): void {
+		header('Content-Type: application/json');
+
+		$userId = (int)($_GET['user_id'] ?? 0);
+
+		$db = Database::getInstance()->getConnection();
+
+		$stmt = $db->prepare("
+			SELECT 'like' as type, p.content, l.created_at
+			FROM likes l
+			JOIN posts p ON l.post_id = p.id
+			WHERE l.user_id = ?
+
+			UNION ALL
+
+			SELECT 'comment' as type, p.content, c.created_at
+			FROM comments c
+			JOIN posts p ON c.post_id = p.id
+			WHERE c.user_id = ?
+
+			ORDER BY created_at DESC
+			LIMIT 20
+		");
+
+		$stmt->execute([$userId, $userId]);
+
+		echo json_encode([
+			'activities' => $stmt->fetchAll(PDO::FETCH_ASSOC)
+		]);
+	}
+
+	public function removeBadge(): void {
+    $this->requireAuth();
+
+    $badgeId = (int)($_POST['badge_id'] ?? 0);
+    $userId = $_SESSION['user']['id'];
+
+    require_once __DIR__ . '/../models/UserBadge.php';
+	$badges = (new UserBadge())->getByUser($user['id']);
+
+    $model = new UserBadge();
+    $model->remove($userId, $badgeId);
+
+    echo json_encode(['success' => true]);
+}
+}

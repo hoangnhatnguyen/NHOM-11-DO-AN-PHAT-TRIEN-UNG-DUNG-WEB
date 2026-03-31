@@ -3,6 +3,7 @@
  * Front Controller - Mọi request đều đi qua đây
  * Social App - MVC Architecture
  */
+session_start();
 require_once 'config/env.php';
 require_once 'config/session.php';
 require_once 'config/constants.php';

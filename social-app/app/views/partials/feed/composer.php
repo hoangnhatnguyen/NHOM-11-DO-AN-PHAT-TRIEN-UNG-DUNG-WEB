@@ -9,9 +9,12 @@ $composerColor = Avatar::colors($composerName);
 </ul>
 
 <div class="d-flex border-bottom pb-3 mb-3">
-	<div class="avatar-sm me-2" style="background: <?= htmlspecialchars($composerColor['bg']) ?>; color: <?= htmlspecialchars($composerColor['fg']) ?>;">
-		<?= Avatar::initials($composerName) ?>
-	</div>
+	<a href="<?= BASE_URL ?>/user/<?= $_SESSION['user']['username'] ?>">
+    <img src="<?= $_SESSION['user']['avatar_url'] ?? BASE_URL.'/public/default-avatar.png' ?>"
+         class="rounded-circle"
+         width="40" height="40"
+         style="object-fit:cover">
+</a>
 	<input type="text" class="form-control border-0 bg-light rounded-pill" placeholder="Hãy viết gì đó..." disabled>
 </div>
 

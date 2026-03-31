@@ -49,7 +49,7 @@ Hủy chặn
 <script>
 const BASE = window.location.origin;
 
-// AUTO SAVE (KHÔNG CẦN NÚT LƯU)
+// AUTO SAVE 
 ["privacy_follow", "privacy_comment"].forEach(id => {
     document.getElementById(id)?.addEventListener("change", () => {
         fetch(BASE + "/setting-api/update-privacy", {

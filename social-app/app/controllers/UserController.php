@@ -174,7 +174,7 @@ class UserController extends BaseController {
     }
 
 public function addBadge(): void {
-    header('Content-Type: application/json'); // thêm dòng này
+    header('Content-Type: application/json');
 
     $this->requireAuth();
 

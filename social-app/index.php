@@ -7,6 +7,7 @@ require_once 'config/env.php';
 require_once 'config/session.php';
 require_once 'config/constants.php';
 require_once 'config/database.php';
+require_once APP_PATH . 'helpers/media.php';
 
 // Load core classes
 require_once 'app/core/Database.php';

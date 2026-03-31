@@ -4,6 +4,8 @@ return [
     'GET' => [
         // ============ HOME & FEED ============
         '/' => 'HomeController@index',
+        '/post/create' => 'PostController@create',
+        '/post/{id}' => 'PostController@detail',
 
         // ============ MESSAGES & CHAT ============
         '/messages' => 'MessageController@index',
@@ -23,6 +25,12 @@ return [
     ],
 
     'POST' => [
+        '/post/{postId}/comment/{commentId}/reply' => 'PostController@reply',
+        '/post/{id}/like' => 'PostController@like',
+        '/post/{id}/save' => 'PostController@save',
+        '/post/{id}/share' => 'PostController@share',
+        '/post/{id}/comment' => 'PostController@comment',
+
         // ============ AUTHENTICATION ============
         '/login' => 'AuthController@login',
         '/register' => 'AuthController@register',

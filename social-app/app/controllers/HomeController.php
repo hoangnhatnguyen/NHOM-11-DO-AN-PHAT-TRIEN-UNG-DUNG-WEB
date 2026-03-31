@@ -10,7 +10,8 @@ class HomeController extends BaseController {
 		$dbError = null;
 
 		try {
-			$posts = (new Post())->findAll();
+			$viewerId = (int) ($_SESSION['user']['id'] ?? 0);
+			$posts = (new Post())->getFeed($viewerId);
 		} catch (Throwable $e) {
 			$dbError = $e->getMessage();
 		}
@@ -21,8 +22,8 @@ class HomeController extends BaseController {
 			'dbError' => $dbError,
 			'currentUser' => $_SESSION['user'] ?? null,
 			'csrfToken' => $this->csrfToken(),
-			'activeMenu' => 'home',
-		]);
+			'activeMenu' => 'home'
+		], 'feed');
 	}
 }
 

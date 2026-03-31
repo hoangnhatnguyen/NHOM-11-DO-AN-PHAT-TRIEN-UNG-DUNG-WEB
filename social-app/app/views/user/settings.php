@@ -28,14 +28,21 @@
         <h5>Danh sách chặn</h5>
 
         <ul id="blockedList" class="list-unstyled">
-            <?php foreach($blocked as $u): ?>
-                <li class="d-flex justify-content-between mb-2">
-                    <span><?= $u['username'] ?></span>
-                    <button class="btn btn-sm btn-danger unblock" data-id="<?= $u['id'] ?>">Hủy chặn</button>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-
+<?php if (empty($blocked)): ?>
+<div class="text-muted text-center">
+Bạn chưa chặn người dùng nào 😌
+</div>
+<?php else: ?>
+<?php foreach($blocked as $u): ?>
+<li class="d-flex justify-content-between mb-2">
+<span><?= $u['username'] ?></span>
+<button class="btn btn-sm btn-danger unblock" data-id="<?= $u['id'] ?>">
+Hủy chặn
+</button>
+</li>
+<?php endforeach; ?>
+<?php endif; ?>
+</ul>
     </div>
 </div>
 

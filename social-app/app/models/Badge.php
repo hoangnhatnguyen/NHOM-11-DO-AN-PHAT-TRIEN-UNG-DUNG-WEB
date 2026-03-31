@@ -1,9 +1,29 @@
 <?php
-class Badge extends BaseModel {
 
+class Badge extends BaseModel {
     protected string $table = 'badges';
 
-    public function getAll(): array {
-        return $this->db->query("SELECT * FROM badges WHERE is_public = 1")->fetchAll();
+    public function search($q) {
+    $db = Database::getInstance()->getConnection();
+
+    $stmt = $db->prepare("
+        SELECT id, name
+        FROM badges
+        WHERE name LIKE ?
+        LIMIT 10
+    ");
+
+    $stmt->execute(["%$q%"]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+    public function create(string $name): int {
+        $stmt = $this->db->prepare("
+            INSERT INTO badges (name)
+            VALUES (?)
+        ");
+        $stmt->execute([$name]);
+        return $this->db->lastInsertId();
     }
 }

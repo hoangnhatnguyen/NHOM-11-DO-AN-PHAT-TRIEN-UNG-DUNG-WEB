@@ -19,6 +19,9 @@ return [
         '/register' => 'AuthController@showRegister',
         '/forgot-password' => 'AuthController@showForgotPassword',
         '/reset-password/{token}' => 'AuthController@showResetPassword',
+
+        // ========== SEARCH ==========
+        '/search' => 'SearchController@index',
     ],
 
     'POST' => [
@@ -32,4 +35,6 @@ return [
         // ============ MESSAGES & CHAT ============
         '/chat-api/upload' => 'MessageController@apiUpload',
     ],
+
+    
 ];

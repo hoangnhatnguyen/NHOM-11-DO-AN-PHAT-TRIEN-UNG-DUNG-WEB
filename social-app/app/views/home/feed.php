@@ -3,7 +3,7 @@
 		<?php include VIEW_PATH . 'partials/feed/left_sidebar.php'; ?>
 	</div>
 
-	<div class="col-12 col-md-7 col-lg-6">
+	<div class="col-12 col-md-7 col-lg-6" >
 		<div class="card border-0 shadow-sm rounded-4 mb-3">
 			<div class="card-body p-3 p-md-4">
 				<?php include VIEW_PATH . 'partials/feed/composer.php'; ?>
@@ -32,3 +32,4 @@
 	</div>
 </div>
 
+<script src="/public/js/right_widgets.js"></script>

@@ -66,3 +66,17 @@
 	max-width: 1280px;
 	margin: 0 auto;
 }
+/* ============ BUTTONS ============ */
+/* ===== BUTTON BRAND ===== */
+/* ===== BUTTON BRAND ===== */
+.btn-brand {
+    background: var(--brand-primary) !important;
+    border: 1px solid var(--brand-primary) !important;
+    color: #fff !important;
+}
+
+.btn-brand:hover {
+    background: #155278;
+    border-color: #155278;
+    color: #fff;
+}

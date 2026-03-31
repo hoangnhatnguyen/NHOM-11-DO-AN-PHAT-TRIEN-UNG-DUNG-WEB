@@ -95,6 +95,9 @@ $dateTo = $_GET['date_to'] ?? null;
 .mini-text {
     font-weight: 500;
 }
+
+
+
 </style>
 
 

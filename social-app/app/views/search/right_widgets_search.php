@@ -40,6 +40,21 @@ if ($tab === 'users') {
 .filter-group {
     line-height: 1.6;
 }
+
+.filter-btn {
+    background: #1A6291;
+    color: white;
+    border-radius: 999px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border: none;
+}
+
+.filter-btn:hover {
+    background: #d0eaff;
+    color: #1A6291;
+    border-color: #1A6291;
+}
 </style>
 
 
@@ -120,7 +135,7 @@ if ($tab === 'users') {
                     <?php endif; ?>
 
                     <!-- BUTTON -->
-                    <button type="submit" class="btn btn-brand w-100 mt-2">
+                    <button type="submit" class="filter-btn w-100 mt-2">
                         Áp dụng
                     </button>
 

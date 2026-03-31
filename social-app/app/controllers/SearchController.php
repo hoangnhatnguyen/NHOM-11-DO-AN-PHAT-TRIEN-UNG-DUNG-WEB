@@ -1,5 +1,5 @@
 <?php
-
+$currentUser = $_SESSION['user'];
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/session.php';
 
@@ -7,7 +7,13 @@ class SearchController extends BaseController {
 
     public function index() {
         
-        $currentUserId = $_SESSION['user_id'] ?? null;
+            if (!isset($_SESSION['user'])) {
+            header('Location: ' . BASE_URL . '/login');
+            exit;}
+
+        $conn = Database::getInstance()->getConnection();
+    $currentUser = $_SESSION['user'];
+    $currentUserId = $currentUser['id'];
         $activeMenu = 'search';
 
         // ===== DB =====
@@ -118,7 +124,8 @@ class SearchController extends BaseController {
                 ";
 
                 $paramsUsers = ['q' => "%$qTrim%"];
-                $currentUserId = 1;
+                $currentUser = $_SESSION['user'];
+                $currentUserId = $currentUser['id'];
 
                 // following
                 if ($filterUser === 'following') {
@@ -163,7 +170,8 @@ class SearchController extends BaseController {
                 ";
 
                 $paramsUsers = ['q' => "%$qTrim%"];
-                $currentUserId = 1;
+                $currentUser = $_SESSION['user'];
+                $currentUserId = $currentUser['id'];
 
                 // following
                 if ($filterUser === 'following') {

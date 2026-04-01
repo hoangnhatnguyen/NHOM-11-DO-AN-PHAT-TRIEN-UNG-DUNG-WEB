@@ -22,6 +22,9 @@ return [
         '/register' => 'AuthController@showRegister',
         '/forgot-password' => 'AuthController@showForgotPassword',
         '/reset-password/{token}' => 'AuthController@showResetPassword',
+
+        // ============ NOTIFICATIONS ============
+        '/notifications' => 'NotificationController@index',
     ],
 
     'POST' => [

@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__, 2) . '/helpers/notification_helper.php';
 if (!function_exists('format_comment_time_vi')) {
 	function format_comment_time_vi(?string $rawDateTime): string {
 		if ($rawDateTime === null || trim($rawDateTime) === '') {
@@ -76,7 +77,7 @@ if (!function_exists('format_comment_time_vi')) {
             <?php endif; ?>
         </div>
 		
-		<div class="mt-3 mb-3 ms-1"><?= nl2br(htmlspecialchars((string) ($post['content'] ?? ''))) ?></div>
+		<div class="mt-3 mb-3 ms-1"><?= format_post_body_html((string) ($post['content'] ?? '')) ?></div>
 
 		<?php foreach ($media as $m): ?>
 			<?php

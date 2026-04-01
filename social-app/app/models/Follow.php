@@ -114,4 +114,37 @@ class Follow extends BaseModel {
 			return 0;
 		}
 	}
+
+	/**
+	 * Gợi ý user chưa theo dõi (widget cột phải).
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function suggestForViewer(int $viewerId, int $limit = 5): array {
+		if ($viewerId <= 0) {
+			return [];
+		}
+		$limit = max(1, min($limit, 20));
+		try {
+			$sql = "
+				SELECT u.id, u.username, u.avatar_url
+				FROM users u
+				WHERE u.id <> :viewer
+				AND NOT EXISTS (
+					SELECT 1 FROM {$this->table} f
+					WHERE f.follower_id = :viewer2 AND f.following_id = u.id
+				)
+				ORDER BY u.id DESC
+				LIMIT :lim
+			";
+			$stmt = $this->db->prepare($sql);
+			$stmt->bindValue(':viewer', $viewerId, PDO::PARAM_INT);
+			$stmt->bindValue(':viewer2', $viewerId, PDO::PARAM_INT);
+			$stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+			$stmt->execute();
+			return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		} catch (\Exception $e) {
+			return [];
+		}
+	}
 }

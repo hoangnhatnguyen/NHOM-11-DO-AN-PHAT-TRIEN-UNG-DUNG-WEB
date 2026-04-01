@@ -3,6 +3,7 @@ require_once __DIR__ . '/../models/Post.php';
 require_once __DIR__ . '/../models/Hashtag.php';
 require_once __DIR__ . '/../models/PostHashtag.php';
 require_once __DIR__ . '/../models/PostMedia.php';
+require_once __DIR__ . '/../helpers/notification_helper.php';
 
 class PostController extends BaseController {
 
@@ -92,11 +93,19 @@ class PostController extends BaseController {
 
         $postId = (int) $id;
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
-        (new Post())->toggleLike($postId, $userId);
-        
-        $isAjax = (string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
-        if ($isAjax) {
-            $postModel = new Post();
+        $postModel = new Post();
+        $nowLiked = $postModel->toggleLike($postId, $userId);
+        if ($nowLiked) {
+            $conn = notification_db();
+            $stmt = $conn->prepare('SELECT user_id FROM posts WHERE id = ? LIMIT 1');
+            $stmt->execute([$postId]);
+            $ownerId = (int) $stmt->fetchColumn();
+            if ($ownerId > 0 && $ownerId !== $userId) {
+                create_notification($conn, $ownerId, $userId, 'like', $postId, $postId);
+            }
+        }
+
+        if ($this->isAjaxRequest()) {
             $likeCount = $postModel->countLikes($postId);
             $isLiked = $postModel->isLiked($postId, $userId);
 
@@ -123,9 +132,8 @@ class PostController extends BaseController {
         $postId = (int) $id;
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
         (new Post())->toggleSave($postId, $userId);
-        
-        $isAjax = (string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
-        if ($isAjax) {
+
+        if ($this->isAjaxRequest()) {
             $postModel = new Post();
             $saveCount = $postModel->countSavedPosts($postId);
             $isSaved = $postModel->isSaved($postId, $userId);
@@ -152,11 +160,19 @@ class PostController extends BaseController {
 
         $postId = (int) $id;
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
-        (new Post())->addShare($postId, $userId);
-        
-        $isAjax = (string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
-        if ($isAjax) {
-            $postModel = new Post();
+        $postModel = new Post();
+        $newShare = $postModel->addShare($postId, $userId);
+        if ($newShare) {
+            $conn = notification_db();
+            $stmt = $conn->prepare('SELECT user_id FROM posts WHERE id = ? LIMIT 1');
+            $stmt->execute([$postId]);
+            $ownerId = (int) $stmt->fetchColumn();
+            if ($ownerId > 0 && $ownerId !== $userId) {
+                create_notification($conn, $ownerId, $userId, 'share', $postId, $postId);
+            }
+        }
+
+        if ($this->isAjaxRequest()) {
             $shareCount = $postModel->countShares($postId);
 
             header('Content-Type: application/json; charset=utf-8');
@@ -182,7 +198,9 @@ class PostController extends BaseController {
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
         $content = trim((string) ($_POST['content'] ?? ''));
         if ($content !== '') {
-            (new Post())->addComment($postId, $userId, $content);
+            $postModel = new Post();
+            $commentId = $postModel->addComment($postId, $userId, $content);
+            notify_for_new_comment(notification_db(), $postId, $userId, $commentId, $content);
         }
         $this->redirect('/post/' . $postId);
     }
@@ -204,8 +222,8 @@ class PostController extends BaseController {
             return;
         }
 
-        // Store nested reply directly into `comments` with parent_id/level.
-        $postModel->addReplyToComment($postId, $parentCommentId, $userId, $content);
+        $replyId = $postModel->addReplyToComment($postId, $parentCommentId, $userId, $content);
+        notify_for_new_comment(notification_db(), $postId, $userId, $replyId, $content);
         $this->redirect('/post/' . $postId . '#comment-' . $parentCommentId);
     }
 

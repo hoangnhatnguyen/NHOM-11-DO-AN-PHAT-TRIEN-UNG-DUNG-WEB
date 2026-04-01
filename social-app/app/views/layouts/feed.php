@@ -54,12 +54,31 @@
 				fetch(action, {
 					method: 'POST',
 					body: formData,
+					credentials: 'same-origin',
 					headers: {
 						'X-Requested-With': 'XMLHttpRequest'
 					}
 				})
-					.then(function (res) { return res.json(); })
+					.then(function (res) {
+						return res.text().then(function (text) {
+							try {
+								return JSON.parse(text);
+							} catch (e) {
+								return null;
+							}
+						});
+					})
 					.then(function (data) {
+						if (data && data.msg === 'not login') {
+							var loginU = new URL(action, window.location.href);
+							if (/\/api\/like\.php$/i.test(loginU.pathname)) {
+								loginU.pathname = loginU.pathname.replace(/\/api\/like\.php$/i, '/login');
+							} else {
+								loginU.pathname = loginU.pathname.replace(/\/post\/\d+\/(save|share)$/i, '/login');
+							}
+							window.location.href = loginU.pathname + loginU.search + loginU.hash;
+							return;
+						}
 						if (!data || !data.ok) return;
 
 						if (data.kind === 'like') {
@@ -113,12 +132,11 @@
 							}
 						}
 					})
-					.catch(function () {
-						// Nếu lỗi Ajax, fallback submit bình thường.
-						form.submit();
-					});
+					.catch(function () {});
 			});
 		})();
 	</script>
+	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
+	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
 </body>
 </html>

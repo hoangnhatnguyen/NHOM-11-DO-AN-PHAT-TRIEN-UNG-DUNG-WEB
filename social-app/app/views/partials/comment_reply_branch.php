@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__, 2) . '/helpers/notification_helper.php';
 /**
  * Node renderer for comment replies stored in `comments` table.
  *
@@ -27,7 +28,7 @@ $autoExpand = ((int) $depth) >= 1;
 		<div class="avatar-sm me-2 flex-shrink-0"><?= strtoupper(substr($author, 0, 1)) ?></div>
 		<div class="border rounded-4 p-2 bg-light w-100">
 			<div class="small fw-semibold"><?= htmlspecialchars($author) ?></div>
-			<div><?= nl2br(htmlspecialchars($content)) ?></div>
+			<div><?= format_post_body_html($content) ?></div>
 		</div>
 	</div>
 

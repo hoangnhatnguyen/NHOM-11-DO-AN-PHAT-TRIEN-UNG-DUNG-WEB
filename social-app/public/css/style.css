@@ -110,6 +110,21 @@
 	width: 100%;
 }
 
+.sidebar-menu .nav-link.sidebar-nav-with-badge {
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.sidebar-menu .nav-link .sidebar-notif-badge {
+	background-color: var(--brand-primary);
+	color: #fff;
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 0.2em 0.5em;
+	min-width: 1.35rem;
+	line-height: 1.2;
+}
+
 .sidebar-menu .nav-link.active,
 .sidebar-menu .nav-link:hover {
 	background: var(--brand-primary-soft);

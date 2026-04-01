@@ -279,7 +279,7 @@ class Post extends BaseModel {
         return $roots;
     }
 
-    public function addReplyToComment(int $postId, int $parentCommentId, int $userId, string $content): void {
+    public function addReplyToComment(int $postId, int $parentCommentId, int $userId, string $content): int {
         $this->ensureCommentThreadColumns();
 
         // Calculate next level from parent.
@@ -304,6 +304,7 @@ class Post extends BaseModel {
             'parent_id' => $parentCommentId,
             'level' => $nextLevel,
         ]);
+        return (int) $this->db->lastInsertId();
     }
 
     /**
@@ -348,7 +349,10 @@ class Post extends BaseModel {
         return $byComment;
     }
 
-    public function toggleLike(int $postId, int $userId): void {
+    /**
+     * @return bool true nếu sau thao tác user đang thích bài, false nếu đã bỏ thích
+     */
+    public function toggleLike(int $postId, int $userId): bool {
         $stmt = $this->db->prepare("
             SELECT 1 FROM likes WHERE post_id = :post_id AND user_id = :user_id LIMIT 1
         ");
@@ -366,7 +370,7 @@ class Post extends BaseModel {
                 'post_id' => $postId,
                 'user_id' => $userId,
             ]);
-            return;
+            return false;
         }
 
         $insertStmt = $this->db->prepare("
@@ -376,6 +380,7 @@ class Post extends BaseModel {
             'user_id' => $userId,
             'post_id' => $postId,
         ]);
+        return true;
     }
 
     public function countLikes(int $postId): int {
@@ -442,7 +447,7 @@ class Post extends BaseModel {
         return $stmt->fetchColumn() !== false;
     }
 
-    public function addComment(int $postId, int $userId, string $content): void {
+    public function addComment(int $postId, int $userId, string $content): int {
         $stmt = $this->db->prepare("
             INSERT INTO comments (post_id, user_id, content)
             VALUES (:post_id, :user_id, :content)
@@ -452,6 +457,7 @@ class Post extends BaseModel {
             'user_id' => $userId,
             'content' => $content,
         ]);
+        return (int) $this->db->lastInsertId();
     }
 
     public function addReply(int $commentId, int $userId, string $content, ?int $parentReplyId = null): void {
@@ -490,7 +496,7 @@ class Post extends BaseModel {
         return $row === false ? null : $row;
     }
 
-    public function addShare(int $postId, int $userId): void {
+    public function addShare(int $postId, int $userId): bool {
         $stmt = $this->db->prepare("
             INSERT IGNORE INTO shares (user_id, post_id)
             VALUES (:user_id, :post_id)
@@ -499,6 +505,7 @@ class Post extends BaseModel {
             'user_id' => $userId,
             'post_id' => $postId,
         ]);
+        return $stmt->rowCount() > 0;
     }
 
     public function countShares(int $postId): int {

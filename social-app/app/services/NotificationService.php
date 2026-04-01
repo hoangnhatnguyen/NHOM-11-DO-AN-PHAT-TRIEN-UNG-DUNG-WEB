@@ -80,10 +80,14 @@ final class NotificationService
         }
     }
 
-    /** @return list<string> */
+    /**
+     * Trích username sau @ (chữ, số, _, . — vd. @lee.d_113).
+     *
+     * @return list<string>
+     */
     public static function parseMentionedUsernames(string $text): array
     {
-        if (preg_match_all('/@([a-zA-Z0-9_]+)/u', $text, $m)) {
+        if (preg_match_all('/@([a-zA-Z0-9_.]+)/u', $text, $m)) {
             return array_values(array_unique($m[1]));
         }
         return [];

@@ -66,9 +66,55 @@
 	max-width: 1280px;
 	margin: 0 auto;
 }
-.row {
-    flex-wrap: nowrap;
+
+/* Chỉ khóa một hàng trên desktop để 3 cột feed không xuống dòng */
+@media (min-width: 992px) {
+	.feed-layout > .feed-layout-row {
+		flex-wrap: nowrap;
+		align-items: flex-start;
+	}
 }
+
+/* Cột giữa & cột phải: cuộn nội bộ (wheel khi hover từng vùng), ẩn thanh scrollbar */
+@media (min-width: 992px) {
+	.feed-main-column {
+		max-height: calc(100vh - var(--app-nav-height) - 2.75rem);
+		overflow-y: auto;
+		overflow-x: hidden;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+
+	.feed-main-column::-webkit-scrollbar {
+		display: none;
+		width: 0;
+		height: 0;
+	}
+
+	.feed-widgets-column .right-sticky {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		max-height: calc(100vh - var(--app-nav-height) - 2.75rem);
+		overflow-y: auto;
+		overflow-x: hidden;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
+		position: sticky;
+		top: calc(var(--app-nav-height) + 1rem);
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+
+	.feed-widgets-column .right-sticky::-webkit-scrollbar {
+		display: none;
+		width: 0;
+		height: 0;
+	}
+}
+
 :root {
 	--app-nav-height: 64px;
 	--brand-primary: #1A6291;
@@ -96,6 +142,14 @@
 .right-sticky {
 	position: sticky;
 	top: calc(var(--app-nav-height) + 1rem);
+}
+
+@media (max-width: 991.98px) {
+	.right-sticky {
+		position: static;
+		max-height: none;
+		overflow: visible;
+	}
 }
 
 .sidebar-menu .nav-link {

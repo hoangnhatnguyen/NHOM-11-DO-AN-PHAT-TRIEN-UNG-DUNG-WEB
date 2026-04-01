@@ -1,9 +1,9 @@
 <?php
 require_once __DIR__ . '/../models/Post.php';
-require_once __DIR__ . '/../models/Hashtag.php';
 require_once __DIR__ . '/../models/PostHashtag.php';
 require_once __DIR__ . '/../models/PostMedia.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
+require_once __DIR__ . '/../helpers/hashtag_helper.php';
 
 class PostController extends BaseController {
 
@@ -21,7 +21,9 @@ class PostController extends BaseController {
             die('CSRF invalid');
         }
 
-        $content = trim($_POST['content'] ?? '');
+        $rawInput = trim((string) ($_POST['content'] ?? ''));
+        $parsed = parse_post_content_hashtags($rawInput);
+        $content = $parsed['plain'];
         $visible = $_POST['privacy'] ?? 'public';
 
         $postModel = new Post();
@@ -31,15 +33,7 @@ class PostController extends BaseController {
             'visible' => $visible
         ]);
 
-        // xử lý hashtag
-        preg_match_all('/#(\w+)/', $content, $matches);
-        $hashtagModel = new Hashtag();
-        $postHashtag = new PostHashtag();
-
-        foreach ($matches[1] as $tag) {
-            $tagId = $hashtagModel->findOrCreate($tag);
-            $postHashtag->attach($postId, $tagId);
-        }
+        (new PostHashtag())->replaceForPost($postId, $parsed['tags']);
 
         // upload ảnh → public/media (khớp URL trong view: /public/media/<tên file>)
         if (!empty($_FILES['media']['name'][0])) {
@@ -54,6 +48,11 @@ class PostController extends BaseController {
                 move_uploaded_file($tmp, $uploadDir . $name);
                 $mediaModel->addMedia($postId, $name);
             }
+        }
+
+        $authorId = (int) ($_SESSION['user']['id'] ?? 0);
+        if ($authorId > 0 && $content !== '') {
+            notify_for_post_content_mentions(notification_db(), $postId, $authorId, $content);
         }
 
         $this->redirect('/');
@@ -281,7 +280,10 @@ class PostController extends BaseController {
         if (!in_array($visible, ['public', 'followers', 'private'], true)) {
             $visible = 'public';
         }
-        $postModel->updatePost($postId, (string) ($_POST['content'] ?? ''), $visible);
+        $rawUpdate = trim((string) ($_POST['content'] ?? ''));
+        $parsedUpdate = parse_post_content_hashtags($rawUpdate);
+        $postModel->updatePost($postId, $parsedUpdate['plain'], $visible);
+        (new PostHashtag())->replaceForPost($postId, $parsedUpdate['tags']);
 
         $mediaModel = new PostMedia();
         $removeMediaIds = $_POST['remove_media_ids'] ?? [];

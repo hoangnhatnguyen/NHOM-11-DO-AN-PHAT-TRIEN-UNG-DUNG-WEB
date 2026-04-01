@@ -1,4 +1,6 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 /**
  * Front Controller - Mọi request đều đi qua đây
  * Social App - MVC Architecture
@@ -28,7 +30,12 @@ set_exception_handler(function (Throwable $e): void {
 	]);
 
 	http_response_code(500);
-	echo 'Đã có lỗi hệ thống. Vui lòng thử lại sau.';
+	//echo 'Đã có lỗi hệ thống. Vui lòng thử lại sau.';
+	// 🔥 HIỆN LỖI THẬT
+	echo "<h1>ERROR DEBUG</h1>";
+	echo "<pre>";
+	echo $e;
+	echo "</pre>";
 });
 
 set_error_handler(function (int $severity, string $message, string $file, int $line): bool {

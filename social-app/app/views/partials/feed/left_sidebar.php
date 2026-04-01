@@ -39,12 +39,6 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
 			<li><a class="nav-link <?= $activeMenu === 'search' ? 'active' : '' ?>" href="<?= BASE_URL ?>/search"><i class="bi bi-search"></i><span class="menu-label">Tìm kiếm</span></a></li>
 			<li><a class="nav-link <?= $activeMenu === 'saved' ? 'active' : '' ?>" href="<?= BASE_URL ?>/saved"><i class="bi bi-bookmark"></i><span class="menu-label">Đã lưu</span></a></li>
 			<li><a class="nav-link <?= $activeMenu === 'profile' ? 'active' : '' ?>" href="<?= BASE_URL ?>/profile"><i class="bi bi-person"></i><span class="menu-label">Trang cá nhân</span></a></li>
-			<li>
-				<a class="nav-link" href="<?= BASE_URL ?>/saved">
-					<i class="bi bi-bookmark"></i><span class="menu-label">Lưu</span>
-				</a>
-			</li>
-			<li><a class="nav-link" href="#"><i class="bi bi-person"></i><span class="menu-label">Trang</span></a></li>
 			<li><a class="nav-link" href="#"><i class="bi bi-gear"></i><span class="menu-label">Cài đặt</span></a></li>
 			<li>
 				<a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#createPostModal">

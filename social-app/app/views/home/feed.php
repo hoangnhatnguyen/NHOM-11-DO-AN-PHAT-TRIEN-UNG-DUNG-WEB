@@ -1,6 +1,11 @@
+<?php $feedTab = $feedTab ?? 'foryou'; ?>
 <ul class="nav nav-underline justify-content-center mb-3 feed-tabs">
-	<li class="nav-item"><a class="nav-link active" href="<?= BASE_URL ?>/">Dành cho bạn</a></li>
-	<li class="nav-item"><a class="nav-link" href="#">Đang theo dõi</a></li>
+	<li class="nav-item">
+		<a class="nav-link <?= $feedTab === 'foryou' ? 'active' : '' ?>" href="<?= BASE_URL ?>/">Dành cho bạn</a>
+	</li>
+	<li class="nav-item">
+		<a class="nav-link <?= $feedTab === 'following' ? 'active' : '' ?>" href="<?= BASE_URL ?>/?tab=following">Đang theo dõi</a>
+	</li>
 </ul>
 
 <div class="card border-0 shadow-sm rounded-4 mb-3">
@@ -17,7 +22,11 @@
 	<?php if (empty($posts ?? [])): ?>
 		<div class="card border-0 shadow-sm rounded-4">
 			<div class="card-body">
-				<p class="text-secondary mb-0">Chưa có bài viết. Thêm dữ liệu bảng <strong>posts</strong> để kiểm tra hiển thị trang chủ.</p>
+				<?php if (($feedTab ?? 'foryou') === 'following'): ?>
+					<p class="text-secondary mb-0">Chưa có bài từ người bạn theo dõi. Theo dõi thêm người dùng hoặc quay về <a href="<?= BASE_URL ?>/">Dành cho bạn</a>.</p>
+				<?php else: ?>
+					<p class="text-secondary mb-0">Chưa có bài viết. Thêm dữ liệu bảng <strong>posts</strong> để kiểm tra hiển thị trang chủ.</p>
+				<?php endif; ?>
 			</div>
 		</div>
 	<?php else: ?>

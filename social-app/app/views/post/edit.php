@@ -20,7 +20,7 @@
 						rows="3"
 						placeholder="Chỉnh sửa nội dung..."
 						oninput="autoResize(this)"
-					><?= htmlspecialchars((string) ($post['content'] ?? '')) ?></textarea>
+					><?= htmlspecialchars((string) ($editContent ?? $post['content'] ?? '')) ?></textarea>
 				</div>
 			</div>
 

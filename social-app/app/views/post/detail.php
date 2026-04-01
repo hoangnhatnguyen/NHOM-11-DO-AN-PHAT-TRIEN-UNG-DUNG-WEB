@@ -77,7 +77,7 @@ if (!function_exists('format_comment_time_vi')) {
             <?php endif; ?>
         </div>
 		
-		<div class="mt-3 mb-3 ms-1"><?= format_post_body_html((string) ($post['content'] ?? '')) ?></div>
+		<div class="mt-3 mb-3 ms-1 position-relative" style="z-index: 2;"><?= format_post_display_html((string) ($post['content'] ?? ''), $post['hashtag_names'] ?? []) ?></div>
 
 		<?php foreach ($media as $m): ?>
 			<?php

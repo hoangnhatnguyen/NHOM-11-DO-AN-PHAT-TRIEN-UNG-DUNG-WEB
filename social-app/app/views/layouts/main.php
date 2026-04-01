@@ -19,6 +19,8 @@
 		<?php include $contentView; ?>
 	</main>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
+	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
 	<!-- Global message badge loader -->
 	<script src="<?= BASE_URL ?>/public/js/message-badge.js" type="module"></script>
 	<?php foreach (($pageScripts ?? []) as $script): ?>
@@ -26,6 +28,7 @@
 		<?php if ($src === '') { continue; } ?>
 		<script src="<?= htmlspecialchars($src) ?>"<?= !empty($script['module']) ? ' type="module"' : '' ?>></script>
 	<?php endforeach; ?>
+	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
 </body>
 </html>
 

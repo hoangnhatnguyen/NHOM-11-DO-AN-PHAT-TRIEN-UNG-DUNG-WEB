@@ -36,7 +36,7 @@ function format_notification_snippet(?string $raw): string
     }
     $e = htmlspecialchars($raw, ENT_QUOTES, 'UTF-8');
     return (string) preg_replace(
-        '/@([a-zA-Z0-9_]+)/u',
+        '/@([a-zA-Z0-9_.]+)/u',
         '<span class="text-primary fw-semibold">@$1</span>',
         $e
     );
@@ -52,6 +52,34 @@ function format_post_body_html(string $text): string
         $html[] = format_notification_snippet($p);
     }
     return implode('<br>', $html);
+}
+
+/**
+ * Hiển thị nội dung bài (plain trong DB) + hashtag lưu riêng ở cuối, link tìm kiếm giống style mention.
+ *
+ * @param list<string> $hashtagNames tên tag không có ký tự #
+ */
+function format_post_display_html(string $plainContent, array $hashtagNames): string
+{
+    $body = format_post_body_html($plainContent);
+    $names = array_values(array_unique(array_filter(array_map('trim', $hashtagNames), static function ($n) {
+        return $n !== '';
+    })));
+    if ($names === []) {
+        return $body;
+    }
+
+    $base = rtrim((string) (defined('BASE_URL') ? BASE_URL : ''), '/');
+    $links = [];
+    foreach ($names as $name) {
+        $esc = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        $q = rawurlencode('#' . $name);
+        $links[] = '<a class="text-primary fw-semibold text-decoration-none position-relative" style="z-index:2" href="'
+            . htmlspecialchars($base, ENT_QUOTES, 'UTF-8') . '/search?q=' . $q . '">#' . $esc . '</a>';
+    }
+    $inner = implode(' ', $links);
+    $suffix = '<span class="post-hashtag-suffix d-inline-block mt-1"> ' . $inner . '</span>';
+    return $body === '' ? trim($inner) : $body . $suffix;
 }
 
 function notification_time_ago_vi(?string $datetime): string
@@ -114,20 +142,26 @@ function notify_for_new_comment(
     $stmt->execute([$postId]);
     $ownerId = (int) $stmt->fetchColumn();
 
-    if ($ownerId > 0 && $ownerId !== $commentAuthorId) {
-        create_notification($conn, $ownerId, $commentAuthorId, 'comment', $commentId, $postId);
-    }
-
+    $mentionedIds = [];
     foreach (NotificationService::parseMentionedUsernames($content) as $username) {
-        $stmt = $conn->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+        $stmt = $conn->prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1');
         $stmt->execute([$username]);
         $mentionedId = (int) $stmt->fetchColumn();
-        if ($mentionedId <= 0 || $mentionedId === $commentAuthorId) {
-            continue;
+        if ($mentionedId > 0 && $mentionedId !== $commentAuthorId) {
+            $mentionedIds[$mentionedId] = true;
         }
-        if ($mentionedId === $ownerId) {
-            continue;
+    }
+
+    if ($ownerId > 0 && $ownerId !== $commentAuthorId) {
+        if (isset($mentionedIds[$ownerId])) {
+            create_notification($conn, $ownerId, $commentAuthorId, 'mention_comment', $commentId, $postId);
+            unset($mentionedIds[$ownerId]);
+        } else {
+            create_notification($conn, $ownerId, $commentAuthorId, 'comment', $commentId, $postId);
         }
+    }
+
+    foreach (array_keys($mentionedIds) as $mentionedId) {
         create_notification($conn, $mentionedId, $commentAuthorId, 'mention_comment', $commentId, $postId);
     }
 }
@@ -135,7 +169,7 @@ function notify_for_new_comment(
 function notify_for_post_content_mentions(PDO $conn, int $postId, int $authorId, string $content): void
 {
     foreach (NotificationService::parseMentionedUsernames($content) as $username) {
-        $stmt = $conn->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+        $stmt = $conn->prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1');
         $stmt->execute([$username]);
         $mentionedId = (int) $stmt->fetchColumn();
         if ($mentionedId > 0 && $mentionedId !== $authorId) {

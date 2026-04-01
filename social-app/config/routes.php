@@ -25,6 +25,9 @@ return [
 
         // ============ NOTIFICATIONS ============
         '/notifications' => 'NotificationController@index',
+
+        // ========== SEARCH ==========
+        '/search' => 'SearchController@index',
     ],
 
     'POST' => [
@@ -46,4 +49,6 @@ return [
         // ============ MESSAGES & CHAT ============
         '/chat-api/upload' => 'MessageController@apiUpload',
     ],
+
+    
 ];

@@ -12,131 +12,25 @@
 	<?php include VIEW_PATH . 'partials/navbar.php'; ?>
 	<main class="container-fluid py-4">
 		<div class="container-fluid feed-layout px-lg-4">
-			<div class="row g-3 g-lg-4">
-				<div class="col-12 col-md-2 col-lg-3">
+			<div class="row g-3 g-lg-4 feed-layout-row">
+				<div class="col-12 col-md-2 col-lg-3 feed-sidebar-column">
 					<?php include VIEW_PATH . 'partials/feed/left_sidebar.php'; ?>
 				</div>
 
-				<div class="col-12 col-md-7 col-lg-6 bg-white">
+				<div class="col-12 col-md-7 col-lg-6 bg-white feed-main-column">
 					<?php include $contentView; ?>
 				</div>
 
-				<div class="col-12 col-md-3 col-lg-3">
+				<div class="col-12 col-md-3 col-lg-3 feed-widgets-column">
 					<?php include VIEW_PATH . 'partials/feed/right_widgets.php'; ?>
 				</div>
 			</div>
 		</div>
 	</main>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-	<script>
-		(function () {
-			function removeClasses(el, classNames) {
-				if (!el) return;
-				classNames.forEach(function (c) {
-					el.classList.remove(c);
-				});
-			}
-
-			document.addEventListener('submit', function (e) {
-				var form = e.target;
-				if (!form || !form.matches('form.ajax-post-like, form.ajax-post-save, form.ajax-post-share')) {
-					return;
-				}
-
-				e.preventDefault();
-
-				var postId = form.getAttribute('data-post-id') || '';
-				var action = form.getAttribute('action') || '';
-				if (!action) return;
-
-				var formData = new FormData(form);
-
-				fetch(action, {
-					method: 'POST',
-					body: formData,
-					credentials: 'same-origin',
-					headers: {
-						'X-Requested-With': 'XMLHttpRequest'
-					}
-				})
-					.then(function (res) {
-						return res.text().then(function (text) {
-							try {
-								return JSON.parse(text);
-							} catch (e) {
-								return null;
-							}
-						});
-					})
-					.then(function (data) {
-						if (data && data.msg === 'not login') {
-							var loginU = new URL(action, window.location.href);
-							if (/\/api\/like\.php$/i.test(loginU.pathname)) {
-								loginU.pathname = loginU.pathname.replace(/\/api\/like\.php$/i, '/login');
-							} else {
-								loginU.pathname = loginU.pathname.replace(/\/post\/\d+\/(save|share)$/i, '/login');
-							}
-							window.location.href = loginU.pathname + loginU.search + loginU.hash;
-							return;
-						}
-						if (!data || !data.ok) return;
-
-						if (data.kind === 'like') {
-							var countEl = document.getElementById('like-count-' + data.postId);
-							var btnEl = document.getElementById('like-btn-' + data.postId);
-							var iconEl = document.getElementById('like-icon-' + data.postId);
-
-							if (countEl) {
-								countEl.textContent = data.like_count;
-								removeClasses(countEl, ['text-danger', 'text-secondary']);
-								countEl.classList.add(data.is_liked ? 'text-danger' : 'text-secondary');
-							}
-
-							if (btnEl) {
-								removeClasses(btnEl, ['text-danger', 'text-secondary']);
-								btnEl.classList.add(data.is_liked ? 'text-danger' : 'text-secondary');
-							}
-
-							if (iconEl) {
-								removeClasses(iconEl, ['bi-heart', 'bi-heart-fill']);
-								iconEl.classList.add(data.is_liked ? 'bi-heart-fill' : 'bi-heart');
-							}
-						}
-
-						if (data.kind === 'save') {
-							var countEl = document.getElementById('save-count-' + data.postId);
-							var btnEl = document.getElementById('save-btn-' + data.postId);
-							var iconEl = document.getElementById('save-icon-' + data.postId);
-
-							if (countEl) {
-								countEl.textContent = data.save_count;
-								removeClasses(countEl, ['text-warning', 'text-secondary']);
-								countEl.classList.add(data.is_saved ? 'text-warning' : 'text-secondary');
-							}
-
-							if (btnEl) {
-								removeClasses(btnEl, ['text-warning', 'text-secondary']);
-								btnEl.classList.add(data.is_saved ? 'text-warning' : 'text-secondary');
-							}
-
-							if (iconEl) {
-								removeClasses(iconEl, ['bi-bookmark', 'bi-bookmark-fill']);
-								iconEl.classList.add(data.is_saved ? 'bi-bookmark-fill' : 'bi-bookmark');
-							}
-						}
-
-						if (data.kind === 'share') {
-							var countEl = document.getElementById('share-count-' + data.postId);
-							if (countEl) {
-								countEl.textContent = data.share_count;
-							}
-						}
-					})
-					.catch(function () {});
-			});
-		})();
-	</script>
+	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
 	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
+	<script src="<?= BASE_URL ?>/public/js/right_widgets.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
 </body>
 </html>

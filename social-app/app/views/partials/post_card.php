@@ -2,6 +2,7 @@
 require_once dirname(__DIR__, 2) . '/helpers/notification_helper.php';
 $author = $post['author_name'] ?? $post['user_name'] ?? 'Nguoi dung';
 $content = $post['content'] ?? $post['caption'] ?? '[Khong co noi dung]';
+$hashtagNames = $post['hashtag_names'] ?? [];
 $likes = (int) ($post['like_count'] ?? 0);
 $comments = (int) ($post['comment_count'] ?? 0);
 $createdAt = $post['created_at'] ?? 'vua xong';
@@ -51,8 +52,8 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 				<?php endif; ?>
 			</div>
 
-			<div class="mb-3">
-				<p class="mb-0"><?= format_post_body_html((string) $content) ?></p>
+			<div class="mb-3 position-relative" style="z-index: 2;">
+				<p class="mb-0"><?= format_post_display_html((string) $content, is_array($hashtagNames) ? $hashtagNames : []) ?></p>
 				<?php if (!empty($post['media'])): ?>
 					<div class="mt-3">
 						<?php foreach ($post['media'] as $media): ?>

@@ -5,14 +5,16 @@ class Hashtag extends BaseModel {
     protected string $table = 'hashtags';
 
     public function findOrCreate(string $tag): int {
-        $stmt = $this->db->prepare("SELECT id FROM {$this->table} WHERE tag = :tag");
-        $stmt->execute(['tag' => $tag]);
+        $stmt = $this->db->prepare("SELECT id FROM {$this->table} WHERE LOWER(name) = LOWER(:name) LIMIT 1");
+        $stmt->execute(['name' => $tag]);
         $result = $stmt->fetch();
 
-        if ($result) return (int)$result['id'];
+        if ($result) {
+            return (int) $result['id'];
+        }
 
-        $stmt = $this->db->prepare("INSERT INTO {$this->table} (tag) VALUES (:tag)");
-        $stmt->execute(['tag' => $tag]);
-        return (int)$this->db->lastInsertId();
+        $stmt = $this->db->prepare("INSERT INTO {$this->table} (name) VALUES (:name)");
+        $stmt->execute(['name' => $tag]);
+        return (int) $this->db->lastInsertId();
     }
 }

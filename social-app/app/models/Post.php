@@ -94,7 +94,12 @@ class Post extends BaseModel {
             'viewer_like' => $viewerId,
             'viewer_save' => $viewerId,
         ]);
-        return $stmt->fetch() ?: null;
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
+            return null;
+        }
+        $row['hashtag_names'] = (new PostHashtag())->getTagNamesByPostId($id);
+        return $row;
     }
 
     //LOAD FEED (có user + media + stats theo viewer)
@@ -133,11 +138,172 @@ class Post extends BaseModel {
         $posts = $stmt->fetchAll();
 
         $mediaModel = new PostMedia();
+        $postIds = array_map(static function ($p) {
+            return (int) ($p['id'] ?? 0);
+        }, $posts);
+        $tagMap = (new PostHashtag())->getTagNamesForPostIds($postIds);
 
-        //attach media cho từng post
         foreach ($posts as &$post) {
-            $post['media'] = $mediaModel->getByPost($post['id']);
+            $pid = (int) ($post['id'] ?? 0);
+            $post['media'] = $mediaModel->getByPost($pid);
+            $post['hashtag_names'] = $tagMap[$pid] ?? [];
         }
+        unset($post);
+
+        return $posts;
+    }
+
+    /**
+     * Feed chỉ từ tài khoản đang theo dõi (+ bài của chính mình).
+     */
+    public function getFeedFollowing(int $viewerId = 0): array {
+        if ($viewerId <= 0) {
+            return [];
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT 
+                p.*,
+                u.username AS author_name,
+                (
+                    SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
+                ) AS like_count,
+                (
+                    SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id
+                ) AS comment_count,
+                (
+                    SELECT COUNT(*) FROM shares s WHERE s.post_id = p.id
+                ) AS share_count,
+                (
+                    SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id
+                ) AS save_count,
+                EXISTS(
+                    SELECT 1 FROM likes l2 WHERE l2.post_id = p.id AND l2.user_id = :viewer_like
+                ) AS is_liked,
+                EXISTS(
+                    SELECT 1 FROM saved_posts sp2 WHERE sp2.post_id = p.id AND sp2.user_id = :viewer_save
+                ) AS is_saved
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE (
+                p.user_id = :viewer_self
+                OR p.user_id IN (
+                    SELECT following_id FROM follows WHERE follower_id = :viewer_follow
+                )
+            )
+            ORDER BY p.id DESC
+        ");
+        $stmt->execute([
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+            'viewer_self' => $viewerId,
+            'viewer_follow' => $viewerId,
+        ]);
+
+        $posts = $stmt->fetchAll();
+
+        $mediaModel = new PostMedia();
+        $postIds = array_map(static function ($p) {
+            return (int) ($p['id'] ?? 0);
+        }, $posts);
+        $tagMap = (new PostHashtag())->getTagNamesForPostIds($postIds);
+
+        foreach ($posts as &$post) {
+            $pid = (int) ($post['id'] ?? 0);
+            $post['media'] = $mediaModel->getByPost($pid);
+            $post['hashtag_names'] = $tagMap[$pid] ?? [];
+        }
+        unset($post);
+
+        return $posts;
+    }
+
+    /**
+     * Bổ sung like/comment/share/save + trạng thái viewer cho danh sách post đã có sẵn (vd. tìm kiếm).
+     *
+     * @param array<int, array<string, mixed>> $posts
+     * @return array<int, array<string, mixed>>
+     */
+    public function hydrateListWithInteractionStats(array $posts, int $viewerId): array {
+        if ($posts === []) {
+            return $posts;
+        }
+
+        $ids = [];
+        foreach ($posts as $p) {
+            $id = (int) ($p['id'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+        $idList = array_keys($ids);
+        if ($idList === []) {
+            foreach ($posts as &$p) {
+                $p['hashtag_names'] = [];
+            }
+            unset($p);
+            return $posts;
+        }
+        sort($idList, SORT_NUMERIC);
+
+        $placeholders = implode(',', array_fill(0, count($idList), '?'));
+        $sql = "
+            SELECT
+                p.id,
+                (
+                    SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
+                ) AS like_count,
+                (
+                    SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id
+                ) AS comment_count,
+                (
+                    SELECT COUNT(*) FROM shares s WHERE s.post_id = p.id
+                ) AS share_count,
+                (
+                    SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id
+                ) AS save_count,
+                EXISTS(
+                    SELECT 1 FROM likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?
+                ) AS is_liked,
+                EXISTS(
+                    SELECT 1 FROM saved_posts sp2 WHERE sp2.post_id = p.id AND sp2.user_id = ?
+                ) AS is_saved
+            FROM posts p
+            WHERE p.id IN ($placeholders)
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(array_merge([$viewerId, $viewerId], $idList));
+
+        $statsById = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $pid = (int) ($row['id'] ?? 0);
+            if ($pid > 0) {
+                $statsById[$pid] = $row;
+            }
+        }
+
+        foreach ($posts as &$p) {
+            $pid = (int) ($p['id'] ?? 0);
+            if (!isset($statsById[$pid])) {
+                continue;
+            }
+            $s = $statsById[$pid];
+            $p['like_count'] = (int) ($s['like_count'] ?? 0);
+            $p['comment_count'] = (int) ($s['comment_count'] ?? 0);
+            $p['share_count'] = (int) ($s['share_count'] ?? 0);
+            $p['save_count'] = (int) ($s['save_count'] ?? 0);
+            $p['is_liked'] = (bool) (int) ($s['is_liked'] ?? 0);
+            $p['is_saved'] = (bool) (int) ($s['is_saved'] ?? 0);
+        }
+        unset($p);
+
+        $tagMap = (new PostHashtag())->getTagNamesForPostIds($idList);
+        foreach ($posts as &$p) {
+            $pid = (int) ($p['id'] ?? 0);
+            $p['hashtag_names'] = $tagMap[$pid] ?? [];
+        }
+        unset($p);
 
         return $posts;
     }

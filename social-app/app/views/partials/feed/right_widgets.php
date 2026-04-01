@@ -7,26 +7,40 @@ if (!isset($suggestedFollows)) {
 		$suggestedFollows = (new Follow())->suggestForViewer($uid, 5);
 	}
 }
+require_once dirname(__DIR__, 3) . '/helpers/media.php';
 ?>
 <aside class="d-flex flex-column gap-3 right-sticky">
-	<div class="position-relative">
+
+	<!-- 🔍 SEARCH -->
+	<div class="position-relative search-box">
 		<i class="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-secondary"></i>
-		<input class="form-control rounded-pill ps-5 border-0 shadow-sm feed-search-input" placeholder="Tìm kiếm..." disabled>
+
+		<input
+			id="search-input"
+			class="form-control rounded-pill ps-5 border-0 shadow-sm feed-search-input"
+			placeholder="Tìm kiếm..."
+		>
+
+		<!-- 🔥 POPUP GẦN ĐÂY -->
+		<div id="recent-popup" class="recent-popup hidden">
+			<div class="d-flex justify-content-between px-3 py-2 border-bottom">
+				<span class="fw-bold">Gần đây</span>
+				<button type="button" id="clear-recent" class="btn btn-sm text-primary">Xóa tất cả</button>
+			</div>
+			<div id="recent-list"></div>
+		</div>
 	</div>
 
+	<!-- 🔥 TRENDING -->
 	<section class="card border-primary-subtle rounded-4 shadow-sm">
 		<div class="card-body p-3">
 			<h6 class="fw-bold text-primary mb-3">Đang phổ biến</h6>
-			<ol class="list-group list-group-numbered list-group-flush small">
-				<li class="list-group-item px-0">#khaitrienmvc</li>
-				<li class="list-group-item px-0">#php</li>
-				<li class="list-group-item px-0">#bootstrap</li>
-				<li class="list-group-item px-0">#newfeed</li>
-				<li class="list-group-item px-0">#socialapp</li>
-			</ol>
+
+			<div id="right-trending"></div>
 		</div>
 	</section>
 
+	<!-- 🔥 SUGGEST USER (server: Follow model + avatar / follow API) -->
 	<section class="card border-primary-subtle rounded-4 shadow-sm">
 		<div class="card-body p-3">
 			<h6 class="fw-bold text-primary mb-3">Gợi ý theo dõi</h6>
@@ -67,7 +81,44 @@ if (!isset($suggestedFollows)) {
 			<?php endif; ?>
 		</div>
 	</section>
+
 </aside>
+
+<style>
+.recent-popup {
+	position: absolute;
+	top: 45px;
+	width: 100%;
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+	z-index: 999;
+}
+
+.hidden {
+	display: none !important;
+}
+
+.recent-item {
+	padding: 10px 15px;
+	cursor: pointer;
+}
+
+.recent-item:hover {
+	background: #f5f5f5;
+}
+
+.trend {
+	padding: 10px 0;
+	cursor: pointer;
+	border-bottom: 1px solid #eee;
+}
+
+.trend:hover {
+	background: #f5f5f5;
+}
+</style>
+
 <script>
 (function () {
 	var base = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;

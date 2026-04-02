@@ -62,11 +62,25 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
 		<div class="sidebar-divider"></div>
 
 	<div class="d-flex align-items-center gap-2 sidebar-profile">
-    <a href="<?= BASE_URL ?>/user/<?= $currentUser['username'] ?>">
-        <img src="<?= $currentUser['avatar_url'] ?? BASE_URL.'/public/default-avatar.png' ?>"
-             class="rounded-circle"
-             width="50" height="50"
-             style="object-fit:cover">
+    <a href="<?= BASE_URL ?>/user/<?= $currentUser['username'] ?>" 
+       id="sidebarAvatarContainer"
+       data-avatar-container
+       data-avatar-initial="<?= htmlspecialchars(strtoupper(substr($currentUser['username'], 0, 1))) ?>"
+       class="position-relative flex-shrink-0"
+       style="width:50px; height:50px; display:inline-block;">
+        <!-- Mode 1: Image Avatar -->
+        <?php if (!empty($currentUser['avatar_url'])): ?>
+            <img src="<?= htmlspecialchars($currentUser['avatar_url']) ?>"
+                 class="rounded-circle position-absolute top-0 start-0"
+                 width="50" height="50"
+                 style="object-fit:cover">
+        <?php endif; ?>
+        
+        <!-- Mode 2: Text Avatar Fallback (overlay position) -->
+        <div class="avatar-text-fallback position-absolute top-0 start-0 d-flex align-items-center justify-content-center rounded-circle"
+             style="width:50px; height:50px; background:#8adfd7; color:#0a3d3a; font-weight:600; <?= !empty($currentUser['avatar_url']) ? 'display:none;' : '' ?>">
+            <?= htmlspecialchars(strtoupper(substr($currentUser['username'], 0, 1))) ?>
+        </div>
     </a>
 
     <div class="menu-label">

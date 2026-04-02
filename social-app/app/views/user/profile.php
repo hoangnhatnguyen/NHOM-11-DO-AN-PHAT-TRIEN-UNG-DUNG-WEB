@@ -19,12 +19,26 @@ const USER_ID = <?= (int)$user['id'] ?>;
                 <!-- ===== PROFILE HEADER ===== -->
                 <div class="mb-4 text-start">
 
-                    <div class="position-relative d-inline-block">
-                        <img id="avatarImg"
-                             src="<?= $user['avatar_url'] ?? BASE_URL.'/public/default-avatar.png' ?>"
-                             class="rounded-circle mb-3"
-                             width="110" height="110"
-                             style="object-fit:cover">
+                    <div class="position-relative d-inline-block"
+                         id="profileAvatarContainer"
+                         data-avatar-container
+                         data-avatar-initial="<?= htmlspecialchars(strtoupper(substr($user['username'], 0, 1))) ?>"
+                         style="display:inline-block;">
+                        
+                        <!-- Mode 1: Image Avatar -->
+                        <?php if (!empty($user['avatar_url'])): ?>
+                            <img id="avatarImg"
+                                 src="<?= htmlspecialchars($user['avatar_url']) ?>"
+                                 class="rounded-circle mb-3"
+                                 width="110" height="110"
+                                 style="object-fit:cover">
+                        <?php endif; ?>
+                        
+                        <!-- Mode 2: Text Avatar Fallback (overlay position) -->
+                        <div class="avatar-text-fallback position-absolute top-0 start-0 d-flex align-items-center justify-content-center rounded-circle"
+                             style="width:110px; height:110px; background:#8adfd7; color:#0a3d3a; font-weight:600; font-size:2rem; <?= !empty($user['avatar_url']) ? 'display:none;' : '' ?>">
+                            <?= htmlspecialchars(strtoupper(substr($user['username'], 0, 1))) ?>
+                        </div>
 
                         <?php if($isOwner): ?>
                             <div id="avatarOverlay"

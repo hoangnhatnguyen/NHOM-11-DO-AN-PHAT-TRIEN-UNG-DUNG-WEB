@@ -62,8 +62,10 @@ avatarInput?.addEventListener("change", () => {
     })
         .then(r => r.json())
         .then(data => {
-            avatarImg.src = data.url + "?t=" + Date.now();
-        });
+            // Reload page để render avatar mới (có thể từ text -> image hoặc update image)
+            location.reload();
+        })
+        .catch(err => console.error('Avatar upload error:', err));
 });
 
 // ===== POSTS =====

@@ -19,9 +19,28 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 			<a href="<?= BASE_URL ?>/post/<?= $postId ?>" class="stretched-link text-decoration-none" aria-hidden="true" tabindex="-1"></a>
 			<div class="d-flex align-items-start justify-content-between mb-3 position-relative" style="z-index: 2;">
 				<div class="d-flex align-items-center gap-2">
+				<?php
+				$authorAvatarUrl = $post['author_avatar_url'] ?? '';
+				$displayAvatarUrl = $authorAvatarUrl ? media_public_src($authorAvatarUrl) : '';
+				if ($displayAvatarUrl):
+				?>
+					<!-- Image Avatar -->
+					<img src="<?= htmlspecialchars($displayAvatarUrl) ?>"
+						 class="rounded-circle"
+						 width="40" height="40"
+						 style="object-fit: cover; flex-shrink: 0;"
+						 alt="Avatar"
+						 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+					<!-- Text Avatar Fallback -->
+					<div class="avatar-sm" style="background: <?= htmlspecialchars($authorColor['bg']) ?>; color: <?= htmlspecialchars($authorColor['fg']) ?>; display: none;">
+						<?= Avatar::initials((string) $author) ?>
+					</div>
+				<?php else: ?>
+					<!-- Text Avatar (no S3 URL) -->
 					<div class="avatar-sm" style="background: <?= htmlspecialchars($authorColor['bg']) ?>; color: <?= htmlspecialchars($authorColor['fg']) ?>;">
 						<?= Avatar::initials((string) $author) ?>
 					</div>
+				<?php endif; ?>
 					<div>
 						<div class="fw-semibold"><?= htmlspecialchars($author) ?></div>
 						<div class="small text-secondary"><?= htmlspecialchars((string) $createdAt) ?></div>

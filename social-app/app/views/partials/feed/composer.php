@@ -11,7 +11,22 @@ $composerColor = Avatar::colors($composerName);
 
 
     <div class="d-flex border-bottom pb-3 mb-3">
-        <div class="avatar-sm me-2"><?= strtoupper(substr($currentUser['username'], 0, 1)) ?></div>
+        <?php
+        $composerAvatarUrl = $currentUser['avatar_url'] ?? '';
+        $displayAvatarUrl = $composerAvatarUrl ? media_public_src($composerAvatarUrl) : '';
+        $composerInitials = htmlspecialchars(Avatar::initials($composerName), ENT_QUOTES, 'UTF-8');
+        ?>
+        <?php if ($displayAvatarUrl): ?>
+            <img src="<?= htmlspecialchars($displayAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
+                 class="rounded-circle me-2"
+                 width="40" height="40"
+                 style="object-fit: cover; flex-shrink: 0;"
+                 alt="Avatar"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <span class="avatar-sm me-2" style="background: <?= htmlspecialchars($composerColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($composerColor['fg'], ENT_QUOTES, 'UTF-8') ?>; display: none;"><?= $composerInitials ?></span>
+        <?php else: ?>
+            <span class="avatar-sm me-2" style="background: <?= htmlspecialchars($composerColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($composerColor['fg'], ENT_QUOTES, 'UTF-8') ?>;"><?= $composerInitials ?></span>
+        <?php endif; ?>
 
         <div class="flex-grow-1">
             <textarea name="content"

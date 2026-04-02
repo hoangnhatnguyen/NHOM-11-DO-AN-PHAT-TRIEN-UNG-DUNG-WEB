@@ -26,8 +26,16 @@ const USER_ID = <?= (int)$user['id'] ?>;
                         
                         <?php if (!empty($user['avatar_url'])): ?>
                             <!-- Mode 1: Image Avatar (khi có url) -->
+                            <?php
+                            // Use media helper to generate correct URL
+                            $avatarUrl = $user['avatar_url'] ?? '';
+                            $displayUrl = $avatarUrl ? media_public_src($avatarUrl) : '';
+                            // Debug logging
+                            error_log('Avatar Debug [' . $user['username'] . ']: avatar_url=[' . $avatarUrl . '], displayUrl=[' . $displayUrl . ']');
+                            ?>
+                            <?php if ($displayUrl): ?>
                             <img id="avatarImg"
-                                 src="<?= htmlspecialchars(BASE_URL . '/public' . $user['avatar_url']) ?>"
+                                 src="<?= htmlspecialchars($displayUrl) ?>"
                                  class="rounded-circle mb-3"
                                  width="110" height="110"
                                  style="object-fit:cover"
@@ -39,6 +47,14 @@ const USER_ID = <?= (int)$user['id'] ?>;
                                  style="width:110px; height:110px; background:#8adfd7; color:#0a3d3a; font-weight:600; font-size:2rem; display:none;">
                                 <?= htmlspecialchars(strtoupper(substr($user['username'], 0, 1))) ?>
                             </div>
+                            <?php else: ?>
+                                <!-- Mode 2: Text Avatar (fallback nếu không generate được URL) -->
+                                <div id="textAvatar"
+                                     class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+                                     style="width:110px; height:110px; background:#8adfd7; color:#0a3d3a; font-weight:600; font-size:2rem;">
+                                    <?= htmlspecialchars(strtoupper(substr($user['username'], 0, 1))) ?>
+                                </div>
+                            <?php endif; ?>
                         <?php else: ?>
                             <!-- Mode 2: Text Avatar (khi ko có url) -->
                             <div id="textAvatar"

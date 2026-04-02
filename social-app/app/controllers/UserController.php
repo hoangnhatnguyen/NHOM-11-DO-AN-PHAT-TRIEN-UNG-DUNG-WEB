@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Follow.php';
+require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
 
 class UserController extends BaseController {
@@ -50,23 +51,51 @@ class UserController extends BaseController {
         $this->requireAuth();
 
         if (!isset($_FILES['avatar'])) {
-            echo json_encode(['error'=>'No file']);
+            echo json_encode(['error'=>'No file'], JSON_UNESCAPED_UNICODE);
             return;
         }
 
         $file = $_FILES['avatar'];
+        
+        // Validate upload error
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['error' => 'Upload error: ' . $file['error']], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
-        $filename = time() . '_' . basename($file['name']);
-        $path = '/uploads/' . $filename;
-        $fullPath = APP_ROOT . '/public' . $path;
+        // Validate file type (only images)
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($file['type'], $allowedTypes)) {
+            echo json_encode(['error' => 'Only image files allowed'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
-        move_uploaded_file($file['tmp_name'], $fullPath);
+        // Validate file size (max 5MB)
+        if ($file['size'] > 5 * 1024 * 1024) {
+            echo json_encode(['error' => 'File size too large (max 5MB)'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
-        $this->userModel->updateAvatar($_SESSION['user']['id'], $path);
+        $userId = $_SESSION['user']['id'];
 
-        $_SESSION['user']['avatar_url'] = $path;
+        try {
+            // Upload lên S3 (required)
+            $s3Service = new S3Service();
+            $filename = $file['name'];
+            $s3Key = $s3Service->generateAvatarKey($userId, $filename);
+            $s3Url = $s3Service->uploadFile($file['tmp_name'], $s3Key);
 
-        echo json_encode(['url' => BASE_URL . '/public' . $path]);
+            if ($s3Url) {
+                // Lưu S3 key (không phải full URL) vào DB
+                $this->userModel->updateAvatar($userId, $s3Key);
+                $_SESSION['user']['avatar_url'] = $s3Key;
+                echo json_encode(['url' => $s3Url, 'success' => true], JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['error' => 'Upload to S3 failed'], JSON_UNESCAPED_UNICODE);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['error' => 'Error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public function apiPosts(): void {
@@ -76,18 +105,38 @@ class UserController extends BaseController {
 
         $db = Database::getInstance()->getConnection();
 
+        // Get posts
         $stmt = $db->prepare("
-            SELECT p.*, pm.media_url
+            SELECT p.*
             FROM posts p
-            LEFT JOIN post_media pm ON p.id = pm.post_id
             WHERE p.user_id = ?
             ORDER BY p.created_at DESC
         ");
 
         $stmt->execute([$userId]);
+        $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Enrich with media
+        require_once __DIR__ . '/../models/PostMedia.php';
+        require_once __DIR__ . '/../helpers/media.php';
+        $mediaModel = new PostMedia();
+        foreach ($posts as &$post) {
+            $postId = (int) ($post['id'] ?? 0);
+            $mediaRows = $mediaModel->getByPost($postId);
+            
+            // Generate presigned URLs for each media
+            foreach ($mediaRows as &$media) {
+                $key = (string)($media['media_url'] ?? '');
+                $media['display_url'] = $key ? media_public_src($key) : '';
+            }
+            unset($media);
+            
+            $post['media'] = $mediaRows;
+        }
+        unset($post);
 
         echo json_encode([
-            'posts' => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            'posts' => $posts
         ]);
     }
 

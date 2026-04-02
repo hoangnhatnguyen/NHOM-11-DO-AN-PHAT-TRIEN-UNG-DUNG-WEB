@@ -16,7 +16,7 @@
 
                     <!-- IMAGE -->
                     <img 
-                        src="<?= BASE_URL . '/' . ($post['media_url'] ?? 'public/images/default.jpg') ?>" 
+                        src="<?= htmlspecialchars(media_public_src($post['media_url'] ?? '') ?: 'public/images/default.jpg') ?>" 
                         class="rounded-3"
                         style="width:70px;height:70px;object-fit:cover;"
                     >

@@ -98,5 +98,35 @@ class BaseController {
 	protected function clearOldInput(): void {
 		unset($_SESSION['_old_input']);
 	}
+
+	/**
+	 * Sync user data from database to session
+	 * Useful for getting updated avatar_url and other user fields
+	 */
+	protected function syncUserSession(): void {
+		$userId = $_SESSION['user']['id'] ?? 0;
+		if ($userId <= 0) {
+			return;
+		}
+
+		try {
+			$db = Database::getInstance()->getConnection();
+			$stmt = $db->prepare("SELECT id, username, email, role, avatar_url FROM users WHERE id = :id LIMIT 1");
+			$stmt->execute(['id' => $userId]);
+			$user = $stmt->fetch(PDO::FETCH_ASSOC);
+			
+			if ($user) {
+				$_SESSION['user'] = [
+					'id' => (int) $user['id'],
+					'username' => (string) $user['username'],
+					'email' => (string) $user['email'],
+					'role' => (string) ($user['role'] ?? 'user'),
+					'avatar_url' => (string) ($user['avatar_url'] ?? ''),
+				];
+			}
+		} catch (Exception $e) {
+			// Silently fail - session data should still be available
+		}
+	}
 }
 

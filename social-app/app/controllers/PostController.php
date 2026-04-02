@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../models/Post.php';
 require_once __DIR__ . '/../models/PostHashtag.php';
 require_once __DIR__ . '/../models/PostMedia.php';
+require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
 require_once __DIR__ . '/../helpers/hashtag_helper.php';
 
@@ -35,18 +36,25 @@ class PostController extends BaseController {
 
         (new PostHashtag())->replaceForPost($postId, $parsed['tags']);
 
-        // upload ảnh → public/media (khớp URL trong view: /public/media/<tên file>)
+        // Upload ảnh lên S3
         if (!empty($_FILES['media']['name'][0])) {
+            $s3Service = new S3Service();
             $mediaModel = new PostMedia();
-            $uploadDir = APP_ROOT . 'public/media/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
 
+            // Upload lên S3 (required)
             foreach ($_FILES['media']['tmp_name'] as $key => $tmp) {
-                $name = time() . '_' . $_FILES['media']['name'][$key];
-                move_uploaded_file($tmp, $uploadDir . $name);
-                $mediaModel->addMedia($postId, $name);
+                if (!is_uploaded_file($tmp)) {
+                    continue;
+                }
+                
+                $filename = $_FILES['media']['name'][$key];
+                $s3Key = $s3Service->generatePostMediaKey($postId, $filename);
+                $s3Url = $s3Service->uploadFile($tmp, $s3Key);
+                
+                if ($s3Url) {
+                    // Lưu S3 key (không phải full URL) vào DB
+                    $mediaModel->addMedia($postId, $s3Key);
+                }
             }
         }
 
@@ -295,24 +303,33 @@ class PostController extends BaseController {
         if (!empty($removeMediaIds)) {
             $mediaRows = $mediaModel->getByIdsForPost($postId, $removeMediaIds);
             $mediaModel->deleteByIdsForPost($postId, $removeMediaIds);
+            
+            // Delete from S3 (required)
+            $s3Service = new S3Service();
             foreach ($mediaRows as $mediaRow) {
-                $this->removeMediaFileFromDisk((string) ($mediaRow['media_url'] ?? ''));
+                $mediaUrl = (string) ($mediaRow['media_url'] ?? '');
+                if ($mediaUrl) {
+                    $s3Service->deleteFile($mediaUrl);
+                }
             }
         }
 
         if (!empty($_FILES['media']['name'][0])) {
-            $uploadDir = APP_ROOT . 'public/media/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
+            $s3Service = new S3Service();
 
+            // Upload lên S3 (required)
             foreach ($_FILES['media']['tmp_name'] as $key => $tmp) {
                 if (!is_uploaded_file($tmp)) {
                     continue;
                 }
-                $name = time() . '_' . $_FILES['media']['name'][$key];
-                if (move_uploaded_file($tmp, $uploadDir . $name)) {
-                    $mediaModel->addMedia($postId, $name);
+                
+                $filename = $_FILES['media']['name'][$key];
+                $s3Key = $s3Service->generatePostMediaKey($postId, $filename);
+                $s3Url = $s3Service->uploadFile($tmp, $s3Key);
+                
+                if ($s3Url) {
+                    // Lưu S3 key (không phải full URL) vào DB
+                    $mediaModel->addMedia($postId, $s3Key);
                 }
             }
         }
@@ -339,21 +356,5 @@ class PostController extends BaseController {
 
         (new Post())->delete($postId);
         $this->redirect('/');
-    }
-
-    private function removeMediaFileFromDisk(string $mediaUrl): void {
-        $mediaUrl = trim(str_replace('\\', '/', $mediaUrl));
-        if ($mediaUrl === '') {
-            return;
-        }
-
-        $relative = ltrim($mediaUrl, '/');
-        $fullPath = (strpos($relative, 'media/') === 0)
-            ? APP_ROOT . 'public/' . $relative
-            : APP_ROOT . 'public/media/' . $relative;
-
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
-        }
     }
 }

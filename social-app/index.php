@@ -6,6 +6,10 @@ error_reporting(E_ALL);
  * Social App - MVC Architecture
  */
 session_start();
+
+// Load Composer autoloader
+require_once __DIR__ . '/vendor/autoload.php';
+
 require_once 'config/env.php';
 require_once 'config/session.php';
 require_once 'config/constants.php';

@@ -1,10 +1,14 @@
 <?php
 
 require_once __DIR__ . '/../models/Post.php';
+require_once __DIR__ . '/../models/User.php';
 
 class HomeController extends BaseController {
 	public function index(): void {
 		$this->requireAuth();
+
+		// Sync avatar_url từ database vào session
+		$this->syncUserSession();
 
 		$posts = [];
 		$dbError = null;

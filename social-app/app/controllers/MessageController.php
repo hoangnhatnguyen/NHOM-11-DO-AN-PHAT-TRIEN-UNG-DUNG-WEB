@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../services/FirebaseService.php';
+require_once __DIR__ . '/../services/S3Service.php';
 
 class MessageController extends BaseController {
 	private const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -183,42 +184,28 @@ class MessageController extends BaseController {
 		}
 
 		$userId = (int) (($_SESSION['user'] ?? [])['id'] ?? 0);
-		$targetDir = APP_ROOT . 'public/uploads/chat/' . $userId . '/';
-		if (!is_dir($targetDir) && !@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+
+		// Upload lên S3 (required)
+		$s3Service = new S3Service();
+		$conversationId = (int) ($_POST['conversation_id'] ?? 0);
+		$s3Key = $s3Service->generateChatKey($conversationId, $userId, $originalName);
+		$s3Url = $s3Service->uploadFile($tmpName, $s3Key);
+
+		if ($s3Url) {
 			$this->json([
-				'error' => 'Không thể tạo thư mục tải tệp.',
-			], 500);
-			return;
-		}
-
-		$safeBase = preg_replace('/[^a-zA-Z0-9_-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
-		$safeBase = trim((string) $safeBase, '_');
-		if ($safeBase === '') {
-			$safeBase = 'file';
-		}
-
-		$unique = bin2hex(random_bytes(8));
-		$fileName = date('Ymd_His') . '_' . $unique . '_' . $safeBase . '.' . $ext;
-		$targetPath = $targetDir . $fileName;
-
-		if (!move_uploaded_file($tmpName, $targetPath)) {
+				'item' => [
+					'fileName' => $originalName,
+					'size' => $size,
+					'contentType' => (string) ($file['type'] ?? ''),
+					'url' => $s3Url,
+					'storagePath' => $s3Key,
+				],
+			]);
+		} else {
 			$this->json([
-				'error' => 'Không thể lưu tệp tải lên.',
+				'error' => 'Upload to S3 failed.',
 			], 500);
-			return;
 		}
-
-		$publicUrl = BASE_URL . '/public/uploads/chat/' . $userId . '/' . rawurlencode($fileName);
-
-		$this->json([
-			'item' => [
-				'fileName' => $originalName,
-				'size' => $size,
-				'contentType' => (string) ($file['type'] ?? ''),
-				'url' => $publicUrl,
-				'storagePath' => 'local://chat/' . $userId . '/' . $fileName,
-			],
-		]);
 	}
 
 	private function formatSessionUser(): array {

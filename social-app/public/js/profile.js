@@ -62,10 +62,21 @@ avatarInput?.addEventListener("change", () => {
     })
         .then(r => r.json())
         .then(data => {
-            // Reload page để render avatar mới (có thể từ text -> image hoặc update image)
-            location.reload();
+            if (data.error) {
+                console.error('Upload error:', data.error);
+                alert('Upload failed: ' + data.error);
+            } else if (data.success || data.url) {
+                // Reload page để render avatar mới
+                location.reload();
+            } else {
+                console.error('Unexpected response:', data);
+                alert('Upload failed');
+            }
         })
-        .catch(err => console.error('Avatar upload error:', err));
+        .catch(err => {
+            console.error('Avatar upload error:', err);
+            alert('Upload error: ' + err.message);
+        });
 });
 
 // ===== POSTS =====
@@ -79,10 +90,20 @@ function loadPosts() {
                 html = "<p class='text-muted'>Chưa có bài viết nào</p>";
             } else {
                 data.posts.forEach(p => {
+                    let mediaHtml = "";
+                    if (p.media && Array.isArray(p.media)) {
+                        p.media.forEach(m => {
+                            let displayUrl = m.display_url || '';
+                            if (displayUrl) {
+                                mediaHtml += `<img src="${displayUrl}" class="img-fluid rounded mb-2" alt="">`;
+                            }
+                        });
+                    }
+                    
                     html += `
                         <div class="card p-3 mb-3">
                             <p>${p.content ?? ''}</p>
-                            ${p.media_url ? `<img src="${p.media_url}" class="img-fluid rounded">` : ''}
+                            ${mediaHtml}
                         </div>
                     `;
                 });

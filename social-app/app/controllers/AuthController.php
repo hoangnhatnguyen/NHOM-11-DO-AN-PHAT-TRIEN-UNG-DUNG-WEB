@@ -74,6 +74,7 @@ class AuthController extends BaseController {
 			'username' => (string) $user['username'],
 			'email' => (string) $user['email'],
 			'role' => (string) ($user['role'] ?? 'user'),
+			'avatar_url' => (string) ($user['avatar_url'] ?? ''),
 		];
 
 		$this->clearOldInput();
@@ -174,6 +175,7 @@ class AuthController extends BaseController {
 			'username' => $username,
 			'email' => $email,
 			'role' => 'user',
+			'avatar_url' => '',
 		];
 
 		$this->clearOldInput();

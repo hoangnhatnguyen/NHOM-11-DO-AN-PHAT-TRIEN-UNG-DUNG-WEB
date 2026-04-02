@@ -54,17 +54,23 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 							$uname = (string) ($u['username'] ?? '');
 							$rawAv = (string) ($u['avatar_url'] ?? '');
 							$suggestAvatar = '';
-							if ($rawAv !== '' && preg_match('#^https?://#i', $rawAv)) {
-								$suggestAvatar = $rawAv;
-							} elseif ($rawAv !== '') {
-								$suggestAvatar = media_public_src($rawAv);
+							if ($rawAv !== '') {
+								// Try to generate presigned URL or use full URL
+								if (preg_match('#^https?://#i', $rawAv)) {
+									// Already a full URL (from old system)
+									$suggestAvatar = $rawAv;
+								} else {
+									// S3 key - generate presigned URL
+									$suggestAvatar = media_public_src($rawAv);
+								}
 							}
 							$suggestColor = Avatar::colors($uname);
 						?>
 						<li class="d-flex justify-content-between align-items-center gap-2 mb-2">
 							<a href="<?= BASE_URL ?>/users/finder?id=<?= $sid ?>" class="text-decoration-none text-body d-flex align-items-center gap-2 min-w-0 flex-grow-1">
 								<?php if ($suggestAvatar !== ''): ?>
-									<img src="<?= htmlspecialchars($suggestAvatar, ENT_QUOTES, 'UTF-8') ?>" alt="" width="36" height="36" class="rounded-circle flex-shrink-0" style="object-fit:cover">
+									<img src="<?= htmlspecialchars($suggestAvatar, ENT_QUOTES, 'UTF-8') ?>" alt="" width="36" height="36" class="rounded-circle flex-shrink-0" style="object-fit:cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+									<span class="avatar-sm flex-shrink-0" style="background: <?= htmlspecialchars($suggestColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($suggestColor['fg'], ENT_QUOTES, 'UTF-8') ?>; display:none;"><?= htmlspecialchars(Avatar::initials($uname), ENT_QUOTES, 'UTF-8') ?></span>
 								<?php else: ?>
 									<span class="avatar-sm flex-shrink-0" style="background: <?= htmlspecialchars($suggestColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($suggestColor['fg'], ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars(Avatar::initials($uname), ENT_QUOTES, 'UTF-8') ?></span>
 								<?php endif; ?>

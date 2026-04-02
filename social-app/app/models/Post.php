@@ -108,6 +108,7 @@ class Post extends BaseModel {
             SELECT 
                 p.*,
                 u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
                 (
                     SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
                 ) AS like_count,
@@ -165,6 +166,7 @@ class Post extends BaseModel {
             SELECT 
                 p.*,
                 u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
                 (
                     SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
                 ) AS like_count,

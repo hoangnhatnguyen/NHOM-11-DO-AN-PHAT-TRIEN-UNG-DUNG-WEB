@@ -32,7 +32,7 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 					<?php if (!empty($meAvatarUrl)): ?>
 						<!-- Mode 1: Image Avatar -->
 						<img id="chatRailAvatarImg"
-							 src="<?= htmlspecialchars(BASE_URL . '/public' . $meAvatarUrl) ?>"
+							 src="<?= htmlspecialchars(media_public_src($meAvatarUrl)) ?>"
 							 class="rounded-circle"
 							 style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;">
 						
@@ -59,7 +59,7 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 						<?php if (!empty($meAvatarUrl)): ?>
 							<!-- Mode 1: Image Avatar -->
 							<img id="chatMenuAvatarImg"
-								 src="<?= htmlspecialchars(BASE_URL . '/public' . $meAvatarUrl) ?>"
+								 src="<?= htmlspecialchars(media_public_src($meAvatarUrl)) ?>"
 								 class="rounded-circle flex-shrink-0"
 								 width="44" height="44"
 								 style="object-fit:cover"

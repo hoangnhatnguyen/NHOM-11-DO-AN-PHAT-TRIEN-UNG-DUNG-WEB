@@ -72,7 +72,7 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
         <?php if (!empty($currentUser['avatar_url'])): ?>
             <!-- Mode 1: Image Avatar (khi có url) -->
             <img id="sidebarAvatarImg"
-                 src="<?= htmlspecialchars(BASE_URL . '/public' . $currentUser['avatar_url']) ?>"
+                 src="<?= htmlspecialchars(media_public_src($currentUser['avatar_url'])) ?>"
                  class="rounded-circle"
                  width="50" height="50"
                  style="object-fit:cover"

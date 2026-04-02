@@ -29,6 +29,11 @@ class BaseController {
 		exit;
 	}
 
+	protected function isAjaxRequest(): bool {
+		$h = (string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '');
+		return strtolower($h) === 'xmlhttprequest';
+	}
+
 	protected function requireAuth(): void {
 		if (empty($_SESSION['user'])) {
 			$this->redirect('/login');

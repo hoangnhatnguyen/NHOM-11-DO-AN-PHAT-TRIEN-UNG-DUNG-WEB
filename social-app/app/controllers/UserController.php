@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Follow.php';
+require_once __DIR__ . '/../helpers/notification_helper.php';
 
 class UserController extends BaseController {
 	private User $userModel;
@@ -69,6 +70,7 @@ class UserController extends BaseController {
 					}
 
 					if ($this->followModel->follow($currentUserId, $targetId)) {
+						create_notification(notification_db(), $targetId, (int) $currentUserId, 'follow', (int) $currentUserId, null);
 						echo json_encode(['success' => true, 'message' => 'Following user']);
 					} else {
 						http_response_code(400);

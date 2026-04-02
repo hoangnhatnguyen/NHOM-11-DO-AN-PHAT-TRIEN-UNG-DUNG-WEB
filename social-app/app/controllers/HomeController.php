@@ -8,9 +8,16 @@ class HomeController extends BaseController {
 
 		$posts = [];
 		$dbError = null;
+		$feedTab = 'foryou';
 
 		try {
-			$posts = (new Post())->findAll();
+			$viewerId = (int) ($_SESSION['user']['id'] ?? 0);
+			$tab = (string) ($_GET['tab'] ?? '');
+			$feedTab = ($tab === 'following') ? 'following' : 'foryou';
+			$postModel = new Post();
+			$posts = $feedTab === 'following'
+				? $postModel->getFeedFollowing($viewerId)
+				: $postModel->getFeed($viewerId);
 		} catch (Throwable $e) {
 			$dbError = $e->getMessage();
 		}
@@ -19,10 +26,11 @@ class HomeController extends BaseController {
 			'title' => 'Trang chủ',
 			'posts' => $posts,
 			'dbError' => $dbError,
+			'feedTab' => $feedTab,
 			'currentUser' => $_SESSION['user'] ?? null,
 			'csrfToken' => $this->csrfToken(),
-			'activeMenu' => 'home',
-		]);
+			'activeMenu' => 'home'
+		], 'feed');
 	}
 }
 

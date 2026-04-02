@@ -25,9 +25,11 @@ $autoExpand = ((int) $depth) >= 1;
 
 <div class="d-block" id="comment-<?= $nodeId ?>" style="margin-left: <?= min(56, (int) $depth * 14) ?>px">
 	<div class="d-flex mb-2">
-		<div class="avatar-sm me-2 flex-shrink-0"><?= strtoupper(substr($author, 0, 1)) ?></div>
+		<a href="<?= htmlspecialchars(profile_url($author), ENT_QUOTES, 'UTF-8') ?>" class="me-2 flex-shrink-0 text-decoration-none">
+			<div class="avatar-sm"><?= strtoupper(substr($author, 0, 1)) ?></div>
+		</a>
 		<div class="border rounded-4 p-2 bg-light w-100">
-			<div class="small fw-semibold"><?= htmlspecialchars($author) ?></div>
+			<a href="<?= htmlspecialchars(profile_url($author), ENT_QUOTES, 'UTF-8') ?>" class="small fw-semibold text-decoration-none text-body"><?= htmlspecialchars($author) ?></a>
 			<div><?= format_post_body_html($content) ?></div>
 		</div>
 	</div>

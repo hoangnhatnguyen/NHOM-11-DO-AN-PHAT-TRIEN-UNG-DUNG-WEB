@@ -40,7 +40,7 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
 			<li><a class="nav-link <?= $activeMenu === 'saved' ? 'active' : '' ?>" href="<?= BASE_URL ?>/saved"><i class="bi bi-bookmark"></i><span class="menu-label">Đã lưu</span></a></li>
 			<li>
                 <a class="nav-link <?= $activeMenu === 'profile' ? 'active' : '' ?>"
-                   href="<?= BASE_URL ?>/user/<?= $currentUser['username'] ?>">
+                   href="<?= htmlspecialchars(profile_url((string) ($currentUser['username'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
                     <i class="bi bi-person"></i>
                     <span class="menu-label">Trang cá nhân</span>
                 </a>
@@ -62,7 +62,7 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
 		<div class="sidebar-divider"></div>
 
 	<div class="d-flex align-items-center gap-2 sidebar-profile">
-    <a href="<?= BASE_URL ?>/user/<?= $currentUser['username'] ?>" 
+    <a href="<?= htmlspecialchars(profile_url((string) ($currentUser['username'] ?? '')), ENT_QUOTES, 'UTF-8') ?>" 
        id="sidebarAvatarContainer"
        data-avatar-container
        data-avatar-initial="<?= htmlspecialchars(strtoupper(substr($currentUser['username'], 0, 1))) ?>"
@@ -95,7 +95,7 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
     </a>
 
     <div class="menu-label">
-        <div class="fw-semibold small"><?= htmlspecialchars($profileName) ?></div>
+        <a href="<?= htmlspecialchars(profile_url((string) ($currentUser['username'] ?? '')), ENT_QUOTES, 'UTF-8') ?>" class="fw-semibold small text-decoration-none text-body d-inline-block"><?= htmlspecialchars($profileName) ?></a>
         <div class="text-secondary small"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
     </div>
 </div>

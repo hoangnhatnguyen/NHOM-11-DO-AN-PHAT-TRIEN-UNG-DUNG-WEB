@@ -9,6 +9,32 @@
 	--bs-modal-border-color: #dee2e6;
 }
 
+/* Nút Theo dõi / CTA đồng bộ màu thương hiệu (badge, tab profile) */
+.btn-brand-follow {
+	background-color: var(--brand-primary);
+	border-color: var(--brand-primary);
+	color: #fff;
+	font-weight: 600;
+}
+.btn-brand-follow:hover,
+.btn-brand-follow:focus {
+	background-color: #155a82;
+	border-color: #155a82;
+	color: #fff;
+}
+.btn-brand-follow-outline {
+	background-color: #fff;
+	border: 2px solid var(--brand-primary);
+	color: var(--brand-primary);
+	font-weight: 600;
+}
+.btn-brand-follow-outline:hover,
+.btn-brand-follow-outline:focus {
+	background-color: var(--brand-primary-soft);
+	border-color: var(--brand-primary);
+	color: var(--brand-primary);
+}
+
 /* ============ GLOBAL STYLES ============ */
 .app-bg {
 	background: #f3f5f8;

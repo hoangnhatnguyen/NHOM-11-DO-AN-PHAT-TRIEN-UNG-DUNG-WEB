@@ -132,6 +132,14 @@ document.getElementById("followingBtn")?.addEventListener("click", () => {
         });
 });
 
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
 function renderList(list, emptyMsg) {
     let html = "";
 
@@ -139,11 +147,14 @@ function renderList(list, emptyMsg) {
         html = `<p class="text-center text-muted">${emptyMsg}</p>`;
     } else {
         list.forEach(u => {
+            const uname = String(u.username || "");
+            const href = BASE + "/profile?u=" + encodeURIComponent(uname);
+            const av = u.avatar_url ? String(u.avatar_url) : "/public/default-avatar.png";
             html += `
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <img src="${u.avatar_url || '/public/default-avatar.png'}" width="40" height="40" class="rounded-circle">
-                    <span>${u.username}</span>
-                </div>
+                <a href="${escHtml(href)}" class="d-flex align-items-center gap-2 mb-2 text-decoration-none text-body">
+                    <img src="${escHtml(av)}" width="40" height="40" class="rounded-circle" alt="">
+                    <span>${escHtml(uname)}</span>
+                </a>
             `;
         });
     }
@@ -298,3 +309,81 @@ function loadActivity() {
 }
 // INIT
 loadPosts();
+
+// ===== PROFILE: follow / unfollow (trang người khác) =====
+(function () {
+    const btn = document.getElementById("profileFollowBtn");
+    if (!btn) return;
+
+    const targetId = parseInt(btn.getAttribute("data-user-id") || "0", 10);
+    const username = btn.getAttribute("data-username") || "";
+    const modalEl = document.getElementById("unfollowConfirmModal");
+    const modalText = document.getElementById("unfollowConfirmText");
+    const confirmBtn = document.getElementById("unfollowConfirmBtn");
+
+    function setFollowingUi(following) {
+        btn.setAttribute("data-following", following ? "true" : "false");
+        if (following) {
+            btn.textContent = "Đã theo dõi";
+            btn.classList.remove("btn-brand-follow");
+            btn.classList.add("btn-brand-follow-outline");
+        } else {
+            btn.textContent = "Theo dõi";
+            btn.classList.remove("btn-brand-follow-outline");
+            btn.classList.add("btn-brand-follow");
+        }
+    }
+
+    setFollowingUi(btn.getAttribute("data-following") === "true");
+
+    btn.addEventListener("click", async function () {
+        const isFollowing = btn.getAttribute("data-following") === "true";
+        if (!isFollowing) {
+            btn.disabled = true;
+            const fd = new FormData();
+            fd.append("target_id", String(targetId));
+            try {
+                const r = await fetch(BASE + "/user-api/follow?action=follow", {
+                    method: "POST",
+                    body: fd,
+                    credentials: "same-origin",
+                });
+                const data = await r.json();
+                if (data && data.success) {
+                    setFollowingUi(true);
+                }
+            } catch (e) {}
+            btn.disabled = false;
+            return;
+        }
+
+        if (modalText) {
+            modalText.textContent =
+                "Bạn có chắc muốn hủy theo dõi @" + username + "?";
+        }
+        if (modalEl && typeof bootstrap !== "undefined") {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    });
+
+    confirmBtn?.addEventListener("click", async function () {
+        confirmBtn.disabled = true;
+        const fd = new FormData();
+        fd.append("target_id", String(targetId));
+        try {
+            const r = await fetch(BASE + "/user-api/follow?action=unfollow", {
+                method: "POST",
+                body: fd,
+                credentials: "same-origin",
+            });
+            const data = await r.json();
+            if (data && data.success) {
+                setFollowingUi(false);
+                if (modalEl && typeof bootstrap !== "undefined") {
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                }
+            }
+        } catch (e) {}
+        confirmBtn.disabled = false;
+    });
+})();

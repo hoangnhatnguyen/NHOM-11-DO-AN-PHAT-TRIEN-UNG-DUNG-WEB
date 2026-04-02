@@ -62,21 +62,31 @@ document.addEventListener("keydown", function (e) {
 
 function loadTrending() {
   const base = appBaseUrl();
+  const box = document.getElementById("right-trending");
+  if (!box) return;
+
   fetch(base + "/api/search.php?type=trending_full", { credentials: "same-origin" })
     .then((res) => res.json())
     .then((res) => {
-      const box = document.getElementById("right-trending");
-      if (!box) return;
+      if (!res || res.status !== "success" || !Array.isArray(res.data)) {
+        return;
+      }
+      const data = res.data;
+      if (data.length === 0) {
+        box.innerHTML =
+          '<p class="text-muted small mb-0">Chưa có hashtag nào trong bài viết active.</p>';
+        return;
+      }
 
-      const data = res.data || [];
-
+      box.className = "d-flex flex-column gap-2";
       box.innerHTML = data
         .map((t, i) => {
           const name = typeof t === "string" ? t : String(t.name || "");
+          if (!name) return "";
           const qVal = "#" + name;
           return `
         <div class="trend" data-q="${escapeAttr(qVal)}" role="button" tabindex="0">
-          <small>#${i + 1} Trending</small><br>
+          <small class="text-secondary">#${i + 1} Trending</small><br>
           <b>#${escapeHtml(name)}</b>
         </div>
       `;
@@ -106,12 +116,16 @@ function loadSuggestUsers() {
 
       box.innerHTML = data
         .map(
-          (u) => `
-        <li class="d-flex justify-content-between align-items-center mb-2">
-          <span>@${escapeHtml(u.username)}</span>
-          <button type="button" class="btn btn-sm rounded-pill btn-outline-primary btn-follow-suggest" data-user-id="${escapeAttr(String(u.id))}">Theo dõi</button>
+          (u) => {
+            const uname = String(u.username || "");
+            const profileHref = base + "/profile?u=" + encodeURIComponent(uname);
+            return `
+        <li class="d-flex justify-content-between align-items-center mb-2 gap-2">
+          <a href="${escapeAttr(profileHref)}" class="text-decoration-none text-body text-truncate min-w-0">@${escapeHtml(uname)}</a>
+          <button type="button" class="btn btn-sm rounded-pill btn-brand-follow btn-follow-suggest flex-shrink-0" data-user-id="${escapeAttr(String(u.id))}">Theo dõi</button>
         </li>
-      `
+      `;
+          }
         )
         .join("");
 

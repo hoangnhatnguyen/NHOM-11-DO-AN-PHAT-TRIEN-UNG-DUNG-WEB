@@ -42,7 +42,7 @@
 					if (/\/api\/like\.php$/i.test(loginU.pathname)) {
 						loginU.pathname = loginU.pathname.replace(/\/api\/like\.php$/i, '/login');
 					} else {
-						loginU.pathname = loginU.pathname.replace(/\/post\/\d+\/(save|share)$/i, '/login');
+						loginU.pathname = loginU.pathname.replace(/\/post\/\d+\/(like|save|share)$/i, '/login');
 					}
 					window.location.href = loginU.pathname + loginU.search + loginU.hash;
 					return;

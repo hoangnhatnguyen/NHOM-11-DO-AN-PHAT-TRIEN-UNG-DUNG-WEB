@@ -7,6 +7,10 @@ if (!isset($suggestedFollows)) {
 		$suggestedFollows = (new Follow())->suggestForViewer($uid, 5);
 	}
 }
+if (!isset($trendingHashtags) || !is_array($trendingHashtags)) {
+	require_once dirname(__DIR__, 3) . '/models/Hashtag.php';
+	$trendingHashtags = (new Hashtag())->getTrending(10);
+}
 require_once dirname(__DIR__, 3) . '/helpers/media.php';
 ?>
 <aside class="d-flex flex-column gap-3 right-sticky">
@@ -36,7 +40,25 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 		<div class="card-body p-3">
 			<h6 class="fw-bold text-primary mb-3">Đang phổ biến</h6>
 
-			<div id="right-trending"></div>
+			<div id="right-trending" class="d-flex flex-column gap-2">
+				<?php if (empty($trendingHashtags)): ?>
+					<p class="text-muted small mb-0">Chưa có hashtag nào trong bài viết active.</p>
+				<?php else: ?>
+					<?php foreach (array_values($trendingHashtags) as $ti => $row): ?>
+						<?php
+						$hname = (string) ($row['name'] ?? '');
+						if ($hname === '') {
+							continue;
+						}
+						$qVal = '#' . $hname;
+						?>
+						<div class="trend" data-q="<?= htmlspecialchars($qVal, ENT_QUOTES, 'UTF-8') ?>" role="button" tabindex="0">
+							<small class="text-secondary">#<?= (int) $ti + 1 ?> Trending</small><br>
+							<b>#<?= htmlspecialchars($hname, ENT_QUOTES, 'UTF-8') ?></b>
+						</div>
+					<?php endforeach; ?>
+				<?php endif; ?>
+			</div>
 		</div>
 	</section>
 
@@ -53,21 +75,11 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 							$sid = (int) ($u['id'] ?? 0);
 							$uname = (string) ($u['username'] ?? '');
 							$rawAv = (string) ($u['avatar_url'] ?? '');
-							$suggestAvatar = '';
-							if ($rawAv !== '') {
-								// Try to generate presigned URL or use full URL
-								if (preg_match('#^https?://#i', $rawAv)) {
-									// Already a full URL (from old system)
-									$suggestAvatar = $rawAv;
-								} else {
-									// S3 key - generate presigned URL
-									$suggestAvatar = media_public_src($rawAv);
-								}
-							}
+							$suggestAvatar = $rawAv !== '' ? media_public_src($rawAv) : '';
 							$suggestColor = Avatar::colors($uname);
 						?>
 						<li class="d-flex justify-content-between align-items-center gap-2 mb-2">
-							<a href="<?= BASE_URL ?>/users/finder?id=<?= $sid ?>" class="text-decoration-none text-body d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+							<a href="<?= htmlspecialchars(profile_url($uname), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none text-body d-flex align-items-center gap-2 min-w-0 flex-grow-1">
 								<?php if ($suggestAvatar !== ''): ?>
 									<img src="<?= htmlspecialchars($suggestAvatar, ENT_QUOTES, 'UTF-8') ?>" alt="" width="36" height="36" class="rounded-circle flex-shrink-0" style="object-fit:cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
 									<span class="avatar-sm flex-shrink-0" style="background: <?= htmlspecialchars($suggestColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($suggestColor['fg'], ENT_QUOTES, 'UTF-8') ?>; display:none;"><?= htmlspecialchars(Avatar::initials($uname), ENT_QUOTES, 'UTF-8') ?></span>
@@ -77,7 +89,7 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 								<span class="text-truncate">@<?= htmlspecialchars($uname, ENT_QUOTES, 'UTF-8') ?></span>
 							</a>
 							<button type="button"
-								class="btn btn-sm rounded-pill btn-outline-primary flex-shrink-0 js-suggest-follow"
+								class="btn btn-sm rounded-pill btn-brand-follow flex-shrink-0 js-suggest-follow"
 								data-user-id="<?= $sid ?>">
 								Theo dõi
 							</button>

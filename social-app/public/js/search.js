@@ -40,9 +40,47 @@ function goSearch(q, e) {
     base + "/search?q=" + encodeURIComponent(key) + "&tab=top";
 }
 
+/** Nút "Theo dõi" tĩnh (trang kết quả tìm kiếm); gợi ý sidebar do right_widgets.js gắn riêng. */
+function bindStaticFollowSuggestButtons(root) {
+  const base = appBaseUrl();
+  root.querySelectorAll("button.btn-follow-suggest[data-user-id]").forEach((btn) => {
+    if (btn.closest("#suggestBox")) return;
+    if (btn.dataset.followBound === "1") return;
+    btn.dataset.followBound = "1";
+    btn.addEventListener("click", function () {
+      const id = parseInt(this.getAttribute("data-user-id") || "0", 10);
+      if (!id) return;
+      const self = this;
+      self.disabled = true;
+      const fd = new FormData();
+      fd.append("target_id", String(id));
+      fetch(base + "/user-api/follow?action=follow", {
+        method: "POST",
+        body: fd,
+        credentials: "same-origin",
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.success) {
+            self.textContent = "Đã theo dõi";
+            self.classList.remove("btn-brand-follow");
+            self.classList.add("btn-brand-follow-outline");
+            self.disabled = false;
+            self.dataset.followDone = "1";
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (self.dataset.followDone !== "1") self.disabled = false;
+        });
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   bindTabs();
   bindSearch();
+  bindStaticFollowSuggestButtons(document);
 
   const params = new URLSearchParams(window.location.search);
   const q = params.get("q");

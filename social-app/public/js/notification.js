@@ -43,6 +43,8 @@ function loadNoti() {
       var html = "";
       notifications.forEach(function (n) {
         var href = base + (n.link && n.link.charAt(0) === "/" ? n.link : "/" + (n.link || ""));
+        var nid = parseInt(n.id || "0", 10);
+        var nidAttr = nid > 0 ? ' data-notification-id="' + String(nid) + '"' : "";
         var msg = (n.message || "").replace(/</g, "&lt;");
         var av = (n.avatar || "").replace(/"/g, "&quot;");
         var ini = String(n.avatar_initial || "?").replace(/</g, "&lt;");
@@ -61,8 +63,10 @@ function loadNoti() {
             "</div>";
         html +=
           "<a href=\"" +
-          href +
-          "\" class=\"list-group-item list-group-item-action py-2 px-3 d-flex gap-2 align-items-start text-decoration-none\">" +
+          href.replace(/"/g, "&quot;") +
+          "\" class=\"list-group-item list-group-item-action py-2 px-3 d-flex gap-2 align-items-start text-decoration-none noti-row\"" +
+          nidAttr +
+          ">" +
           avBlock +
           "<div class=\"small text-body\">" +
           msg +
@@ -86,8 +90,11 @@ function markNotificationReadThenNavigate(notificationId, href) {
       return r.json();
     })
     .then(function (data) {
-      if (data && typeof data.unread !== "undefined") {
+      if (data && data.ok && typeof data.unread !== "undefined") {
         updateSidebarNotifBadge(data.unread);
+        document.querySelectorAll('a.noti-row[data-notification-id="' + notificationId + '"] .noti-dot').forEach(function (el) {
+          el.remove();
+        });
       }
       if (href && href !== "#") {
         window.location.assign(href);

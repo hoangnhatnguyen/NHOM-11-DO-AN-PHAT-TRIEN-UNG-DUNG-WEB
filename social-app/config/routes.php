@@ -27,6 +27,7 @@ return [
         // ============ USERS & DISCOVERY ============
         '/users/finder' => 'UserController@finder',
 
+        '/profile' => 'UserController@profileFromQuery',
         '/user/{username}' => 'UserController@profile',
 
         '/settings' => 'SettingController@index',

@@ -5,6 +5,7 @@ $filterUser = $_GET['filter_user'] ?? 'all';
 $filterSource = $_GET['filter_source'] ?? 'all';
 $from = $_GET['from'] ?? '';
 $to = $_GET['to'] ?? '';
+$searchViewerId = (int) ($currentUser['id'] ?? 0);
 ?>
 
 <style>
@@ -158,15 +159,26 @@ $to = $_GET['to'] ?? '';
               <div class="fw-semibold mb-2">Mọi người</div>
 
               <?php foreach ($users as $u): ?>
+                <?php
+                  $suId = (int) ($u['id'] ?? 0);
+                  $suName = (string) ($u['username'] ?? '');
+                  $suAv = isset($u['avatar_url']) ? media_public_src((string) $u['avatar_url']) : '';
+                  $suColor = Avatar::colors($suName);
+                ?>
                 <div class="d-flex align-items-center justify-content-between mb-2">
-                  <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-circle bg-secondary" style="width:40px;height:40px;"></div>
-                    <div class="fw-semibold">
-                      <?= htmlspecialchars($u['username']) ?>
-                    </div>
-                  </div>
-
-                  <button class="btn btn-sm rounded-pill btn-follow">Theo dõi</button>
+                  <a href="<?= htmlspecialchars(profile_url($suName), ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-3 text-decoration-none text-body min-w-0 flex-grow-1">
+                    <?php if ($suAv !== ''): ?>
+                      <img src="<?= htmlspecialchars($suAv, ENT_QUOTES, 'UTF-8') ?>" alt="" width="40" height="40" class="rounded-circle flex-shrink-0" style="object-fit:cover"
+                           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                      <span class="avatar-sm flex-shrink-0" style="background:<?= htmlspecialchars($suColor['bg'], ENT_QUOTES, 'UTF-8') ?>;color:<?= htmlspecialchars($suColor['fg'], ENT_QUOTES, 'UTF-8') ?>;display:none;width:40px;height:40px;"><?= htmlspecialchars(Avatar::initials($suName), ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php else: ?>
+                      <span class="avatar-sm flex-shrink-0" style="background:<?= htmlspecialchars($suColor['bg'], ENT_QUOTES, 'UTF-8') ?>;color:<?= htmlspecialchars($suColor['fg'], ENT_QUOTES, 'UTF-8') ?>;width:40px;height:40px;"><?= htmlspecialchars(Avatar::initials($suName), ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endif; ?>
+                    <div class="fw-semibold text-truncate">@<?= htmlspecialchars($suName, ENT_QUOTES, 'UTF-8') ?></div>
+                  </a>
+                  <?php if ($suId > 0 && $suId !== $searchViewerId): ?>
+                    <button type="button" class="btn btn-sm rounded-pill btn-brand-follow btn-follow-suggest flex-shrink-0" data-user-id="<?= $suId ?>">Theo dõi</button>
+                  <?php endif; ?>
                 </div>
               <?php endforeach; ?>
 
@@ -209,17 +221,26 @@ $to = $_GET['to'] ?? '';
           <div class="card-body">
 
             <?php foreach ($users as $u): ?>
+              <?php
+                $suId = (int) ($u['id'] ?? 0);
+                $suName = (string) ($u['username'] ?? '');
+                $suAv = isset($u['avatar_url']) ? media_public_src((string) $u['avatar_url']) : '';
+                $suColor = Avatar::colors($suName);
+              ?>
               <div class="d-flex align-items-center justify-content-between mb-3">
-
-                <div class="d-flex align-items-center gap-3">
-                  <div class="rounded-circle bg-secondary" style="width:40px;height:40px;"></div>
-                  <div class="fw-semibold">
-                    <?= htmlspecialchars($u['username']) ?>
-                  </div>
-                </div>
-
-            
-                <button class="btn btn-sm rounded-pill btn-follow">Theo dõi</button>
+                <a href="<?= htmlspecialchars(profile_url($suName), ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-3 text-decoration-none text-body min-w-0 flex-grow-1">
+                  <?php if ($suAv !== ''): ?>
+                    <img src="<?= htmlspecialchars($suAv, ENT_QUOTES, 'UTF-8') ?>" alt="" width="40" height="40" class="rounded-circle flex-shrink-0" style="object-fit:cover"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <span class="avatar-sm flex-shrink-0" style="background:<?= htmlspecialchars($suColor['bg'], ENT_QUOTES, 'UTF-8') ?>;color:<?= htmlspecialchars($suColor['fg'], ENT_QUOTES, 'UTF-8') ?>;display:none;width:40px;height:40px;"><?= htmlspecialchars(Avatar::initials($suName), ENT_QUOTES, 'UTF-8') ?></span>
+                  <?php else: ?>
+                    <span class="avatar-sm flex-shrink-0" style="background:<?= htmlspecialchars($suColor['bg'], ENT_QUOTES, 'UTF-8') ?>;color:<?= htmlspecialchars($suColor['fg'], ENT_QUOTES, 'UTF-8') ?>;width:40px;height:40px;"><?= htmlspecialchars(Avatar::initials($suName), ENT_QUOTES, 'UTF-8') ?></span>
+                  <?php endif; ?>
+                  <div class="fw-semibold text-truncate">@<?= htmlspecialchars($suName, ENT_QUOTES, 'UTF-8') ?></div>
+                </a>
+                <?php if ($suId > 0 && $suId !== $searchViewerId): ?>
+                  <button type="button" class="btn btn-sm rounded-pill btn-brand-follow btn-follow-suggest flex-shrink-0" data-user-id="<?= $suId ?>">Theo dõi</button>
+                <?php endif; ?>
               </div>
             <?php endforeach; ?>
 

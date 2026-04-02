@@ -59,11 +59,13 @@ if ($targetUser) {
                 ?>
                 <div class="border rounded-4 p-3 p-md-4 bg-light-subtle">
                     <div class="d-flex align-items-center gap-3 mb-3">
+                        <a href="<?= htmlspecialchars(profile_url($targetName), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none">
                         <div class="avatar-lg" style="background: <?= htmlspecialchars($targetColor['bg']) ?>; color: <?= htmlspecialchars($targetColor['fg']) ?>;">
                             <?= htmlspecialchars(Avatar::initials($targetName)) ?>
                         </div>
+                        </a>
                     <div>
-                        <div class="fw-bold fs-5 mb-0"><?= htmlspecialchars($targetName) ?></div>
+                        <a href="<?= htmlspecialchars(profile_url($targetName), ENT_QUOTES, 'UTF-8') ?>" class="fw-bold fs-5 mb-0 text-decoration-none text-body d-inline-block"><?= htmlspecialchars($targetName) ?></a>
                         <div class="text-secondary">ID: <?= $targetUserId ?></div>
                         <div class="text-secondary"><?= htmlspecialchars($targetEmail) ?></div>
                         <div class="mt-2">

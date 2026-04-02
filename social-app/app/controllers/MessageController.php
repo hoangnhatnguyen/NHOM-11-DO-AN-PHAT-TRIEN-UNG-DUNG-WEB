@@ -192,12 +192,13 @@ class MessageController extends BaseController {
 		$s3Url = $s3Service->uploadFile($tmpName, $s3Key);
 
 		if ($s3Url) {
+			$displayUrl = $s3Service->getPresignedUrl($s3Key, 3600) ?: $s3Url;
 			$this->json([
 				'item' => [
 					'fileName' => $originalName,
 					'size' => $size,
 					'contentType' => (string) ($file['type'] ?? ''),
-					'url' => $s3Url,
+					'url' => $displayUrl,
 					'storagePath' => $s3Key,
 				],
 			]);

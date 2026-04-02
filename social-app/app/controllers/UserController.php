@@ -14,8 +14,21 @@ class UserController extends BaseController {
         $this->followModel = new Follow();
     }
 
+    public function profileFromQuery(): void
+    {
+        $u = isset($_GET['u']) ? trim((string) $_GET['u']) : '';
+        if ($u === '') {
+            http_response_code(404);
+            echo 'User not found';
+            return;
+        }
+        $this->profile($u);
+    }
+
     public function profile(string $username): void {
         $this->requireAuth();
+
+        $username = trim(rawurldecode($username));
 
         $user = $this->userModel->findByUsername($username);
         if (!$user) {
@@ -27,12 +40,22 @@ class UserController extends BaseController {
         require_once __DIR__ . '/../models/UserBadge.php';
         $badges = (new UserBadge())->getByUser($user['id']);
 
+        $viewerId = (int) ($_SESSION['user']['id'] ?? 0);
+        $targetId = (int) ($user['id'] ?? 0);
+        $isOwner = $viewerId === $targetId;
+        $isFollowing = !$isOwner && $viewerId > 0 && $targetId > 0
+            ? $this->followModel->isFollowing($viewerId, $targetId)
+            : false;
+
         $this->render('user/profile', [
             'user'=>$user,
             'stats'=>$stats,
             'badges'=>$badges,
-            'isOwner'=>$_SESSION['user']['id'] == $user['id'],
-             'currentUser'=>$_SESSION['user']
+            'isOwner'=> $isOwner,
+            'isFollowing'=>$isFollowing,
+            'currentUser'=>$_SESSION['user'],
+            'csrfToken' => $this->csrfToken(),
+            'activeMenu' => $isOwner ? 'profile' : 'browse',
         ]);
     }
 
@@ -77,6 +100,8 @@ class UserController extends BaseController {
         }
 
         $userId = $_SESSION['user']['id'];
+        $previous = $this->userModel->findById((int) $userId);
+        $oldAvatar = (string) ($previous['avatar_url'] ?? '');
 
         try {
             // Upload lên S3 (required)
@@ -86,10 +111,14 @@ class UserController extends BaseController {
             $s3Url = $s3Service->uploadFile($file['tmp_name'], $s3Key);
 
             if ($s3Url) {
+                if ($oldAvatar !== '' && $oldAvatar !== $s3Key) {
+                    $s3Service->deleteFile($oldAvatar);
+                }
                 // Lưu S3 key (không phải full URL) vào DB
                 $this->userModel->updateAvatar($userId, $s3Key);
                 $_SESSION['user']['avatar_url'] = $s3Key;
-                echo json_encode(['url' => $s3Url, 'success' => true], JSON_UNESCAPED_UNICODE);
+                $displayUrl = $s3Service->getPresignedUrl($s3Key, 86400) ?: $s3Url;
+                echo json_encode(['url' => $displayUrl, 'success' => true], JSON_UNESCAPED_UNICODE);
             } else {
                 echo json_encode(['error' => 'Upload to S3 failed'], JSON_UNESCAPED_UNICODE);
             }
@@ -158,6 +187,70 @@ class UserController extends BaseController {
         $data = $this->followModel->getFollowing($userId);
 
         echo json_encode(['following'=>$data]);
+    }
+
+    /**
+     * GET  ?action=following&limit=20 — danh sách đang follow của user đăng nhập (tin nhắn, v.v.).
+     * POST ?action=follow|unfollow — body: target_id (widgets, finder, gợi ý).
+     */
+    public function apiFollow(): void {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $action = (string) ($_GET['action'] ?? '');
+
+        if ($action === 'following') {
+            if (empty($_SESSION['user'])) {
+                echo json_encode(['following' => []], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $uid = (int) ($_SESSION['user']['id'] ?? 0);
+            $limit = (int) ($_GET['limit'] ?? 20);
+            $limit = max(1, min(100, $limit));
+            $data = $this->followModel->getFollowing($uid, $limit, 0);
+            echo json_encode(['following' => $data], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $this->requireAuth();
+        $uid = (int) ($_SESSION['user']['id'] ?? 0);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'method_not_allowed'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $targetId = (int) ($_POST['target_id'] ?? 0);
+        if ($targetId <= 0 || $targetId === $uid) {
+            http_response_code(400);
+            echo json_encode(['error' => 'invalid_target'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if ($action === 'follow') {
+            if ($this->followModel->isFollowing($uid, $targetId)) {
+                echo json_encode(['success' => true, 'already' => true], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $ok = $this->followModel->follow($uid, $targetId);
+            if (!$ok) {
+                http_response_code(400);
+                echo json_encode(['error' => 'follow_failed'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            create_notification(notification_db(), $targetId, $uid, 'follow', $uid, null);
+            echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if ($action === 'unfollow') {
+            $this->followModel->unfollow($uid, $targetId);
+            echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        http_response_code(400);
+        echo json_encode(['error' => 'invalid_action'], JSON_UNESCAPED_UNICODE);
     }
 
     public function removeFollower(): void {

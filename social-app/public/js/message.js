@@ -439,9 +439,11 @@ if (!root) {
 			const keyword = newConvSearch.value.trim().toLowerCase();
 
 			if (keyword.length < 1) {
-				// Load all following users when search is empty
 				try {
-				const response = await fetch(`${state.baseUrl}/user-api/follow?action=following&limit=20`);
+					const response = await fetch(`${state.baseUrl}/user-api/follow?action=following&limit=20`);
+					const data = await response.json();
+					const users = data?.following ?? [];
+					renderNewConvSuggestions(users);
 				} catch (error) {
 					console.error('Error loading following list:', error);
 					newConvSuggestions.innerHTML = '';

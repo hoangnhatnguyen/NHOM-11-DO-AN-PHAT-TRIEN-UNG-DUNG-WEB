@@ -18,7 +18,9 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 		<div class="position-relative">
 			<a href="<?= BASE_URL ?>/post/<?= $postId ?>" class="stretched-link text-decoration-none" aria-hidden="true" tabindex="-1"></a>
 			<div class="d-flex align-items-start justify-content-between mb-3 position-relative" style="z-index: 2;">
-				<div class="d-flex align-items-center gap-2">
+				<a href="<?= htmlspecialchars(profile_url((string) $author), ENT_QUOTES, 'UTF-8') ?>"
+				   class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0 position-relative"
+				   style="z-index: 3;">
 				<?php
 				$authorAvatarUrl = $post['author_avatar_url'] ?? '';
 				$displayAvatarUrl = $authorAvatarUrl ? media_public_src($authorAvatarUrl) : '';
@@ -42,11 +44,11 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 						<?= Avatar::initials((string) $author) ?>
 					</div>
 				<?php endif; ?>
-					<div>
-						<div class="fw-semibold"><?= htmlspecialchars($author) ?></div>
+					<div class="min-w-0">
+						<div class="fw-semibold text-truncate"><?= htmlspecialchars($author) ?></div>
 						<div class="small text-secondary"><?= htmlspecialchars((string) $createdAt) ?></div>
 					</div>
-				</div>
+				</a>
 				<?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
 					<div class="dropdown position-relative" style="z-index: 3;">
 						<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -98,11 +100,11 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 			</div>
 		</div>
 
-		<div class="d-flex align-items-center justify-content-between gap-3 text-secondary small">
+		<div class="feed-post-actions position-relative d-flex align-items-center justify-content-between gap-3 text-secondary small" style="z-index: 10;">
 			<div class="d-flex align-items-center gap-3">
 			<form
 				method="POST"
-				action="<?= BASE_URL ?>/api/like.php"
+				action="<?= BASE_URL ?>/post/<?= $postId ?>/like"
 				class="m-0 d-inline-flex align-items-center gap-1 ajax-post-like"
 				data-post-id="<?= $postId ?>"
 			>

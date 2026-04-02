@@ -66,6 +66,7 @@ class Post extends BaseModel {
             SELECT
                 p.*,
                 u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
                 (
                     SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
                 ) AS like_count,
@@ -680,6 +681,21 @@ class Post extends BaseModel {
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM shares WHERE post_id = :post_id");
         $stmt->execute(['post_id' => $postId]);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Xóa bài: dọn object S3 + post_media trước khi xóa row posts.
+     */
+    public function delete(int $id): bool {
+        require_once __DIR__ . '/../helpers/media.php';
+        $mediaModel = new PostMedia();
+        $rows = $mediaModel->getByPost($id);
+        foreach ($rows as $row) {
+            delete_stored_media((string) ($row['media_url'] ?? ''));
+        }
+        $mediaModel->deleteAllForPost($id);
+
+        return parent::delete($id);
     }
 
     private function ensureReplyTableExists(): void {

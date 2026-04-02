@@ -28,10 +28,11 @@ try {
 try {
     if ($type === 'trending') {
         $stmt = $conn->query("
-            SELECT h.name, COUNT(ph.post_id) as count
+            SELECT h.name, COUNT(DISTINCT ph.post_id) AS count
             FROM hashtags h
-            JOIN post_hashtags ph ON h.id = ph.hashtag_id
-            GROUP BY h.id
+            INNER JOIN post_hashtags ph ON h.id = ph.hashtag_id
+            INNER JOIN posts p ON p.id = ph.post_id AND p.status = 'active'
+            GROUP BY h.id, h.name
             ORDER BY count DESC
             LIMIT 10
         ");
@@ -58,12 +59,13 @@ try {
 
     if ($type === 'trending_full') {
         $stmt = $conn->query("
-            SELECT h.name, COUNT(ph.post_id) as total
+            SELECT h.name, COUNT(DISTINCT ph.post_id) AS total
             FROM hashtags h
-            JOIN post_hashtags ph ON h.id = ph.hashtag_id
-            GROUP BY h.id
+            INNER JOIN post_hashtags ph ON h.id = ph.hashtag_id
+            INNER JOIN posts p ON p.id = ph.post_id AND p.status = 'active'
+            GROUP BY h.id, h.name
             ORDER BY total DESC
-            LIMIT 5
+            LIMIT 10
         ");
         echo json_encode([
             'status' => 'success',

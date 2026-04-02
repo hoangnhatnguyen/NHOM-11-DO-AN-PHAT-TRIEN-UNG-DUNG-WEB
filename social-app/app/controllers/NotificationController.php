@@ -86,12 +86,9 @@ class NotificationController extends BaseController
 
         $link = '#';
         if ($type === 'follow') {
-            $actorId = (int) ($n['actor_id'] ?? 0);
-            if ($actorId <= 0 && isset($n['reference_id'])) {
-                $actorId = (int) $n['reference_id'];
-            }
-            if ($actorId > 0) {
-                $link = BASE_URL . '/users/finder?id=' . $actorId;
+            $uname = trim((string) $actor);
+            if ($uname !== '') {
+                $link = profile_url($uname);
             }
         } elseif ($postId > 0) {
             $frag = '';

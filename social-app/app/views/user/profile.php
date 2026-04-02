@@ -1,7 +1,10 @@
-<?php $activeMenu = 'profile'; ?>
+<?php
+// Chỉ coi là tab "Trang cá nhân" khi đang xem hồ sơ của chính mình
+$activeMenu = $isOwner ? 'profile' : 'browse';
+?>
 
 <script>
-const USER_ID = <?= (int)$user['id'] ?>;
+const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 </script>
 
 <div class="container mt-3 ms-3 px-4.5">
@@ -93,6 +96,23 @@ const USER_ID = <?= (int)$user['id'] ?>;
                         </span>
                     </div>
 
+                    <?php if (!$isOwner): ?>
+                        <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+                            <a href="<?= BASE_URL ?>/messages?user=<?= (int) ($user['id'] ?? 0) ?>"
+                               class="btn btn-brand-follow rounded-pill">
+                                <i class="bi bi-chat-dots me-1"></i>Nhắn tin
+                            </a>
+                            <button type="button"
+                                    id="profileFollowBtn"
+                                    class="btn rounded-pill <?= !empty($isFollowing) ? 'btn-brand-follow-outline' : 'btn-brand-follow' ?>"
+                                    data-user-id="<?= (int) ($user['id'] ?? 0) ?>"
+                                    data-username="<?= htmlspecialchars((string) ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-following="<?= !empty($isFollowing) ? 'true' : 'false' ?>">
+                                <?= !empty($isFollowing) ? 'Đã theo dõi' : 'Theo dõi' ?>
+                            </button>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if ($isOwner): ?>
                         <button class="btn btn-outline-primary mt-3" id="editBtn">
                             Chỉnh sửa
@@ -165,6 +185,24 @@ const USER_ID = <?= (int)$user['id'] ?>;
         <div class="modal-content p-3">
             <h5 id="modalTitle" class="text-center mb-3"></h5>
             <div id="followList"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="unfollowConfirmModal" tabindex="-1" aria-labelledby="unfollowConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold" id="unfollowConfirmLabel">Hủy theo dõi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-0 text-secondary" id="unfollowConfirmText"></p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Không</button>
+                <button type="button" class="btn btn-brand-follow rounded-pill" id="unfollowConfirmBtn">Hủy theo dõi</button>
+            </div>
         </div>
     </div>
 </div>

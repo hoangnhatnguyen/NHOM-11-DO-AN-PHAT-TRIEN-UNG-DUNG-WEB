@@ -1,4 +1,5 @@
 RewriteEngine On
+Options -MultiViews
 
 # Cho phép truy cập file/folder thực tế
 RewriteCond %{REQUEST_FILENAME} -f [OR]

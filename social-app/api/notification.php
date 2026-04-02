@@ -67,12 +67,9 @@ foreach ($rows as $n) {
 
     $link = '#';
     if ($type === 'follow') {
-        $aid = (int) ($n['actor_id'] ?? 0);
-        if ($aid <= 0) {
-            $aid = (int) ($n['reference_id'] ?? 0);
-        }
-        if ($aid > 0) {
-            $link = '/users/finder?id=' . $aid;
+        $an = trim((string) $actor);
+        if ($an !== '') {
+            $link = '/profile?u=' . rawurlencode($an);
         }
     } elseif ($postId > 0) {
         $link = '/post/' . $postId;
@@ -95,6 +92,7 @@ foreach ($rows as $n) {
     $avColors = Avatar::colors($actor);
 
     $list[] = [
+        'id' => (int) ($n['id'] ?? 0),
         'type' => $type,
         'message' => $message,
         'avatar' => $avatarUrl,

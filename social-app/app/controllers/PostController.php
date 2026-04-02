@@ -36,27 +36,7 @@ class PostController extends BaseController {
 
         (new PostHashtag())->replaceForPost($postId, $parsed['tags']);
 
-        // Upload ảnh lên S3
-        if (!empty($_FILES['media']['name'][0])) {
-            $s3Service = new S3Service();
-            $mediaModel = new PostMedia();
-
-            // Upload lên S3 (required)
-            foreach ($_FILES['media']['tmp_name'] as $key => $tmp) {
-                if (!is_uploaded_file($tmp)) {
-                    continue;
-                }
-                
-                $filename = $_FILES['media']['name'][$key];
-                $s3Key = $s3Service->generatePostMediaKey($postId, $filename);
-                $s3Url = $s3Service->uploadFile($tmp, $s3Key);
-                
-                if ($s3Url) {
-                    // Lưu S3 key (không phải full URL) vào DB
-                    $mediaModel->addMedia($postId, $s3Key);
-                }
-            }
-        }
+        $this->processUploadedPostMedia($postId, new PostMedia());
 
         $authorId = (int) ($_SESSION['user']['id'] ?? 0);
         if ($authorId > 0 && $content !== '') {
@@ -95,6 +75,11 @@ class PostController extends BaseController {
     public function like($id) {
         $this->requireAuth();
         if (!$this->verifyCsrf($_POST['_csrf'] ?? null)) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'csrf_invalid']);
+                exit;
+            }
             die('CSRF invalid');
         }
 
@@ -303,36 +288,14 @@ class PostController extends BaseController {
         if (!empty($removeMediaIds)) {
             $mediaRows = $mediaModel->getByIdsForPost($postId, $removeMediaIds);
             $mediaModel->deleteByIdsForPost($postId, $removeMediaIds);
-            
-            // Delete from S3 (required)
-            $s3Service = new S3Service();
+
+            require_once __DIR__ . '/../helpers/media.php';
             foreach ($mediaRows as $mediaRow) {
-                $mediaUrl = (string) ($mediaRow['media_url'] ?? '');
-                if ($mediaUrl) {
-                    $s3Service->deleteFile($mediaUrl);
-                }
+                delete_stored_media((string) ($mediaRow['media_url'] ?? ''));
             }
         }
 
-        if (!empty($_FILES['media']['name'][0])) {
-            $s3Service = new S3Service();
-
-            // Upload lên S3 (required)
-            foreach ($_FILES['media']['tmp_name'] as $key => $tmp) {
-                if (!is_uploaded_file($tmp)) {
-                    continue;
-                }
-                
-                $filename = $_FILES['media']['name'][$key];
-                $s3Key = $s3Service->generatePostMediaKey($postId, $filename);
-                $s3Url = $s3Service->uploadFile($tmp, $s3Key);
-                
-                if ($s3Url) {
-                    // Lưu S3 key (không phải full URL) vào DB
-                    $mediaModel->addMedia($postId, $s3Key);
-                }
-            }
-        }
+        $this->processUploadedPostMedia($postId, $mediaModel);
 
         $this->redirect('/post/' . $postId);
     }
@@ -356,5 +319,42 @@ class PostController extends BaseController {
 
         (new Post())->delete($postId);
         $this->redirect('/');
+    }
+
+    /**
+     * Thử S3 trước; nếu SDK/credentials lỗi hoặc upload fail → lưu ảnh dưới public/media/posts/.
+     */
+    private function processUploadedPostMedia(int $postId, PostMedia $mediaModel): void {
+        if (empty($_FILES['media']['name'][0])) {
+            return;
+        }
+        require_once __DIR__ . '/../helpers/media.php';
+        $s3Service = new S3Service();
+
+        foreach ($_FILES['media']['tmp_name'] as $i => $tmpFile) {
+            $err = (int) ($_FILES['media']['error'][$i] ?? UPLOAD_ERR_OK);
+            if ($err !== UPLOAD_ERR_OK) {
+                error_log("Post media upload PHP error #{$err} for post {$postId} index {$i}");
+                continue;
+            }
+            $name = (string) ($_FILES['media']['name'][$i] ?? '');
+            if ($name === '' || !is_uploaded_file($tmpFile)) {
+                continue;
+            }
+
+            $savedPath = null;
+            if ($s3Service->isReady()) {
+                $key = $s3Service->generatePostMediaKey($postId, $name);
+                if ($s3Service->uploadFile($tmpFile, $key)) {
+                    $savedPath = $key;
+                }
+            }
+            if ($savedPath === null) {
+                $savedPath = save_uploaded_post_image_local($postId, $tmpFile, $name);
+            }
+            if ($savedPath !== null) {
+                $mediaModel->addMedia($postId, $savedPath);
+            }
+        }
     }
 }

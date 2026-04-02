@@ -43,14 +43,26 @@ if (!function_exists('format_comment_time_vi')) {
 
 <article class="card border-0 shadow-sm rounded-4">
 	<div class="card-body p-3 p-md-4">
+        <?php
+        $detailAuthor = (string) ($post['author_name'] ?? '');
+        $detailAuthorColor = Avatar::colors($detailAuthor);
+        $detailAvRaw = (string) ($post['author_avatar_url'] ?? '');
+        $detailAvSrc = $detailAvRaw !== '' ? media_public_src($detailAvRaw) : '';
+        ?>
         <div class="d-flex align-items-start justify-content-between gap-2">
-            <div class="d-flex align-items-center gap-2">
-                <div class="avatar-sm"><?= strtoupper(substr($post['author_name'], 0, 1)) ?></div>
-                <div>
-                    <h5 class="fw-semibold mb-0"><?= htmlspecialchars($post['author_name'] ?? '') ?></h5>
-                    <div class="small text-secondary"><?= htmlspecialchars((string) $post['created_at']) ?></div>
+            <a href="<?= htmlspecialchars(profile_url($detailAuthor), ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0">
+                <?php if ($detailAvSrc !== ''): ?>
+                    <img src="<?= htmlspecialchars($detailAvSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" width="44" height="44" class="rounded-circle flex-shrink-0" style="object-fit:cover"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="avatar-sm flex-shrink-0" style="background: <?= htmlspecialchars($detailAuthorColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($detailAuthorColor['fg'], ENT_QUOTES, 'UTF-8') ?>; display:none;"><?= htmlspecialchars(strtoupper(substr($detailAuthor, 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+                <?php else: ?>
+                    <div class="avatar-sm flex-shrink-0" style="background: <?= htmlspecialchars($detailAuthorColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($detailAuthorColor['fg'], ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars(strtoupper(substr($detailAuthor, 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+                <?php endif; ?>
+                <div class="min-w-0">
+                    <h5 class="fw-semibold mb-0 text-truncate"><?= htmlspecialchars($detailAuthor, ENT_QUOTES, 'UTF-8') ?></h5>
+                    <div class="small text-secondary"><?= htmlspecialchars((string) $post['created_at'], ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
-            </div>
+            </a>
 
             <?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
                 <div class="dropdown">

@@ -1,7 +1,7 @@
 # AWS S3 Service - Hướng dẫn sử dụng
 
 ## Mục lục
-1. [Giới thiệu](#giới-thiệu)
+1. [Giới thiệu](#giới-thiệu) (API tóm tắt + bảng file repo)
 2. [Cấu hình](#cấu-hình)
 3. [Upload file](#upload-file)
 4. [Hiển thị file](#hiển-thị-file)
@@ -13,12 +13,40 @@
 
 ## Giới thiệu
 
+### Nguồn chuẩn trong code
+- **File thực thi:** `app/services/S3Service.php` — mọi chỗ trong app cần S3 nên dùng class này (upload, xóa, presign, sinh key).
+- **Tài liệu này** mô tả *cách làm thống nhất* và ví dụ; nếu lệch với code, ưu tiên `S3Service.php`.
+
 ### S3Service là gì?
 `S3Service` là class helper để làm việc với AWS S3. Nó cung cấp các method để:
-- Upload file lên S3
-- Tạo presigned URL (URL tạm thời có thời hạn)
-- Xóa file khỏi S3
-- Generate S3 key path
+- Upload file lên S3 (`uploadFile`, `uploadStream`)
+- Tạo presigned URL (`getPresignedUrl`)
+- URL public dạng virtual-hosted (`getPublicUrl` — bucket private thì thường vẫn cần presign để xem)
+- Xóa object / cả prefix thư mục (`deleteFile`, `deleteFolder`)
+- Sinh key chuẩn: `generateAvatarKey`, `generatePostMediaKey`, `generateChatKey`
+- Chuẩn hóa dữ liệu cũ: `extractKeyFromS3Url`, `normalizeStorageToKey` (DB từng lưu full URL thay vì key)
+
+### Bảng API (tóm tắt)
+
+| Method | Ý nghĩa | Giá trị trả về |
+|--------|---------|----------------|
+| `uploadFile($localPath, $key)` | PUT file từ đĩa | `string` URL public hoặc `false` |
+| `uploadStream($stream, $key)` | PUT từ resource | `string` hoặc `false` |
+| `getPresignedUrl($key, $seconds)` | GET tạm thời | `string` hoặc `null` |
+| `getPublicUrl($key)` | URL cố định (bucket/key) | `string` |
+| `deleteFile($keyOrUrl)` | Xóa một object | `bool` |
+| `deleteFolder($prefix)` | Xóa theo prefix | `bool` |
+| `generatePostMediaKey($postId, $filename)` | Key bài viết | `string` |
+| `generateAvatarKey($userId, $filename)` | Key avatar | `string` |
+| `generateChatKey($convId, $userId, $filename)` | Key chat | `string` |
+| `extractKeyFromS3Url($url)` | static — lấy key từ URL | `?string` |
+| `normalizeStorageToKey($stored)` | instance — key hoặc URL → key | `string` |
+
+**Biến môi trường** (đọc lần lượt tên đầu tiên có giá trị):
+- Bucket: `AWS_S3_BUCKET`, rồi `AWS_BUCKET`
+- Region: `AWS_REGION`, rồi `AWS_DEFAULT_REGION` (mặc định `ap-southeast-1`)
+- Credentials: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`  
+Đọc qua `env()` nếu có (sau `config/env.php`), không thì `getenv()`.
 
 ### Tại sao dùng S3?
 - ✅ Không chiếm dung lượng server
@@ -32,6 +60,16 @@ Bucket: laravel-deploy-s3
 Region: ap-southeast-1 (Singapore)
 ```
 
+### File trong repo dùng S3Service
+| Khu vực | File | Việc chính |
+|---------|------|------------|
+| Post | `app/controllers/PostController.php` | `store` / `update`: upload media; `update`: xóa media đã chọn trên S3 |
+| Post | `app/models/Post.php` | `delete`: xóa toàn bộ object media của bài rồi xóa post |
+| User | `app/controllers/UserController.php` | `uploadAvatar`: xóa avatar cũ, upload mới, JSON trả presigned |
+| Chat | `app/controllers/MessageController.php` | Upload đính kèm, JSON `storagePath` = key, `url` = presigned |
+| View | `app/helpers/media.php` | `media_public_src()` — presign + legacy URL |
+| Gợi ý follow | `app/views/partials/feed/right_widgets.php` | Avatar qua `media_public_src` |
+
 ---
 
 ## Cấu hình
@@ -41,12 +79,14 @@ Region: ap-southeast-1 (Singapore)
 Tạo file `.env` ở project root với các biến:
 
 ```env
-# AWS S3 Configuration
+# AWS S3 Configuration (khớp với code: AWS_S3_BUCKET + AWS_REGION)
 AWS_ACCESS_KEY_ID=your_access_key_here
 AWS_SECRET_ACCESS_KEY=your_secret_key_here
-AWS_DEFAULT_REGION=ap-southeast-1
-AWS_BUCKET=laravel-deploy-s3
-AWS_URL=https://laravel-deploy-s3.s3.ap-southeast-1.amazonaws.com
+AWS_REGION=ap-southeast-1
+# Tuỳ chọn: AWS_DEFAULT_REGION nếu không dùng AWS_REGION
+AWS_S3_BUCKET=your-bucket-name
+# Tuỳ chọn: alias Laravel-style
+# AWS_BUCKET=your-bucket-name
 ```
 
 **Lấy credentials:**
@@ -75,19 +115,16 @@ composer require aws/aws-sdk-php
 
 ### 3. Verify cấu hình
 
+**CLI (khuyến nghị):** từ thư mục `social-app` chạy `php test_s3.php` hoặc mở `upload_s3.php` qua browser sau khi cấu hình `.env`.
+
 ```php
 <?php
 require 'vendor/autoload.php';
 require 'config/env.php';
 require 'app/services/S3Service.php';
 
-try {
-    $s3 = new S3Service();
-    echo "✅ S3 Service connected successfully!";
-} catch (Exception $e) {
-    echo "❌ Error: " . $e->getMessage();
-}
-?>
+$s3 = new S3Service();
+echo "OK";
 ```
 
 ---
@@ -134,7 +171,7 @@ $s3Key = $s3Service->generateAvatarKey($userId, $filename);
 
 #### 2. Post Media Key
 ```php
-$s3Key = $s3Service->generatePostKey($postId, $filename);
+$s3Key = $s3Service->generatePostMediaKey($postId, $filename);
 // Result: posts/456/1704067200_image.jpg
 ```
 
@@ -147,16 +184,16 @@ $s3Key = $s3Service->generateChatKey($conversationId, $userId, $filename);
 ### Upload Method
 
 ```php
-public function uploadFile(string $localPath, string $s3Key): ?string
+public function uploadFile($filePath, $key): string|false
 ```
 
 **Tham số:**
-- `$localPath`: Đường dẫn file trên server (ví dụ: `/tmp/upload_xyz`)
-- `$s3Key`: S3 key path (ví dụ: `avatars/123/avatar.jpg`)
+- `$filePath`: Đường dẫn file trên server (ví dụ: `$_FILES['x']['tmp_name']`)
+- `$key`: S3 key (ví dụ: `avatars/123/1704067200_pic.jpg`)
 
 **Trả về:**
-- `string` (URL): Nếu upload thành công
-- `null`: Nếu upload thất bại
+- `string`: `getPublicUrl($key)` nếu upload thành công
+- `false`: Lỗi hoặc key rỗng sau khi chuẩn hóa
 
 **Ví dụ:**
 ```php
@@ -171,12 +208,14 @@ $s3Url = $s3Service->uploadFile('/tmp/avatar.jpg', 'avatars/123/avatar.jpg');
 
 **Presigned URL** là URL tạm thời có thời hạn (mặc định 24 giờ). Browser có thể access mà không cần AWS credentials.
 
-#### Cách 1: Dùng `media_public_src()` helper
+#### Cách 1: Dùng `media_public_src()` helper (`app/helpers/media.php`)
+
+Helper này **đồng bộ với S3Service**: với key `avatars/…`, `posts/…`, `chat/…` sẽ gọi `getPresignedUrl` (cache session 24h). Nếu DB còn **full URL S3** (legacy), sẽ cố trích key bằng `S3Service::extractKeyFromS3Url` rồi presign.
 
 ```php
 <?php
 // Trong view file
-$avatarUrl = 'avatars/123/avatar.jpg'; // S3 key từ DB
+$avatarUrl = 'avatars/123/avatar.jpg'; // S3 key từ DB (khuyến nghị)
 
 // Generate presigned URL
 $displayUrl = media_public_src($avatarUrl);
@@ -191,10 +230,10 @@ $displayUrl = media_public_src($avatarUrl);
 <?php
 $s3Service = new S3Service();
 $s3Key = 'avatars/123/avatar.jpg';
-$presignedUrl = $s3Service->getPresignedUrl($s3Key, 86400); // 24 giờ
+$presignedUrl = $s3Service->getPresignedUrl($s3Key, 86400); // 24 giờ; có thể null nếu lỗi
 ?>
 
-<img src="<?= htmlspecialchars($presignedUrl) ?>" alt="Avatar">
+<img src="<?= htmlspecialchars($presignedUrl ?? '') ?>" alt="Avatar">
 ```
 
 #### Cách 3: API JSON Response
@@ -239,6 +278,8 @@ echo json_encode(['media' => $mediaUrls]);
 
 ### Basic Usage
 
+`deleteFile` chấp nhận **S3 key** hoặc **full URL** (chuẩn hóa nội bộ giống các method khác).
+
 ```php
 <?php
 $s3Service = new S3Service();
@@ -273,100 +314,56 @@ $db->query("UPDATE users SET avatar_url = ? WHERE id = ?", [$newAvatarKey, $user
 
 ## Ví dụ thực tế
 
-### 1. Upload Avatar (UserController)
+### 1. Upload Avatar (UserController — khớp app hiện tại)
+
+Luồng chuẩn:
+1. Đọc `avatar_url` cũ → nếu khác key mới thì `deleteFile($old)`.
+2. `uploadFile` → DB/session lưu **key**; JSON trả về **presigned URL** (24h) để UI hiển thị ngay kể cả bucket private.
 
 ```php
-<?php
-class UserController extends BaseController {
-    public function uploadAvatar(): void {
-        $this->requireAuth();
-        
-        if (!isset($_FILES['avatar'])) {
-            echo json_encode(['error' => 'No file']);
-            return;
-        }
-        
-        $file = $_FILES['avatar'];
-        
-        // Validate
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-        if (!in_array($file['type'], $allowedTypes)) {
-            echo json_encode(['error' => 'Invalid file type']);
-            return;
-        }
-        
-        if ($file['size'] > 5 * 1024 * 1024) { // 5MB
-            echo json_encode(['error' => 'File too large']);
-            return;
-        }
-        
-        $userId = $_SESSION['user']['id'];
-        
-        try {
-            $s3Service = new S3Service();
-            $s3Key = $s3Service->generateAvatarKey($userId, $file['name']);
-            $s3Url = $s3Service->uploadFile($file['tmp_name'], $s3Key);
-            
-            if ($s3Url) {
-                // Lưu S3 key vào DB
-                $userModel = new User();
-                $userModel->updateAvatar($userId, $s3Key);
-                
-                // Update session
-                $_SESSION['user']['avatar_url'] = $s3Key;
-                
-                echo json_encode([
-                    'success' => true,
-                    'url' => $s3Url,
-                    'message' => 'Avatar uploaded'
-                ]);
-            }
-        } catch (Exception $e) {
-            echo json_encode(['error' => $e->getMessage()]);
-        }
+$s3Service = new S3Service();
+$s3Key = $s3Service->generateAvatarKey($userId, $file['name']);
+$s3Url = $s3Service->uploadFile($file['tmp_name'], $s3Key);
+
+if ($s3Url) {
+    if ($oldAvatar !== '' && $oldAvatar !== $s3Key) {
+        $s3Service->deleteFile($oldAvatar);
     }
+    $userModel->updateAvatar($userId, $s3Key);
+    $_SESSION['user']['avatar_url'] = $s3Key;
+    $displayUrl = $s3Service->getPresignedUrl($s3Key, 86400) ?: $s3Url;
+    echo json_encode(['success' => true, 'url' => $displayUrl]);
 }
-?>
 ```
 
-### 2. Upload Post Media (PostController)
+### 2. Upload Post Media (PostController — khớp app hiện tại)
+
+**Thứ tự bắt buộc:** tạo bài (`Post::create` lấy `$postId`) **trước**, vì key có dạng `posts/{postId}/…`.
 
 ```php
-<?php
-class PostController extends BaseController {
-    public function store(): void {
-        $this->requireAuth();
-        
-        $content = $_POST['content'] ?? '';
-        $userId = $_SESSION['user']['id'];
-        
-        $postId = null; // Tạo post trước, lấy ID
-        $mediaUrls = [];
-        
-        // Upload media files
-        if (!empty($_FILES['media'])) {
-            $s3Service = new S3Service();
-            
-            foreach ($_FILES['media']['tmp_name'] as $index => $tmpFile) {
-                $originalName = $_FILES['media']['name'][$index];
-                $s3Key = $s3Service->generatePostKey($postId, $originalName);
-                $s3Url = $s3Service->uploadFile($tmpFile, $s3Key);
-                
-                if ($s3Url) {
-                    $mediaUrls[] = $s3Key; // Lưu S3 key, không phải URL
-                }
-            }
+$postId = $postModel->create([...]);
+$s3Service = new S3Service();
+$mediaModel = new PostMedia();
+$mediaUrls = [];
+
+if (!empty($_FILES['media']['name'][0])) {
+    foreach ($_FILES['media']['tmp_name'] as $i => $tmpFile) {
+        if (!is_uploaded_file($tmpFile)) {
+            continue;
         }
-        
-        // Lưu post và media vào DB
-        $postModel = new Post();
-        $postModel->create($userId, $content, $mediaUrls);
-        
-        $this->redirect('/');
+        $name = $_FILES['media']['name'][$i];
+        $key = $s3Service->generatePostMediaKey($postId, $name);
+        if ($s3Service->uploadFile($tmpFile, $key)) {
+            $mediaUrls[] = $key;
+        }
+    }
+    foreach ($mediaUrls as $key) {
+        $mediaModel->addMedia($postId, $key);
     }
 }
-?>
 ```
+
+**Xóa bài:** `Post::delete($id)` trong model đã gọi S3 `deleteFile` cho từng `post_media` rồi xóa DB (đồng bộ với admin xóa bài).
 
 ### 3. Hiển thị Post Media trong View
 
@@ -410,15 +407,21 @@ $mediaUrls = $post['media'] ?? []; // Array of S3 keys
 
 ## Troubleshooting
 
-### ❌ "Class 'Aws\S3\S3Client' not found"
+### ❌ "Class 'Aws\S3\S3Client' not found" hoặc feed trắng / ERROR DEBUG
 
-**Nguyên nhân:** AWS SDK chưa được cài hoặc autoload không hoạt động
+**Nguyên nhân:** `composer.json` thiếu dependency hoặc chưa chạy `composer install` đầy đủ — trong `vendor` chỉ có từng phần AWS mà **không có Guzzle** là autoload sẽ không nạp được `S3Client`.
 
-**Giải pháp:**
+**Giải pháp** (trong thư mục `social-app`):
+
 ```bash
-composer install
-composer dump-autoload
+composer update
 ```
+
+Nếu Composer báo **SSL certificate** (Windows): tải [cacert.pem](https://curl.se/ca/cacert.pem), rồi trong `php.ini` của XAMPP đặt:
+
+`curl.cainfo = "C:\path\to\cacert.pem"` và `openssl.cafile = "C:\path\to\cacert.pem"`, khởi động lại Apache, chạy lại `composer update`.
+
+App đã xử lý **mềm**: thiếu SDK thì feed vẫn chạy (ảnh S3 có thể trống); sau khi cài xong SDK, presign/upload hoạt động lại bình thường.
 
 ### ❌ "The AWS Access Key Id does not exist"
 
@@ -439,11 +442,7 @@ echo $_ENV['AWS_ACCESS_KEY_ID']; // Phải in ra access key
 **Giải pháp:**
 1. Check EC2 Security Group cho phép outbound HTTPS
 2. Check region: `ap-southeast-1` (Singapore)
-3. Test kết nối:
-```php
-$s3Service = new S3Service();
-$client = $s3Service->getClient(); // Có method này không?
-```
+3. Test kết nối: chạy `upload_s3.php` sau khi cấu hình `.env`, hoặc `uploadFile` một file thử trong code.
 
 ### ❌ "Presigned URL returns empty"
 
@@ -509,10 +508,10 @@ CREATE TABLE message_attachments (
 
 ### ✅ DO:
 - Lưu **S3 key** vào DB, không phải full URL
-- Generate presigned URL **tại display time**, không lúc upload
-- Set presigned URL expiration **24 giờ** (86400 seconds)
-- Delete old file trước upload file mới
-- Validate file type và size trước upload
+- Generate presigned URL **tại display time** (`media_public_src` / `getPresignedUrl`), không lưu presigned vào DB
+- TTL presigned: **86400s (24h)** trên feed/avatar; API upload tức thì có thể ngắn hơn (ví dụ 1h chat)
+- Xóa object cũ trên S3 khi thay avatar / xóa media (app đã làm qua `deleteFile`)
+- Validate file type và size trước upload; với form file dùng `is_uploaded_file`
 
 ### ❌ DON'T:
 - Lưu presigned URL đầy đủ vào DB (nó sẽ hết hạn)
@@ -531,4 +530,4 @@ CREATE TABLE message_attachments (
 ---
 
 **Tác giả:** Development Team  
-**Cập nhật lần cuối:** April 2, 2026
+**Cập nhật lần cuối:** April 3, 2026 (đồng bộ `S3Service.php`)

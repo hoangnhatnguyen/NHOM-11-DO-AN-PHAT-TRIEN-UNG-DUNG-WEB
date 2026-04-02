@@ -31,8 +31,8 @@
                             <span class="rounded-circle d-inline-block" 
                                   style="width:10px;height:10px;background:#dc3545;"></span>
                             <span>
-                                Đã lưu từ bài viết của 
-                                <strong><?= htmlspecialchars($post['username']) ?></strong>
+                                Đã lưu từ bài viết của
+                                <a href="<?= htmlspecialchars(profile_url((string) ($post['username'] ?? '')), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none"><strong><?= htmlspecialchars((string) ($post['username'] ?? '')) ?></strong></a>
                             </span>
                         </div>
                     </div>

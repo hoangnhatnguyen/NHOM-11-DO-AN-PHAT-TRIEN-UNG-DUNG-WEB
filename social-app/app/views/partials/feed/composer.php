@@ -6,7 +6,7 @@ $composerColor = Avatar::colors($composerName);
 
 
 
-<form method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
+<form id="feedComposerForm" method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 
 
@@ -84,7 +84,7 @@ $composerColor = Avatar::colors($composerName);
         <div>
                 <label class="btn btn-light btn-sm rounded-pill">
                     <i class="bi bi-image"></i>
-                    <input type="file" name="media[]" id="feedFileInput" hidden>
+                    <input type="file" name="media[]" id="feedFileInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
                 </label>
             </div>
         <button class="btn btn-primary rounded-pill px-4">Đăng</button>
@@ -102,18 +102,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const feedpreviewImage = document.getElementById("feedPreviewImage");
     const feedpreviewContainer = document.getElementById("feedPreviewContainer");
 
-    const feedtextarea = document.querySelector("textarea[name='content']");
-    const feedsubmitBtn = document.getElementById("btnSubmit");
+    const feedtextarea = document.querySelector("#feedComposerForm textarea[name='content']");
+    const submitBtn = document.getElementById("feedComposerSubmit");
 
     function checkEnableButton() {
+        if (!submitBtn || !feedtextarea) return;
         const hasText = feedtextarea.value.trim().length > 0;
         const hasImage = feedfileInput.files.length > 0;
-
-        if (hasText || hasImage) {
-            submitBtn.disabled = false;
-        } else {
-            submitBtn.disabled = true;
-        }
+        submitBtn.disabled = !(hasText || hasImage);
     }
 
     if (!feedfileInput) {
@@ -155,6 +151,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // check khi chọn ảnh
     feedfileInput.addEventListener("change", checkEnableButton);
+
+    checkEnableButton();
 });
 
 function setPrivacy(value, icon, label) {

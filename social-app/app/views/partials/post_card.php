@@ -30,6 +30,7 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 						 width="40" height="40"
 						 style="object-fit: cover; flex-shrink: 0;"
 						 alt="Avatar"
+						 loading="lazy"
 						 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
 					<!-- Text Avatar Fallback -->
 					<div class="avatar-sm" style="background: <?= htmlspecialchars($authorColor['bg']) ?>; color: <?= htmlspecialchars($authorColor['fg']) ?>; display: none;">
@@ -87,7 +88,9 @@ $saveCount = (int) ($post['save_count'] ?? 0);
 								<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4 mb-2 position-relative" style="z-index: 2;" playsinline></video>
 								<?php else: ?>
 								<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>"
-									class="img-fluid rounded-4 mb-2" alt="">
+								class="img-fluid rounded-4 mb-2" alt=""
+								loading="lazy"
+								style="background: #f0f0f0;">
 								<?php endif; ?>
 						<?php endforeach; ?>
 					</div>

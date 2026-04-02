@@ -22,6 +22,7 @@ $composerColor = Avatar::colors($composerName);
                  width="40" height="40"
                  style="object-fit: cover; flex-shrink: 0;"
                  alt="Avatar"
+                 loading="lazy"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
             <span class="avatar-sm me-2" style="background: <?= htmlspecialchars($composerColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($composerColor['fg'], ENT_QUOTES, 'UTF-8') ?>; display: none;"><?= $composerInitials ?></span>
         <?php else: ?>

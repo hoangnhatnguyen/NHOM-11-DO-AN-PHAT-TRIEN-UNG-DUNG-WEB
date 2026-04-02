@@ -128,5 +128,13 @@ class BaseController {
 			// Silently fail - session data should still be available
 		}
 	}
+
+	/**
+	 * Clear media URL cache
+	 * Dùng khi user upload file mới
+	 */
+	protected function clearMediaCache(): void {
+		unset($_SESSION['_media_cache']);
+	}
 }
 

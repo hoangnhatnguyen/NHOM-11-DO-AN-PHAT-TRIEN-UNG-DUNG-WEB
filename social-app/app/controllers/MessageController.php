@@ -192,13 +192,12 @@ class MessageController extends BaseController {
 		$s3Url = $s3Service->uploadFile($tmpName, $s3Key);
 
 		if ($s3Url) {
-			$displayUrl = $s3Service->getPresignedUrl($s3Key, 3600) ?: $s3Url;
 			$this->json([
 				'item' => [
 					'fileName' => $originalName,
 					'size' => $size,
 					'contentType' => (string) ($file['type'] ?? ''),
-					'url' => $displayUrl,
+					'url' => $s3Url,
 					'storagePath' => $s3Key,
 				],
 			]);
@@ -239,4 +238,3 @@ class MessageController extends BaseController {
 		echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 	}
 }
-

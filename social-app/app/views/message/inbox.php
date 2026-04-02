@@ -20,11 +20,11 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 		<aside class="chat-rail">
 			<a class="chat-rail-btn" href="<?= BASE_URL ?>/" data-label="Trang chủ" title="Trang chủ" aria-label="Trang chủ"><i class="bi bi-house"></i></a>
 			<a class="chat-rail-btn active" href="<?= BASE_URL ?>/messages" data-label="Tin nhắn" title="Tin nhắn" aria-label="Tin nhắn"><i class="bi bi-envelope"></i></a>
-			<button class="chat-rail-btn" type="button" data-label="Thông báo" title="Thông báo" aria-label="Thông báo"><i class="bi bi-bell"></i></button>
-			<button class="chat-rail-btn" type="button" data-label="Tìm kiếm" title="Tìm kiếm" aria-label="Tìm kiếm"><i class="bi bi-search"></i></button>
-			<button class="chat-rail-btn" type="button" data-label="Đã lưu" title="Đã lưu" aria-label="Đã lưu"><i class="bi bi-bookmark"></i></button>
-			<button class="chat-rail-btn" type="button" data-label="Trang cá nhân" title="Trang cá nhân" aria-label="Trang cá nhân"><i class="bi bi-person"></i></button>
-			<button class="chat-rail-btn" type="button" data-label="Cài đặt" title="Cài đặt" aria-label="Cài đặt"><i class="bi bi-gear"></i></button>
+			<a class="chat-rail-btn" href="<?= BASE_URL ?>/notifications" data-label="Thông báo" title="Thông báo" aria-label="Thông báo"><i class="bi bi-bell"></i></a>
+			<a class="chat-rail-btn" href="<?= BASE_URL ?>/search" data-label="Tìm kiếm" title="Tìm kiếm" aria-label="Tìm kiếm"><i class="bi bi-search"></i></a>
+			<a class="chat-rail-btn" href="<?= BASE_URL ?>/saved" data-label="Đã lưu" title="Đã lưu" aria-label="Đã lưu"><i class="bi bi-bookmark"></i></a>
+			<a class="chat-rail-btn" href="<?= htmlspecialchars(profile_url($meName), ENT_QUOTES, 'UTF-8') ?>" data-label="Trang cá nhân" title="Trang cá nhân" aria-label="Trang cá nhân"><i class="bi bi-person"></i></a>
+			<a class="chat-rail-btn" href="<?= BASE_URL ?>/settings" data-label="Cài đặt" title="Cài đặt" aria-label="Cài đặt"><i class="bi bi-gear"></i></a>
 			<button class="chat-rail-btn" id="chatNewConversationBtn" type="button" data-label="Tạo" title="Tạo" aria-label="Tạo"><i class="bi bi-plus-circle-fill"></i></button>
 			
 			<div class="chat-rail-avatar-container">

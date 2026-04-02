@@ -14,7 +14,8 @@ class SettingController extends BaseController {
 
     $this->render('user/settings', [
         'blocked' => $blocked,
-        'currentUser' => $currentUser
+        'currentUser' => $currentUser,
+        'csrfToken' => $this->csrfToken(),
     ]);
 }
 

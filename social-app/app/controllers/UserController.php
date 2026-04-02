@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Follow.php';
+require_once __DIR__ . '/../models/Post.php';
 require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
 
@@ -47,12 +48,15 @@ class UserController extends BaseController {
             ? $this->followModel->isFollowing($viewerId, $targetId)
             : false;
 
+        $profilePosts = (new Post())->getPostsByUserForProfile($targetId, $viewerId);
+
         $this->render('user/profile', [
             'user'=>$user,
             'stats'=>$stats,
             'badges'=>$badges,
             'isOwner'=> $isOwner,
             'isFollowing'=>$isFollowing,
+            'profilePosts' => $profilePosts,
             'currentUser'=>$_SESSION['user'],
             'csrfToken' => $this->csrfToken(),
             'activeMenu' => $isOwner ? 'profile' : 'browse',
@@ -86,10 +90,19 @@ class UserController extends BaseController {
             return;
         }
 
-        // Validate file type (only images)
+        // Validate file type (only images) — ưu tiên finfo vì client có thể gửi sai MIME
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($file['type'], $allowedTypes)) {
-            echo json_encode(['error' => 'Only image files allowed'], JSON_UNESCAPED_UNICODE);
+        $detected = '';
+        if (is_file($file['tmp_name']) && function_exists('finfo_open')) {
+            $fi = finfo_open(FILEINFO_MIME_TYPE);
+            if ($fi !== false) {
+                $detected = (string) finfo_file($fi, $file['tmp_name']);
+                finfo_close($fi);
+            }
+        }
+        $mime = $detected !== '' ? $detected : (string) ($file['type'] ?? '');
+        if (!in_array($mime, $allowedTypes, true)) {
+            echo json_encode(['error' => 'Chỉ cho phép ảnh JPEG, PNG, GIF hoặc WebP'], JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -104,8 +117,16 @@ class UserController extends BaseController {
         $oldAvatar = (string) ($previous['avatar_url'] ?? '');
 
         try {
-            // Upload lên S3 (required)
             $s3Service = new S3Service();
+            if (!$s3Service->isReady()) {
+                echo json_encode([
+                    'error' => 'S3 chưa sẵn sàng: ' . $s3Service->getNotReadyReason(),
+                    'hint' => 'Trong thư mục social-app chạy composer install (cần guzzlehttp/guzzle kèm aws-sdk-php). Lỗi SSL Windows: cấu hình openssl.cafile trong php.ini.',
+                ], JSON_UNESCAPED_UNICODE);
+
+                return;
+            }
+
             $filename = $file['name'];
             $s3Key = $s3Service->generateAvatarKey($userId, $filename);
             $s3Url = $s3Service->uploadFile($file['tmp_name'], $s3Key);
@@ -114,13 +135,15 @@ class UserController extends BaseController {
                 if ($oldAvatar !== '' && $oldAvatar !== $s3Key) {
                     $s3Service->deleteFile($oldAvatar);
                 }
-                // Lưu S3 key (không phải full URL) vào DB
                 $this->userModel->updateAvatar($userId, $s3Key);
                 $_SESSION['user']['avatar_url'] = $s3Key;
                 $displayUrl = $s3Service->getPresignedUrl($s3Key, 86400) ?: $s3Url;
                 echo json_encode(['url' => $displayUrl, 'success' => true], JSON_UNESCAPED_UNICODE);
             } else {
-                echo json_encode(['error' => 'Upload to S3 failed'], JSON_UNESCAPED_UNICODE);
+                $detail = $s3Service->getLastError();
+                echo json_encode([
+                    'error' => 'Upload S3 thất bại' . ($detail !== '' ? ': ' . $detail : ''),
+                ], JSON_UNESCAPED_UNICODE);
             }
         } catch (Exception $e) {
             echo json_encode(['error' => 'Error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
@@ -130,42 +153,13 @@ class UserController extends BaseController {
     public function apiPosts(): void {
         header('Content-Type: application/json');
 
-        $userId = (int)($_GET['user_id'] ?? 0);
+        $userId = (int) ($_GET['user_id'] ?? 0);
+        $viewerId = (int) ($_SESSION['user']['id'] ?? 0);
 
-        $db = Database::getInstance()->getConnection();
-
-        // Get posts
-        $stmt = $db->prepare("
-            SELECT p.*
-            FROM posts p
-            WHERE p.user_id = ?
-            ORDER BY p.created_at DESC
-        ");
-
-        $stmt->execute([$userId]);
-        $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Enrich with media
-        require_once __DIR__ . '/../models/PostMedia.php';
-        require_once __DIR__ . '/../helpers/media.php';
-        $mediaModel = new PostMedia();
-        foreach ($posts as &$post) {
-            $postId = (int) ($post['id'] ?? 0);
-            $mediaRows = $mediaModel->getByPost($postId);
-            
-            // Generate presigned URLs for each media
-            foreach ($mediaRows as &$media) {
-                $key = (string)($media['media_url'] ?? '');
-                $media['display_url'] = $key ? media_public_src($key) : '';
-            }
-            unset($media);
-            
-            $post['media'] = $mediaRows;
-        }
-        unset($post);
+        $posts = (new Post())->getPostsByUserForProfile($userId, $viewerId);
 
         echo json_encode([
-            'posts' => $posts
+            'posts' => $posts,
         ]);
     }
 

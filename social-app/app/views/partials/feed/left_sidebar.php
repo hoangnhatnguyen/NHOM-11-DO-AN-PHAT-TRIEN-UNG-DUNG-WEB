@@ -1,5 +1,18 @@
 <?php $activeMenu = $activeMenu ?? 'home'; ?>
 <?php
+// Form đăng xuất + modal Đăng bài (post/create.php) cần cùng token với session; nhiều trang (vd. settings) không truyền csrfToken từ controller.
+if (!isset($csrfToken) || $csrfToken === '') {
+	if (session_status() === PHP_SESSION_ACTIVE) {
+		if (empty($_SESSION['_csrf_token'])) {
+			$_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+		}
+		$csrfToken = (string) $_SESSION['_csrf_token'];
+	} else {
+		$csrfToken = '';
+	}
+}
+?>
+<?php
 $profileName = (string) ($currentUser['username'] ?? 'Người dùng');
 $profileInitial = Avatar::initials($profileName);
 $profileColor = Avatar::colors($profileName);

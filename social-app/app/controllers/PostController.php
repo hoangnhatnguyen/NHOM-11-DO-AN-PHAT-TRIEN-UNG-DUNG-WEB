@@ -330,6 +330,7 @@ class PostController extends BaseController {
         }
         require_once __DIR__ . '/../helpers/media.php';
         $s3Service = new S3Service();
+        $s3SkipLogged = false;
 
         foreach ($_FILES['media']['tmp_name'] as $i => $tmpFile) {
             $err = (int) ($_FILES['media']['error'][$i] ?? UPLOAD_ERR_OK);
@@ -347,7 +348,12 @@ class PostController extends BaseController {
                 $key = $s3Service->generatePostMediaKey($postId, $name);
                 if ($s3Service->uploadFile($tmpFile, $key)) {
                     $savedPath = $key;
+                } elseif ($s3Service->getLastError() !== '') {
+                    error_log("Post {$postId} S3 upload failed: " . $s3Service->getLastError());
                 }
+            } elseif (!$s3SkipLogged) {
+                $s3SkipLogged = true;
+                error_log('Post media: bỏ qua S3 — ' . $s3Service->getNotReadyReason());
             }
             if ($savedPath === null) {
                 $savedPath = save_uploaded_post_image_local($postId, $tmpFile, $name);

@@ -156,6 +156,66 @@ class Post extends BaseModel {
     }
 
     /**
+     * Bài viết public của một user (trang cá nhân), đầy đủ stats + is_liked/is_saved theo viewer.
+     */
+    public function getPostsByUserForProfile(int $profileUserId, int $viewerId): array {
+        if ($profileUserId <= 0) {
+            return [];
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT
+                p.*,
+                u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
+                (
+                    SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
+                ) AS like_count,
+                (
+                    SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id
+                ) AS comment_count,
+                (
+                    SELECT COUNT(*) FROM shares s WHERE s.post_id = p.id
+                ) AS share_count,
+                (
+                    SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id
+                ) AS save_count,
+                EXISTS(
+                    SELECT 1 FROM likes l2 WHERE l2.post_id = p.id AND l2.user_id = :viewer_like
+                ) AS is_liked,
+                EXISTS(
+                    SELECT 1 FROM saved_posts sp2 WHERE sp2.post_id = p.id AND sp2.user_id = :viewer_save
+                ) AS is_saved
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.user_id = :profile_uid AND p.status = 'active'
+            ORDER BY p.created_at DESC
+        ");
+        $stmt->execute([
+            'profile_uid' => $profileUserId,
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+        ]);
+
+        $posts = $stmt->fetchAll();
+
+        $mediaModel = new PostMedia();
+        $postIds = array_map(static function ($p) {
+            return (int) ($p['id'] ?? 0);
+        }, $posts);
+        $tagMap = (new PostHashtag())->getTagNamesForPostIds($postIds);
+
+        foreach ($posts as &$post) {
+            $pid = (int) ($post['id'] ?? 0);
+            $post['media'] = $mediaModel->getByPost($pid);
+            $post['hashtag_names'] = $tagMap[$pid] ?? [];
+        }
+        unset($post);
+
+        return $posts;
+    }
+
+    /**
      * Feed chỉ từ tài khoản đang theo dõi (+ bài của chính mình).
      */
     public function getFeedFollowing(int $viewerId = 0): array {

@@ -32,9 +32,13 @@
 	text-decoration: none;
 	color: #212529;
 	transition: background 0.15s ease;
+	cursor: pointer;
 }
 .noti-row:hover {
 	background: #f9fafb;
+}
+.noti-row a {
+	cursor: pointer;
 }
 .noti-avatar {
 	width: 44px;
@@ -86,13 +90,25 @@
 	<?php endif; ?>
 
 	<?php foreach ($notifications as $n): ?>
-		<a href="<?= htmlspecialchars($n['link'] ?? '#', ENT_QUOTES, 'UTF-8') ?>"
-		   class="noti-row"
-		   <?php if ((int) ($n['id'] ?? 0) > 0): ?>data-notification-id="<?= (int) $n['id'] ?>"<?php endif; ?>>
+		<?php
+		$notiLink = (string) ($n['link'] ?? '#');
+		$notiId = (int) ($n['id'] ?? 0);
+		?>
+		<div class="noti-row"
+		     tabindex="0"
+		     role="link"
+		     data-href="<?= htmlspecialchars($notiLink, ENT_QUOTES, 'UTF-8') ?>"
+		     <?php if ($notiId > 0): ?>data-notification-id="<?= $notiId ?>"<?php endif; ?>>
 
 			<?php if (!empty($n['actor_avatar'])): ?>
 				<img src="<?= htmlspecialchars((string) $n['actor_avatar'], ENT_QUOTES, 'UTF-8') ?>"
-				     alt="" class="noti-avatar" width="44" height="44">
+				     alt="" class="noti-avatar" width="44" height="44"
+				     loading="lazy"
+				     onerror="this.style.display='none'; var f=this.nextElementSibling; if(f&&f.classList.contains('noti-avatar-fallback')){f.classList.remove('d-none');}">
+				<div class="noti-avatar noti-avatar-initial noti-avatar-fallback d-none d-inline-flex align-items-center justify-content-center"
+				     style="background: <?= htmlspecialchars((string) ($n['actor_color_bg'] ?? '#E6F4FF'), ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars((string) ($n['actor_color_fg'] ?? '#005B96'), ENT_QUOTES, 'UTF-8') ?>;">
+					<?= htmlspecialchars((string) ($n['actor_initial'] ?? '?'), ENT_QUOTES, 'UTF-8') ?>
+				</div>
 			<?php else: ?>
 				<div class="noti-avatar noti-avatar-initial d-inline-flex align-items-center justify-content-center"
 				     style="background: <?= htmlspecialchars((string) ($n['actor_color_bg'] ?? '#E6F4FF'), ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars((string) ($n['actor_color_fg'] ?? '#005B96'), ENT_QUOTES, 'UTF-8') ?>;">
@@ -109,6 +125,6 @@
 			<?php if ((int) ($n['is_read'] ?? 0) === 0): ?>
 				<span class="noti-dot" aria-label="Chưa đọc">&#9679;</span>
 			<?php endif; ?>
-		</a>
+		</div>
 	<?php endforeach; ?>
 </div>

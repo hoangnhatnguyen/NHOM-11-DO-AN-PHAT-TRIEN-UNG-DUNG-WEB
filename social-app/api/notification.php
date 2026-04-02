@@ -39,9 +39,9 @@ foreach ($rows as $n) {
 
     $snippet = '';
     if ($type === 'comment' || $type === 'mention_comment' || $type === 'mention') {
-        $snippet = (string) ($n['comment_text'] ?? '');
+        $snippet = trim(strip_tags((string) ($n['comment_text'] ?? '')));
     } elseif ($type === 'mention_post') {
-        $snippet = (string) ($n['post_text'] ?? '');
+        $snippet = trim(strip_tags((string) ($n['post_text'] ?? '')));
     }
 
     $likeTotal = (int) ($n['like_total'] ?? 1);

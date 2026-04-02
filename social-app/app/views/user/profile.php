@@ -1,11 +1,20 @@
 <?php
 // Chỉ coi là tab "Trang cá nhân" khi đang xem hồ sơ của chính mình
 $activeMenu = $isOwner ? 'profile' : 'browse';
+$profilePosts = $profilePosts ?? [];
 ?>
 
 <script>
 const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 </script>
+
+<?php if (!empty($isOwner)): ?>
+<style>
+#profileAvatarContainer[data-change-avatar="1"] { cursor: pointer; }
+#profileAvatarContainer[data-change-avatar="1"]:hover #avatarOverlay { opacity: 1; }
+#avatarOverlay { opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+</style>
+<?php endif; ?>
 
 <div class="container mt-3 ms-3 px-4.5">
     <div class="row">
@@ -25,16 +34,14 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                     <div class="position-relative d-inline-block"
                          id="profileAvatarContainer"
                          data-avatar-container
+                         data-change-avatar="<?= !empty($isOwner) ? '1' : '0' ?>"
                          data-avatar-initial="<?= htmlspecialchars(strtoupper(substr($user['username'], 0, 1))) ?>">
                         
                         <?php if (!empty($user['avatar_url'])): ?>
                             <!-- Mode 1: Image Avatar (khi có url) -->
                             <?php
-                            // Use media helper to generate correct URL
                             $avatarUrl = $user['avatar_url'] ?? '';
                             $displayUrl = $avatarUrl ? media_public_src($avatarUrl) : '';
-                            // Debug logging
-                            error_log('Avatar Debug [' . $user['username'] . ']: avatar_url=[' . $avatarUrl . '], displayUrl=[' . $displayUrl . ']');
                             ?>
                             <?php if ($displayUrl): ?>
                             <img id="avatarImg"
@@ -69,12 +76,12 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 
                         <?php if($isOwner): ?>
                             <div id="avatarOverlay"
-                                 class="position-absolute top-50 start-50 translate-middle text-white fw-bold d-none"
-                                 style="background:rgba(0,0,0,0.5); padding:6px 10px; border-radius:20px; cursor:pointer;">
+                                 class="position-absolute top-50 start-50 translate-middle text-white fw-bold rounded-pill"
+                                 style="background:rgba(0,0,0,0.55); padding:6px 12px; font-size:0.85rem;">
                                 Đổi ảnh
                             </div>
 
-                            <input type="file" id="avatarInput" class="d-none">
+                            <input type="file" id="avatarInput" class="d-none" accept="image/jpeg,image/png,image/gif,image/webp">
                         <?php endif; ?>
                     </div>
 
@@ -169,9 +176,17 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                     </li>
                 </ul>
 
-                <div id="tabContent" class="mt-3 text-muted">
-                    Đang tải...
+                <div id="tabContentPosts" class="mt-3">
+                    <?php if (empty($profilePosts)): ?>
+                        <p class="text-muted mb-0">Chưa có bài viết nào</p>
+                    <?php else: ?>
+                        <?php foreach ($profilePosts as $post): ?>
+                            <?php include __DIR__ . '/../partials/post_card.php'; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
+
+                <div id="tabContentActivity" class="mt-3 d-none text-muted"></div>
 
             </div>
         </div>

@@ -44,15 +44,45 @@ try {
     }
 
     if ($type === 'suggest_users') {
-        $stmt = $conn->query("
-            SELECT id, username
-            FROM users
-            ORDER BY RAND()
-            LIMIT 5
-        ");
+        require_once __DIR__ . '/../app/helpers/media.php';
+        require_once __DIR__ . '/../app/core/Avatar.php';
+
+        if ($currentUserId) {
+            $stmt = $conn->prepare('
+                SELECT id, username, avatar_url
+                FROM users
+                WHERE id != :uid
+                ORDER BY RAND()
+                LIMIT 5
+            ');
+            $stmt->execute(['uid' => $currentUserId]);
+        } else {
+            $stmt = $conn->query('
+                SELECT id, username, avatar_url
+                FROM users
+                ORDER BY RAND()
+                LIMIT 5
+            ');
+        }
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $data = [];
+        foreach ($rows as $row) {
+            $uname = (string) ($row['username'] ?? '');
+            $rawAv = (string) ($row['avatar_url'] ?? '');
+            $avatarSrc = $rawAv !== '' ? media_public_src($rawAv) : '';
+            $c = Avatar::colors($uname);
+            $data[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'username' => $uname,
+                'avatar_src' => $avatarSrc,
+                'initials' => Avatar::initials($uname),
+                'avatar_bg' => $c['bg'],
+                'avatar_fg' => $c['fg'],
+            ];
+        }
         echo json_encode([
             'status' => 'success',
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'data' => $data,
         ]);
         exit;
     }

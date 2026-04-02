@@ -23,6 +23,7 @@ return [
         '/chat-api/bootstrap' => 'MessageController@apiBootstrap',
         '/chat-api/users' => 'MessageController@apiUsers',
         '/chat-api/users/{id}' => 'MessageController@apiUser',
+        '/media/view' => 'MessageController@mediaView',
 
         // ============ USERS & DISCOVERY ============
         '/users/finder' => 'UserController@finder',
@@ -72,6 +73,7 @@ return [
         '/user-api/remove-badge' => 'UserController@removeBadge',
         '/user-api/search-badge' => 'UserController@searchBadge',
         '/user-api/add-badge' => 'UserController@addBadge',
+        '/user-api/notification-mark-read' => 'NotificationController@markReadApi',
 
         // ============ SETTINGS ============
         '/setting-api/update-privacy' => 'SettingController@updatePrivacy',

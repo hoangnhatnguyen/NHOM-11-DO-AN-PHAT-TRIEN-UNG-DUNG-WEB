@@ -1,4 +1,9 @@
 RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+
+# Cho phép truy cập file/folder thực tế
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Route khác đến index.php
 RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]

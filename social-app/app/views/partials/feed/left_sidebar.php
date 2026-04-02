@@ -66,21 +66,32 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
        id="sidebarAvatarContainer"
        data-avatar-container
        data-avatar-initial="<?= htmlspecialchars(strtoupper(substr($currentUser['username'], 0, 1))) ?>"
-       class="position-relative flex-shrink-0"
-       style="width:50px; height:50px; display:inline-block;">
-        <!-- Mode 1: Image Avatar -->
-        <?php if (!empty($currentUser['avatar_url'])): ?>
-            <img src="<?= htmlspecialchars($currentUser['avatar_url']) ?>"
-                 class="rounded-circle position-absolute top-0 start-0"
-                 width="50" height="50"
-                 style="object-fit:cover">
-        <?php endif; ?>
+       class="d-flex align-items-center justify-content-center flex-shrink-0"
+       style="width:50px; height:50px;">
         
-        <!-- Mode 2: Text Avatar Fallback (overlay position) -->
-        <div class="avatar-text-fallback position-absolute top-0 start-0 d-flex align-items-center justify-content-center rounded-circle"
-             style="width:50px; height:50px; background:#8adfd7; color:#0a3d3a; font-weight:600; <?= !empty($currentUser['avatar_url']) ? 'display:none;' : '' ?>">
-            <?= htmlspecialchars(strtoupper(substr($currentUser['username'], 0, 1))) ?>
-        </div>
+        <?php if (!empty($currentUser['avatar_url'])): ?>
+            <!-- Mode 1: Image Avatar (khi có url) -->
+            <img id="sidebarAvatarImg"
+                 src="<?= htmlspecialchars($currentUser['avatar_url']) ?>"
+                 class="rounded-circle"
+                 width="50" height="50"
+                 style="object-fit:cover"
+                 onerror="document.getElementById('sidebarAvatarImg').style.display='none'; document.getElementById('sidebarTextAvatar').style.display='flex';">
+            
+            <!-- Mode 2: Text Avatar (fallback khi 404) -->
+            <div id="sidebarTextAvatar"
+                 class="d-none align-items-center justify-content-center rounded-circle"
+                 style="width:50px; height:50px; background:#8adfd7; color:#0a3d3a; font-weight:600; display:none;">
+                <?= htmlspecialchars(strtoupper(substr($currentUser['username'], 0, 1))) ?>
+            </div>
+        <?php else: ?>
+            <!-- Mode 2: Text Avatar (khi ko có url) -->
+            <div id="sidebarTextAvatar"
+                 class="d-flex align-items-center justify-content-center rounded-circle"
+                 style="width:50px; height:50px; background:#8adfd7; color:#0a3d3a; font-weight:600;">
+                <?= htmlspecialchars(strtoupper(substr($currentUser['username'], 0, 1))) ?>
+            </div>
+        <?php endif; ?>
     </a>
 
     <div class="menu-label">

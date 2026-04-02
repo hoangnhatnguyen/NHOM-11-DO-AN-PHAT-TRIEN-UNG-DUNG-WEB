@@ -694,6 +694,7 @@ if (!root) {
 		ui.conversationList.innerHTML = rows.map((item) => {
 			const isActive = item.id === state.activeConversationId;
 			const avatarStyle = avatarStyleByName(item.peer.username);
+			const avatarUrl = item.peer.avatarUrl || '';
 			const isFromOther = item.lastSenderId && String(item.lastSenderId) !== String(state.me.id);
 			
 			// Unread nếu: từ người khác AND (chưa đọc HOẶC tin mới hơn lần đọc cuối)
@@ -708,9 +709,31 @@ if (!root) {
 			}
 			
 			const lastMessageStyle = isUnread ? 'font-weight: 600;' : '';
+			
+			// Avatar render: nếu có URL thì hiển thị ảnh + fallback text, không thì chỉ text
+			let avatarHtml = '';
+			if (avatarUrl) {
+				avatarHtml = `
+					<div style="position:relative; width:40px; height:40px;">
+						<img id="conv-avatar-${item.id}" 
+							 src="${escapeHtml(avatarUrl)}" 
+							 class="rounded-circle" 
+							 style="width:100%; height:100%; object-fit:cover;"
+							 onerror="document.getElementById('conv-avatar-${item.id}').style.display='none'; document.getElementById('conv-avatar-text-${item.id}').style.display='flex';">
+						<div id="conv-avatar-text-${item.id}" 
+							 class="d-none" 
+							 style="position:absolute; top:0; left:0; width:100%; height:100%; ${avatarStyle}; display:none; align-items:center; justify-content:center; border-radius:50%;">
+							 ${escapeHtml(item.peer.initials)}
+						</div>
+					</div>
+				`;
+			} else {
+				avatarHtml = `<div class="chat-conversation-avatar" style="${avatarStyle}">${escapeHtml(item.peer.initials)}</div>`;
+			}
+			
 			return `
 				<button type="button" class="chat-conversation-item ${isActive ? 'active' : ''}" data-conversation-id="${item.id}">
-					<div class="chat-conversation-avatar" style="${avatarStyle}">${escapeHtml(item.peer.initials)}</div>
+					${avatarHtml}
 					<div class="chat-conversation-body">
 						<div class="chat-conversation-top">
 							<strong style="${isUnread ? 'font-weight: 700;' : ''}">${escapeHtml(item.peer.username)}</strong>

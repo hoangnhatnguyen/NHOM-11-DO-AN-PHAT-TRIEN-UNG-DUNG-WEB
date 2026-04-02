@@ -4,6 +4,7 @@ $meId = (int) ($me['id'] ?? 0);
 $meName = (string) ($me['username'] ?? 'Bạn');
 $meInitial = Avatar::initials($meName);
 $meColor = Avatar::colors($meName);
+$meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 ?>
 
 <section
@@ -27,11 +28,57 @@ $meColor = Avatar::colors($meName);
 			<button class="chat-rail-btn" id="chatNewConversationBtn" type="button" data-label="Tạo" title="Tạo" aria-label="Tạo"><i class="bi bi-plus-circle-fill"></i></button>
 			
 			<div class="chat-rail-avatar-container">
-				<button class="chat-rail-avatar" id="chatAvatarBtn" style="--avatar-bg: <?= htmlspecialchars($meColor['bg']) ?>; --avatar-fg: <?= htmlspecialchars($meColor['fg']) ?>;" title="Thông tin tài khoản" aria-label="Thông tin tài khoản"><?= htmlspecialchars($meInitial) ?></button>
+				<div style="position:relative; width:40px; height:40px;">
+					<?php if (!empty($meAvatarUrl)): ?>
+						<!-- Mode 1: Image Avatar -->
+						<img id="chatRailAvatarImg"
+							 src="<?= htmlspecialchars($meAvatarUrl) ?>"
+							 class="rounded-circle"
+							 style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;">
+						
+						<!-- Invisible overlay button để catch clicks -->
+						<button id="chatAvatarBtn"
+								class="chat-rail-avatar"
+								style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;"
+								type="button"
+								title="Thông tin tài khoản"
+								aria-label="Thông tin tài khoản"></button>
+					<?php else: ?>
+						<!-- Mode 2: Text Avatar (khi ko có url) -->
+						<button class="chat-rail-avatar" 
+								id="chatAvatarBtn"
+								style="--avatar-bg: <?= htmlspecialchars($meColor['bg']) ?>; --avatar-fg: <?= htmlspecialchars($meColor['fg']) ?>" 
+								type="button"
+								title="Thông tin tài khoản" 
+								aria-label="Thông tin tài khoản"><?= htmlspecialchars($meInitial) ?></button>
+					<?php endif; ?>
+				</div>
 				
 				<div class="chat-user-menu" id="chatUserMenu">
 					<div class="chat-user-menu-header">
-						<div class="chat-user-menu-avatar" style="--avatar-bg: <?= htmlspecialchars($meColor['bg']) ?>; --avatar-fg: <?= htmlspecialchars($meColor['fg']) ?>;"><?= htmlspecialchars($meInitial) ?></div>
+						<?php if (!empty($meAvatarUrl)): ?>
+							<!-- Mode 1: Image Avatar -->
+							<img id="chatMenuAvatarImg"
+								 src="<?= htmlspecialchars($meAvatarUrl) ?>"
+								 class="rounded-circle flex-shrink-0"
+								 width="44" height="44"
+								 style="object-fit:cover"
+								 onerror="document.getElementById('chatMenuAvatarImg').style.display='none'; document.getElementById('chatMenuTextAvatar').style.display='flex';">
+							
+							<!-- Mode 2: Text Avatar (fallback khi 404) -->
+							<div id="chatMenuTextAvatar"
+								 class="d-none align-items-center justify-content-center rounded-circle"
+								 style="width:44px; height:44px; background:<?= htmlspecialchars($meColor['bg']) ?>; color:<?= htmlspecialchars($meColor['fg']) ?>; font-weight:600; display:none;">
+								<?= htmlspecialchars($meInitial) ?>
+							</div>
+						<?php else: ?>
+							<!-- Mode 2: Text Avatar (khi ko có url) -->
+							<div id="chatMenuTextAvatar"
+								 class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+								 style="width:44px; height:44px; background:<?= htmlspecialchars($meColor['bg']) ?>; color:<?= htmlspecialchars($meColor['fg']) ?>; font-weight:600;">
+								<?= htmlspecialchars($meInitial) ?>
+							</div>
+						<?php endif; ?>
 						<div>
 							<div class="chat-user-menu-name"><?= htmlspecialchars($meName) ?></div>
 							<div class="chat-user-menu-email"><?= htmlspecialchars($me['email'] ?? '') ?></div>
@@ -95,7 +142,10 @@ $meColor = Avatar::colors($meName);
 		<aside class="chat-detail-panel" id="chatDetailPanel">
 			<div class="chat-detail-title">Chi tiết</div>
 			<div class="chat-detail-user" id="chatDetailUser">
-				<div class="chat-user-avatar">?</div>
+				<div class="chat-user-avatar"
+					 id="chatDetailAvatar"
+					 class="d-flex align-items-center justify-content-center rounded-circle"
+					 style="width:48px; height:48px; background:#8adfd7; color:#0a3d3a; font-weight:600; font-size:1.2rem;">?</div>
 				<div>
 					<div class="chat-user-name" id="chatDetailName">Chưa chọn</div>
 					<div class="chat-user-handle" id="chatDetailHandle"></div>

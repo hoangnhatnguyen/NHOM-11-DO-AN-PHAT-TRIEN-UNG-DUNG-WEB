@@ -38,9 +38,20 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
 			</li>
 			<li><a class="nav-link <?= $activeMenu === 'search' ? 'active' : '' ?>" href="<?= BASE_URL ?>/search"><i class="bi bi-search"></i><span class="menu-label">Tìm kiếm</span></a></li>
 			<li><a class="nav-link <?= $activeMenu === 'saved' ? 'active' : '' ?>" href="<?= BASE_URL ?>/saved"><i class="bi bi-bookmark"></i><span class="menu-label">Đã lưu</span></a></li>
-			<li><a class="nav-link <?= $activeMenu === 'profile' ? 'active' : '' ?>" href="<?= BASE_URL ?>/profile"><i class="bi bi-person"></i><span class="menu-label">Trang cá nhân</span></a></li>
-			<li><a class="nav-link" href="#"><i class="bi bi-gear"></i><span class="menu-label">Cài đặt</span></a></li>
 			<li>
+                <a class="nav-link <?= $activeMenu === 'profile' ? 'active' : '' ?>"
+                   href="<?= BASE_URL ?>/user/<?= $currentUser['username'] ?>">
+                    <i class="bi bi-person"></i>
+                    <span class="menu-label">Trang cá nhân</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <?= $activeMenu === 'settings' ? 'active' : '' ?>"
+                   href="<?= BASE_URL ?>/settings">
+                    <i class="bi bi-gear"></i>
+                    <span class="menu-label">Cài đặt</span>
+                </a>
+            </li>			<li>
 				<a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#createPostModal">
 					<i class="bi bi-plus-circle-fill"></i>
 					<span class="menu-label">Tạo</span>
@@ -50,15 +61,19 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
 
 		<div class="sidebar-divider"></div>
 
-		<div class="d-flex align-items-center gap-2 sidebar-profile">
-			<div class="avatar-lg" style="background: <?= htmlspecialchars($profileColor['bg']) ?>; color: <?= htmlspecialchars($profileColor['fg']) ?>;">
-				<?= htmlspecialchars($profileInitial) ?>
-			</div>
-			<div class="menu-label">
-				<div class="fw-semibold small"><?= htmlspecialchars($profileName) ?></div>
-				<div class="text-secondary small"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
-			</div>
-		</div>
+	<div class="d-flex align-items-center gap-2 sidebar-profile">
+    <a href="<?= BASE_URL ?>/user/<?= $currentUser['username'] ?>">
+        <img src="<?= $currentUser['avatar_url'] ?? BASE_URL.'/public/default-avatar.png' ?>"
+             class="rounded-circle"
+             width="50" height="50"
+             style="object-fit:cover">
+    </a>
+
+    <div class="menu-label">
+        <div class="fw-semibold small"><?= htmlspecialchars($profileName) ?></div>
+        <div class="text-secondary small"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
+    </div>
+</div>
 
 		<form method="post" action="<?= BASE_URL ?>/logout" class="mt-2 menu-label">
 			<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">

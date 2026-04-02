@@ -114,6 +114,13 @@ class Follow extends BaseModel {
 			return 0;
 		}
 	}
+	public function removeFollower($ownerId, $followerId) {
+	$stmt = $this->db->prepare("
+		DELETE FROM follows 
+		WHERE follower_id = ? AND following_id = ?
+	");
+	return $stmt->execute([$followerId, $ownerId]);
+}
 
 	/**
 	 * Gợi ý user chưa theo dõi (widget cột phải).

@@ -3,14 +3,20 @@ require_once APP_PATH . 'models/Block.php';
 class SettingController extends BaseController {
 
     public function index(): void {
-        $this->requireAuth();
+    $this->requireAuth();
 
-        $blocked = (new Block())->getBlocked($_SESSION['user']['id']);
+    require_once APP_PATH . 'models/User.php';
 
-        $this->render('user/settings', [
-            'blocked'=>$blocked
-        ]);
-    }
+    $userModel = new User();
+    $currentUser = $userModel->findById($_SESSION['user']['id']);
+
+    $blocked = (new Block())->getBlocked($_SESSION['user']['id']);
+
+    $this->render('user/settings', [
+        'blocked' => $blocked,
+        'currentUser' => $currentUser
+    ]);
+}
 
     public function updatePrivacy(): void {
         $this->requireAuth();

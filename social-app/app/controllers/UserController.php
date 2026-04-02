@@ -29,7 +29,8 @@ class UserController extends BaseController {
             'user'=>$user,
             'stats'=>$stats,
             'badges'=>$badges,
-            'isOwner'=>$_SESSION['user']['id'] == $user['id']
+            'isOwner'=>$_SESSION['user']['id'] == $user['id'],
+             'currentUser'=>$_SESSION['user']
         ]);
     }
 
@@ -221,4 +222,5 @@ public function addBadge(): void {
 
         echo json_encode(['success' => true]);
     }
+    
 }

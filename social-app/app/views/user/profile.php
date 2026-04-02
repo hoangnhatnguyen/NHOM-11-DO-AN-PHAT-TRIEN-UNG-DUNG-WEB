@@ -27,7 +27,7 @@ const USER_ID = <?= (int)$user['id'] ?>;
                         <?php if (!empty($user['avatar_url'])): ?>
                             <!-- Mode 1: Image Avatar (khi có url) -->
                             <img id="avatarImg"
-                                 src="<?= htmlspecialchars($user['avatar_url']) ?>"
+                                 src="<?= htmlspecialchars(BASE_URL . '/public' . $user['avatar_url']) ?>"
                                  class="rounded-circle mb-3"
                                  width="110" height="110"
                                  style="object-fit:cover"

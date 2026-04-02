@@ -401,7 +401,7 @@ if (!root) {
 			form.action = logoutUrl;
 			form.innerHTML = `<input type="hidden" name="_csrf" value="${csrf}">`;
 			document.body.appendChild(form);
-			form.submit();
+			setTimeout(() => form.submit(), 100);
 		});
 	}
 
@@ -713,10 +713,11 @@ if (!root) {
 			// Avatar render: nếu có URL thì hiển thị ảnh + fallback text, không thì chỉ text
 			let avatarHtml = '';
 			if (avatarUrl) {
+				const fullAvatarUrl = window.__APP_BASE__ + '/public' + avatarUrl;
 				avatarHtml = `
 					<div style="position:relative; width:40px; height:40px;">
 						<img id="conv-avatar-${item.id}" 
-							 src="${escapeHtml(avatarUrl)}" 
+							 src="${escapeHtml(fullAvatarUrl)}" 
 							 class="rounded-circle" 
 							 style="width:100%; height:100%; object-fit:cover;"
 							 onerror="document.getElementById('conv-avatar-${item.id}').style.display='none'; document.getElementById('conv-avatar-text-${item.id}').style.display='flex';">

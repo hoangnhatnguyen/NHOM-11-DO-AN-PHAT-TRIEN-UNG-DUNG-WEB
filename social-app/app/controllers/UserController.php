@@ -57,15 +57,16 @@ class UserController extends BaseController {
         $file = $_FILES['avatar'];
 
         $filename = time() . '_' . basename($file['name']);
-        $path = '/public/uploads/' . $filename;
+        $path = '/uploads/' . $filename;
+        $fullPath = APP_ROOT . '/public' . $path;
 
-        move_uploaded_file($file['tmp_name'], APP_ROOT . $path);
+        move_uploaded_file($file['tmp_name'], $fullPath);
 
         $this->userModel->updateAvatar($_SESSION['user']['id'], $path);
 
         $_SESSION['user']['avatar_url'] = $path;
 
-        echo json_encode(['url'=>$path]);
+        echo json_encode(['url' => BASE_URL . '/public' . $path]);
     }
 
     public function apiPosts(): void {

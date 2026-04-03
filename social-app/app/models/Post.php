@@ -494,7 +494,8 @@ class Post extends BaseModel {
         $stmt = $this->db->prepare("
             SELECT
                 c.*,
-                u.username AS author_name
+                u.username AS author_name,
+                u.avatar_url AS author_avatar_url
             FROM comments c
             JOIN users u ON u.id = c.user_id
             WHERE c.post_id = :post_id
@@ -559,19 +560,43 @@ class Post extends BaseModel {
         return $roots;
     }
 
-    public function addReplyToComment(int $postId, int $parentCommentId, int $userId, string $content): int {
+    public function addReplyToComment(int $postId, int $parentCommentId, int $userId, string $content): ?int {
         $this->ensureCommentThreadColumns();
 
-        // Calculate next level from parent.
-        $levelStmt = $this->db->prepare("
-            SELECT COALESCE(level, 1) AS lvl FROM comments WHERE id = :id AND post_id = :post_id LIMIT 1
+        // Get parent comment info
+        $parentStmt = $this->db->prepare("
+            SELECT id, level, parent_id FROM comments 
+            WHERE id = :id AND post_id = :post_id LIMIT 1
         ");
-        $levelStmt->execute([
+        $parentStmt->execute([
             'id' => $parentCommentId,
             'post_id' => $postId,
         ]);
-        $parentLevel = $levelStmt->fetchColumn();
-        $nextLevel = ((int) $parentLevel) + 1;
+        $parent = $parentStmt->fetch();
+        
+        if (!$parent) {
+            return null;
+        }
+
+        $parentLevel = (int) ($parent['level'] ?? 1);
+        
+        // Facebook-style 2 levels only:
+        // - Level 1: top-level comment (parent_id = NULL)
+        // - Level 2: reply to level 1 (parent_id = level 1 comment id)
+        // - If replying to level 2, the new comment is still level 2 with same parent_id (the level 1 comment)
+        
+        if ($parentLevel === 1) {
+            // Reply to level 1 → new comment is level 2
+            $nextLevel = 2;
+            $actualParentId = $parentCommentId;
+        } elseif ($parentLevel === 2) {
+            // Reply to level 2 → new comment is level 2, with the level 1 comment as parent
+            $nextLevel = 2;
+            $actualParentId = (int) ($parent['parent_id'] ?? $parentCommentId);
+        } else {
+            // Fallback (shouldn't happen)
+            return null;
+        }
 
         $stmt = $this->db->prepare("
             INSERT INTO comments (post_id, user_id, content, parent_id, level)
@@ -581,10 +606,46 @@ class Post extends BaseModel {
             'post_id' => $postId,
             'user_id' => $userId,
             'content' => $content,
-            'parent_id' => $parentCommentId,
+            'parent_id' => $actualParentId,
             'level' => $nextLevel,
         ]);
         return (int) $this->db->lastInsertId();
+    }
+
+    /**
+     * Get comment with author info
+     */
+    public function getCommentWithAuthor(int $commentId): ?array {
+        $this->ensureCommentThreadColumns();
+        $stmt = $this->db->prepare("
+            SELECT c.*, u.username, u.avatar_url 
+            FROM comments c
+            JOIN users u ON u.id = c.user_id
+            WHERE c.id = :id LIMIT 1
+        ");
+        $stmt->execute(['id' => $commentId]);
+        $result = $stmt->fetch();
+        return $result === false ? null : $result;
+    }
+
+    /**
+     * Get comment level by ID
+     */
+    public function getCommentLevel(int $commentId): ?int {
+        $this->ensureCommentThreadColumns();
+        $stmt = $this->db->prepare("
+            SELECT COALESCE(level, 1) AS lvl FROM comments WHERE id = :id LIMIT 1
+        ");
+        $stmt->execute(['id' => $commentId]);
+        $result = $stmt->fetchColumn();
+        return $result !== false ? (int) $result : null;
+    }
+
+    /**
+     * All comments can be replied (2-level system)
+     */
+    public function canReply(int $commentId): bool {
+        return true; // In 2-level system, any comment can be replied
     }
 
     /**

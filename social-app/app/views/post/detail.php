@@ -155,7 +155,7 @@ if (!function_exists('format_comment_time_vi')) {
 
         <hr class="my-3">
 		<!-- Comment form -->
-		<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/comment" class="mb-3" id="comment-box">
+		<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/comment" class="mb-3 comment-form" id="comment-box">
 			<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 			<div class="input-group rounded-4 p-2 bg-light">
 				<input type="text" name="content" class="form-control border-0 bg-light" placeholder="Viết bình luận..." required>
@@ -182,6 +182,22 @@ if (!function_exists('format_comment_time_vi')) {
 		</div>
 	</div>
 </article>
-
+<!-- Hidden data for JS -->
+<?php
+$currentUserAvatar = (string) ($currentUser['avatar_url'] ?? '');
+$currentUserAvatarSrc = $currentUserAvatar ? media_public_src($currentUserAvatar) : '';
+?>
+<div class="d-none">
+	<span class="currentUserName"><?= htmlspecialchars($currentUser['username'] ?? 'Người dùng') ?></span>
+	<img class="currentUserAvatar" data-avatar="<?= htmlspecialchars($currentUserAvatarSrc) ?>" alt="">
+</div>
+<script>
+	console.log('Avatar debug:', {
+		username: '<?= htmlspecialchars($currentUser['username'] ?? 'N/A') ?>',
+		avatar_url_raw: '<?= htmlspecialchars($currentUserAvatar) ?>',
+		avatar_src: '<?= htmlspecialchars($currentUserAvatarSrc) ?>',
+		element: document.querySelector('.currentUserAvatar')?.getAttribute('data-avatar')
+	});
+</script>
 <script src="/public/js/comment.js"></script>
 <script src="/public/js/back-actions.js"></script>

@@ -54,6 +54,9 @@ class PostController extends BaseController {
     public function detail($id) {
         $this->requireAuth();
 
+        // Sync avatar_url từ database vào session
+        $this->syncUserSession();
+
         $postId = (int) $id;
         $viewerId = (int) ($_SESSION['user']['id'] ?? 0);
         $postModel = new Post();
@@ -194,11 +197,26 @@ class PostController extends BaseController {
         $postId = (int) $id;
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
         $content = trim((string) ($_POST['content'] ?? ''));
+        $commentId = null;
+        
         if ($content !== '') {
             $postModel = new Post();
             $commentId = $postModel->addComment($postId, $userId, $content);
             notify_for_new_comment(notification_db(), $postId, $userId, $commentId, $content);
         }
+        
+        // Check if AJAX request
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'status' => 'success',
+                'ok' => true,
+                'comment_id' => $commentId,
+                'message' => 'Bình luận thành công'
+            ]);
+            exit;
+        }
+        
         $this->redirect('/post/' . $postId);
     }
 
@@ -214,13 +232,39 @@ class PostController extends BaseController {
         $content = trim((string) ($_POST['content'] ?? ''));
 
         $postModel = new Post();
-        if ($content === '' || !$postModel->isCommentBelongsToPost($parentCommentId, $postId)) {
-            $this->redirect('/post/' . $postId . '#comment-' . $parentCommentId);
-            return;
+        $replyId = null;
+        $error = null;
+
+        if ($content !== '' && $postModel->isCommentBelongsToPost($parentCommentId, $postId)) {
+            $replyId = $postModel->addReplyToComment($postId, $parentCommentId, $userId, $content);
+            if ($replyId === null) {
+                $error = 'Không thể gửi trả lời.';
+            } else {
+                notify_for_new_comment(notification_db(), $postId, $userId, $replyId, $content);
+            }
         }
 
-        $replyId = $postModel->addReplyToComment($postId, $parentCommentId, $userId, $content);
-        notify_for_new_comment(notification_db(), $postId, $userId, $replyId, $content);
+        // Check if AJAX request
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            header('Content-Type: application/json');
+            if ($error) {
+                echo json_encode([
+                    'status' => 'error',
+                    'ok' => false,
+                    'error' => $error
+                ]);
+            } else {
+                echo json_encode([
+                    'status' => 'success',
+                    'ok' => true,
+                    'comment_id' => $replyId,
+                    'reply_id' => $replyId,
+                    'message' => 'Trả lời thành công'
+                ]);
+            }
+            exit;
+        }
+
         $this->redirect('/post/' . $postId . '#comment-' . $parentCommentId);
     }
 

@@ -41,13 +41,23 @@ if (!function_exists('format_comment_time_vi')) {
 	</a>
 </div>
 
-<article class="card border-0 shadow-sm rounded-4">
+<article class="card border-0 shadow-sm rounded-4 mb-4">
 	<div class="card-body p-3 p-md-4">
         <?php
         $detailAuthor = (string) ($post['author_name'] ?? '');
         $detailAuthorColor = Avatar::colors($detailAuthor);
         $detailAvRaw = (string) ($post['author_avatar_url'] ?? '');
         $detailAvSrc = $detailAvRaw !== '' ? media_public_src($detailAvRaw) : '';
+		$detailVisible = (string) ($post['visible'] ?? 'public');
+		$detailVisibleIcon = 'bi-globe2';
+		$detailVisibleLabel = 'Công khai';
+		if ($detailVisible === 'followers') {
+			$detailVisibleIcon = 'bi-people';
+			$detailVisibleLabel = 'Người theo dõi';
+		} elseif ($detailVisible === 'private') {
+			$detailVisibleIcon = 'bi-lock';
+			$detailVisibleLabel = 'Chỉ mình tôi';
+		}
         ?>
         <div class="d-flex align-items-start justify-content-between gap-2">
             <a href="<?= htmlspecialchars(profile_url($detailAuthor), ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0">
@@ -60,7 +70,10 @@ if (!function_exists('format_comment_time_vi')) {
                 <?php endif; ?>
                 <div class="min-w-0">
                     <h5 class="fw-semibold mb-0 text-truncate"><?= htmlspecialchars($detailAuthor, ENT_QUOTES, 'UTF-8') ?></h5>
-                    <div class="small text-secondary"><?= htmlspecialchars((string) $post['created_at'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="small text-secondary d-flex align-items-center gap-1">
+						<span><?= htmlspecialchars((string) $post['created_at'], ENT_QUOTES, 'UTF-8') ?></span>
+						<i class="bi <?= $detailVisibleIcon ?>" title="<?= htmlspecialchars($detailVisibleLabel, ENT_QUOTES, 'UTF-8') ?>"></i>
+					</div>
                 </div>
             </a>
 
@@ -102,19 +115,19 @@ if (!function_exists('format_comment_time_vi')) {
 			<?php if ($isVideo): ?>
 			<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4 mb-2" playsinline></video>
 			<?php else: ?>
-			<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 mb-2" alt="">
+			<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 mb-2 w-100" style="object-fit: cover;" alt="">
 			<?php endif; ?>
 		<?php endforeach; ?>
 
 		<hr class="my-3">
 
 		<div class="d-flex align-items-center gap-4 flex-wrap mb-3 small">
-			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/like" class="m-0 d-inline-flex align-items-center gap-1">
+			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/like" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-like" data-post-id="<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>" aria-label="Yêu thích">
-					<i class="bi <?= !empty($post['is_liked']) ? 'bi-heart-fill' : 'bi-heart' ?>"></i>
+				<button id="like-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>" aria-label="Yêu thích">
+					<i id="like-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_liked']) ? 'bi-heart-fill' : 'bi-heart' ?>"></i>
 				</button>
-				<span class="<?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>"><?= (int) ($post['like_count'] ?? 0) ?></span>
+				<span id="like-count-<?= (int) $post['id'] ?>" class="<?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>"><?= (int) ($post['like_count'] ?? 0) ?></span>
 			</form>
 
 			<a href="#comment-box" class="text-decoration-none d-inline-flex align-items-center gap-1 text-secondary" aria-label="Bình luận">
@@ -122,21 +135,21 @@ if (!function_exists('format_comment_time_vi')) {
 				<span><?= (int) ($post['comment_count'] ?? 0) ?></span>
 			</a>
 
-			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/share" class="m-0 d-inline-flex align-items-center gap-1">
+			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/share" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-share js-share-form" data-post-id="<?= (int) $post['id'] ?>" data-post-url="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 text-secondary" aria-label="Chia sẻ">
 					<i class="bi bi-share"></i>
 				</button>
-				<span class="text-secondary"><?= (int) ($post['share_count'] ?? 0) ?></span>
+				<span id="share-count-<?= (int) $post['id'] ?>" class="text-secondary"><?= (int) ($post['share_count'] ?? 0) ?></span>
 			</form>
 
 			<!-- Save post -->
-            <form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/save" class="m-0 d-inline-flex align-items-center gap-1">
+            <form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/save" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-save" data-post-id="<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>" aria-label="Lưu bài viết">
-					<i class="bi <?= !empty($post['is_saved']) ? 'bi-bookmark-fill' : 'bi-bookmark' ?>"></i>
+				<button id="save-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>" aria-label="Lưu bài viết">
+					<i id="save-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_saved']) ? 'bi-bookmark-fill' : 'bi-bookmark' ?>"></i>
 				</button>
-				<span class="<?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>"><?= (int) ($post['save_count'] ?? 0) ?></span>
+				<span id="save-count-<?= (int) $post['id'] ?>" class="<?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>"><?= (int) ($post['save_count'] ?? 0) ?></span>
 			</form>
 		</div>
 
@@ -171,3 +184,4 @@ if (!function_exists('format_comment_time_vi')) {
 </article>
 
 <script src="/public/js/comment.js"></script>
+<script src="/public/js/back-actions.js"></script>

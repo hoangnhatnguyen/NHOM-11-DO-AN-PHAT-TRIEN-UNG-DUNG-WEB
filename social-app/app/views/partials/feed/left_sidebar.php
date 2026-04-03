@@ -1,5 +1,11 @@
 <?php $activeMenu = $activeMenu ?? 'home'; ?>
 <?php
+$requestPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '');
+if (strpos($requestPath, '/admin') === 0) {
+	$activeMenu = 'admin';
+}
+?>
+<?php
 // Form đăng xuất + modal Đăng bài (post/create.php) cần cùng token với session; nhiều trang (vd. settings) không truyền csrfToken từ controller.
 if (!isset($csrfToken) || $csrfToken === '') {
 	if (session_status() === PHP_SESSION_ACTIVE) {
@@ -113,10 +119,17 @@ $notifBadgeLabel = $notifUnread > 99 ? '99+' : (string) max(0, $notifUnread);
     </div>
 </div>
 
-		<form method="post" action="<?= BASE_URL ?>/logout" class="mt-2 menu-label">
-			<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-			<button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Đăng xuất</button>
-		</form>
+		<div class="mt-2 menu-label d-flex align-items-center gap-2">
+			<form method="post" action="<?= BASE_URL ?>/logout" class="m-0">
+				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+				<button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Đăng xuất</button>
+			</form>
+			<?php if ((string) ($currentUser['role'] ?? 'user') === 'admin'): ?>
+				<a href="<?= BASE_URL ?>/admin" class="btn btn-sm btn-outline-primary rounded-pill px-3 <?= $activeMenu === 'admin' ? 'active' : '' ?>">
+					Quản lý
+				</a>
+			<?php endif; ?>
+		</div>
 	</div>
 </aside>
 

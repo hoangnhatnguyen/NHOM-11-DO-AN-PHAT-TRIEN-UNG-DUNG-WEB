@@ -5,37 +5,79 @@ use Aws\Exception\AwsException;
 
 class S3Service
 {
-    private $s3Client;
+    /** @var S3Client|null */
+    private $s3Client = null;
     private $bucket;
     private $region;
+    private string $notReadyReason = '';
+    private string $lastError = '';
 
     public function __construct()
     {
-        $this->bucket = getenv('AWS_S3_BUCKET');
-        $this->region = getenv('AWS_REGION') ?: 'ap-southeast-1';
+        $this->bucket = (string) (getenv('AWS_S3_BUCKET') ?: '');
+        $this->region = (string) (getenv('AWS_REGION') ?: 'ap-southeast-1');
 
         // Debug logging
         error_log('S3Service Init: bucket=[' . ($this->bucket ?: 'EMPTY') . '], region=[' . $this->region . ']');
 
-        if (!$this->bucket) {
+        if ($this->bucket === '') {
+            $this->notReadyReason = 'AWS_S3_BUCKET chưa được cấu hình.';
             error_log('WARNING: AWS_S3_BUCKET not set in environment variables!');
+            return;
         }
 
-        $key = getenv('AWS_ACCESS_KEY_ID');
-        $secret = getenv('AWS_SECRET_ACCESS_KEY');
+        $key = (string) (getenv('AWS_ACCESS_KEY_ID') ?: '');
+        $secret = (string) (getenv('AWS_SECRET_ACCESS_KEY') ?: '');
         
-        if (!$key || !$secret) {
+        if ($key === '' || $secret === '') {
+            $this->notReadyReason = 'Thiếu AWS_ACCESS_KEY_ID hoặc AWS_SECRET_ACCESS_KEY.';
             error_log('WARNING: AWS credentials not set properly!');
+            return;
         }
 
-        $this->s3Client = new S3Client([
-            'version' => 'latest',
-            'region'  => $this->region,
-            'credentials' => [
-                'key'    => $key,
-                'secret' => $secret,
-            ]
-        ]);
+        try {
+            $this->s3Client = new S3Client([
+                'version' => 'latest',
+                'region'  => $this->region,
+                'credentials' => [
+                    'key'    => $key,
+                    'secret' => $secret,
+                ]
+            ]);
+        } catch (\Throwable $e) {
+            $this->notReadyReason = $e->getMessage();
+            error_log('S3Service: không khởi tạo S3Client — ' . $e->getMessage());
+        }
+    }
+
+    public function isReady(): bool
+    {
+        return $this->s3Client !== null;
+    }
+
+    public function getNotReadyReason(): string
+    {
+        return $this->notReadyReason !== '' ? $this->notReadyReason : 'S3 client chưa khả dụng.';
+    }
+
+    public function getLastError(): string
+    {
+        return $this->lastError;
+    }
+
+    public static function extractKeyFromS3Url(string $url): ?string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return null;
+        }
+        if (preg_match('#^https?://[^/]+\.s3[.-][^/]+\.amazonaws\.com/(.+)$#i', $url, $m)) {
+            return rawurldecode($m[1]);
+        }
+        if (preg_match('#^https?://s3[.-][^/]+\.amazonaws\.com/[^/]+/(.+)$#i', $url, $m)) {
+            return rawurldecode($m[1]);
+        }
+        return null;
     }
 
     /**
@@ -46,6 +88,11 @@ class S3Service
      */
     public function uploadFile($filePath, $key)
     {
+        $this->lastError = '';
+        if ($this->s3Client === null) {
+            $this->lastError = $this->getNotReadyReason();
+            return false;
+        }
         try {
             if (!file_exists($filePath)) {
                 throw new \Exception("File not found: $filePath");
@@ -66,9 +113,11 @@ class S3Service
             @fclose($fileStream);
             return $this->getPublicUrl($key);
         } catch (AwsException $e) {
+            $this->lastError = $e->getMessage();
             error_log('S3 Upload Error [' . __METHOD__ . ']: ' . $e->getMessage());
             return false;
         } catch (\Exception $e) {
+            $this->lastError = $e->getMessage();
             error_log('Upload Error [' . __METHOD__ . ']: ' . $e->getMessage());
             return false;
         }
@@ -82,6 +131,11 @@ class S3Service
      */
     public function uploadStream($stream, $key)
     {
+        $this->lastError = '';
+        if ($this->s3Client === null) {
+            $this->lastError = $this->getNotReadyReason();
+            return false;
+        }
         try {
             $this->s3Client->putObject([
                 'Bucket' => $this->bucket,
@@ -92,6 +146,7 @@ class S3Service
 
             return $this->getPublicUrl($key);
         } catch (AwsException $e) {
+            $this->lastError = $e->getMessage();
             error_log('S3 Stream Upload Error: ' . $e->getMessage());
             return false;
         }
@@ -104,6 +159,9 @@ class S3Service
      */
     public function deleteFile($key)
     {
+        if ($this->s3Client === null) {
+            return false;
+        }
         try {
             $this->s3Client->deleteObject([
                 'Bucket' => $this->bucket,
@@ -134,6 +192,9 @@ class S3Service
      */
     public function getPresignedUrl($key, $expiration = 3600)
     {
+        if ($this->s3Client === null) {
+            return null;
+        }
         try {
             $cmd = $this->s3Client->getCommand('GetObject', [
                 'Bucket' => $this->bucket,
@@ -200,6 +261,9 @@ class S3Service
      */
     public function deleteFolder(string $prefix): bool
     {
+        if ($this->s3Client === null) {
+            return false;
+        }
         try {
             $paginator = $this->s3Client->getPaginator('ListObjects', [
                 'Bucket' => $this->bucket,

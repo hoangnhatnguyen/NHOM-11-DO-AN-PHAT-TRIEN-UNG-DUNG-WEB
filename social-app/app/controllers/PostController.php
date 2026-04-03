@@ -26,6 +26,11 @@ class PostController extends BaseController {
         $parsed = parse_post_content_hashtags($rawInput);
         $content = $parsed['plain'];
         $visible = $_POST['privacy'] ?? 'public';
+        $hasUpload = !empty($_FILES['media']['name'][0]);
+        if ($content === '' && !$hasUpload) {
+            $this->redirect('/?composer_error=empty');
+            return;
+        }
 
         $postModel = new Post();
         $postId = $postModel->create([
@@ -237,11 +242,14 @@ class PostController extends BaseController {
         }
 
         $media = (new PostMedia())->getByPost($postId);
+        $hashtags = (new PostHashtag())->getTagNamesByPostId($postId);
+        $editContent = $this->composeContentForEditor((string) ($post['content'] ?? ''), $hashtags);
 
         $this->render('post/edit', [
             'title' => 'Chỉnh sửa bài viết — ' . APP_NAME,
             'post' => $post,
             'media' => $media,
+            'editContent' => $editContent,
             'currentUser' => $_SESSION['user'] ?? null,
             'csrfToken' => $this->csrfToken(),
         ], 'feed');
@@ -293,6 +301,13 @@ class PostController extends BaseController {
             foreach ($mediaRows as $mediaRow) {
                 delete_stored_media((string) ($mediaRow['media_url'] ?? ''));
             }
+        }
+        $remainingMedia = $mediaModel->getByPost($postId);
+        $hasExistingMedia = !empty($remainingMedia);
+        $hasNewUpload = !empty($_FILES['media']['name'][0]);
+        if ($parsedUpdate['plain'] === '' && !$hasExistingMedia && !$hasNewUpload) {
+            $this->redirect('/post/edit/' . $postId . '?error=empty');
+            return;
         }
 
         $this->processUploadedPostMedia($postId, $mediaModel);
@@ -362,5 +377,24 @@ class PostController extends BaseController {
                 $mediaModel->addMedia($postId, $savedPath);
             }
         }
+    }
+
+    /**
+     * @param array<int, string> $hashtags
+     */
+    private function composeContentForEditor(string $plainContent, array $hashtags): string {
+        $plainContent = trim($plainContent);
+        $tags = [];
+        foreach ($hashtags as $tag) {
+            $t = trim((string) $tag);
+            if ($t === '') {
+                continue;
+            }
+            $tags[] = '#' . ltrim($t, '#');
+        }
+        if (empty($tags)) {
+            return $plainContent;
+        }
+        return trim($plainContent . "\n" . implode(' ', $tags));
     }
 }

@@ -181,7 +181,8 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                         <p class="text-muted mb-0">Chưa có bài viết nào</p>
                     <?php else: ?>
                         <?php foreach ($profilePosts as $post): ?>
-                            <?php include __DIR__ . '/../partials/post_card.php'; ?>
+                            <?php $currentUser = $currentUser ?? ($_SESSION['user'] ?? null); ?>
+                            <?php include VIEW_PATH . 'partials/post_card.php'; ?>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>

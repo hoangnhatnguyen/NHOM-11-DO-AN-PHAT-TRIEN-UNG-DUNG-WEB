@@ -8,6 +8,9 @@
 	<div class="card-body p-3 p-md-4">
 		<form method="POST" action="<?= BASE_URL ?>/post/update/<?= (int) ($post['id'] ?? 0) ?>" enctype="multipart/form-data">
 			<input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) ($csrfToken ?? '')) ?>">
+			<?php if (($_GET['error'] ?? '') === 'empty'): ?>
+				<div class="alert alert-warning py-2 mb-3" role="alert">Bài viết phải có nội dung hoặc ít nhất 1 media.</div>
+			<?php endif; ?>
 
 			<div class="d-flex border-bottom pb-3 mb-3">
 				<div class="avatar-sm me-2"><?= strtoupper(substr((string) ($currentUser['username'] ?? 'U'), 0, 1)) ?></div>
@@ -36,12 +39,12 @@
 							}
 							$isVideo = (($m['media_type'] ?? '') === 'video');
 							?>
-							<div class="col-12 col-md-6" id="media-item-<?= $mediaId ?>">
+							<div class="col-6 col-md-4" id="media-item-<?= $mediaId ?>">
 								<div class="preview-wrapper position-relative">
 									<?php if ($isVideo): ?>
 										<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4" playsinline></video>
 									<?php else: ?>
-										<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 w-100" alt="">
+										<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 w-100 post-media-tile" alt="">
 									<?php endif; ?>
 
 									<button type="button" class="bi bi-x text-white preview-remove" onclick="removeMedia(<?= $mediaId ?>)"></button>
@@ -129,35 +132,50 @@ function initPrivacyFromValue() {
 function removeMedia(mediaId) {
 	const mediaItem = document.getElementById("media-item-" + mediaId);
 	if (!mediaItem) return;
+	const form = mediaItem.closest('form');
+	if (form) {
+		const hidden = document.createElement('input');
+		hidden.type = 'hidden';
+		hidden.name = 'remove_media_ids[]';
+		hidden.value = String(mediaId);
+		form.appendChild(hidden);
+	}
 	mediaItem.remove();
 }
 
 function removeNewMediaAt(index) {
 	const fileInput = document.getElementById("editfileInput");
-	if (!fileInput || !fileInput.files || !fileInput.files.length) return;
+	if (!fileInput) return;
+	if (!Array.isArray(window.__editSelectedFiles)) {
+		window.__editSelectedFiles = [];
+	}
+	window.__editSelectedFiles = window.__editSelectedFiles.filter(function (_, i) {
+		return i !== index;
+	});
+	syncEditFileInputFromBuffer();
+	renderNewMediaPreview();
+}
 
+function syncEditFileInputFromBuffer() {
+	const fileInput = document.getElementById("editfileInput");
+	if (!fileInput) return;
 	try {
 		const dt = new DataTransfer();
-		Array.from(fileInput.files).forEach(function (file, i) {
-			if (i !== index) dt.items.add(file);
+		(window.__editSelectedFiles || []).forEach(function (file) {
+			dt.items.add(file);
 		});
 		fileInput.files = dt.files;
-	} catch (e) {
-		// Fallback: browser không hỗ trợ DataTransfer set files.
-		fileInput.value = "";
-	}
-
-	renderNewMediaPreview();
+	} catch (e) {}
 }
 
 function renderNewMediaPreview() {
 	const fileInput = document.getElementById("editfileInput");
 	const previewContainer = document.getElementById("newPreviewContainer");
 	const previewGrid = document.getElementById("newPreviewGrid");
-	if (!fileInput || !previewContainer || !previewGrid) return;
+	if (!previewContainer || !previewGrid) return;
 
 	previewGrid.innerHTML = "";
-	const files = Array.from(fileInput.files || []);
+	const files = Array.isArray(window.__editSelectedFiles) ? window.__editSelectedFiles : [];
 	if (!files.length) {
 		previewContainer.classList.add("d-none");
 		return;
@@ -165,7 +183,7 @@ function renderNewMediaPreview() {
 
 	files.forEach(function (file, index) {
 		const col = document.createElement("div");
-		col.className = "col-12 col-md-6";
+		col.className = "col-6 col-md-4";
 
 		const wrapper = document.createElement("div");
 		wrapper.className = "preview-wrapper position-relative";
@@ -179,7 +197,7 @@ function renderNewMediaPreview() {
 			wrapper.appendChild(video);
 		} else {
 			const img = document.createElement("img");
-			img.className = "img-fluid rounded-4 w-100";
+			img.className = "img-fluid rounded-4 w-100 post-media-tile";
 			img.alt = "";
 			img.src = URL.createObjectURL(file);
 			wrapper.appendChild(img);
@@ -208,7 +226,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	const fileInput = document.getElementById("editfileInput");
 	if (fileInput) {
-		fileInput.addEventListener("change", renderNewMediaPreview);
+		window.__editSelectedFiles = [];
+		fileInput.addEventListener("change", function () {
+			const incoming = Array.from(fileInput.files || []);
+			if (!incoming.length) return;
+			if (!Array.isArray(window.__editSelectedFiles)) {
+				window.__editSelectedFiles = [];
+			}
+			incoming.forEach(function (f) { window.__editSelectedFiles.push(f); });
+			syncEditFileInputFromBuffer();
+			renderNewMediaPreview();
+		});
 	}
 });
 </script>

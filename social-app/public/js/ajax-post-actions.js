@@ -1,4 +1,50 @@
 (function () {
+	function ensureShareModal() {
+		if (document.getElementById('shareLinkModal')) return;
+		var modalHtml = '' +
+			'<div class="modal fade" id="shareLinkModal" tabindex="-1" aria-hidden="true">' +
+			'  <div class="modal-dialog modal-dialog-centered">' +
+			'    <div class="modal-content">' +
+			'      <div class="modal-header">' +
+			'        <h5 class="modal-title">Chia sẻ bài viết</h5>' +
+			'        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>' +
+			'      </div>' +
+			'      <div class="modal-body">' +
+			'        <label class="form-label">Link bài viết</label>' +
+			'        <div class="input-group">' +
+			'          <input id="shareLinkInput" type="text" class="form-control" readonly>' +
+			'          <button id="copyShareLinkBtn" class="btn btn-primary" type="button">Sao chép</button>' +
+			'        </div>' +
+			'        <div id="copyShareLinkMsg" class="small text-success mt-2 d-none">Đã sao chép liên kết.</div>' +
+			'      </div>' +
+			'    </div>' +
+			'  </div>' +
+			'</div>';
+		document.body.insertAdjacentHTML('beforeend', modalHtml);
+		document.getElementById('copyShareLinkBtn').addEventListener('click', function () {
+			var input = document.getElementById('shareLinkInput');
+			var msg = document.getElementById('copyShareLinkMsg');
+			if (!input) return;
+			input.select();
+			input.setSelectionRange(0, 99999);
+			navigator.clipboard.writeText(input.value).then(function () {
+				if (msg) msg.classList.remove('d-none');
+			});
+		});
+	}
+
+	function openShareModal(url) {
+		ensureShareModal();
+		var input = document.getElementById('shareLinkInput');
+		var msg = document.getElementById('copyShareLinkMsg');
+		if (input) input.value = url;
+		if (msg) msg.classList.add('d-none');
+		if (window.bootstrap && window.bootstrap.Modal) {
+			var modal = new window.bootstrap.Modal(document.getElementById('shareLinkModal'));
+			modal.show();
+		}
+	}
+
 	function removeClasses(el, classNames) {
 		if (!el) return;
 		classNames.forEach(function (c) {
@@ -98,8 +144,24 @@
 					if (countElSh) {
 						countElSh.textContent = data.share_count;
 					}
+					var postUrl = form.getAttribute('data-post-url');
+					if (postUrl) {
+						openShareModal(new URL(postUrl, window.location.origin).toString());
+					}
 				}
 			})
 			.catch(function () {});
+	});
+
+	document.addEventListener('click', function (e) {
+		var card = e.target.closest('.js-post-card');
+		if (!card) return;
+		if (e.target.closest('a, button, form, input, textarea, select, label, .dropdown-menu, [data-bs-toggle="dropdown"]')) {
+			return;
+		}
+		var url = card.getAttribute('data-post-url');
+		if (url) {
+			window.location.href = url;
+		}
 	});
 })();

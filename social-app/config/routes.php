@@ -30,6 +30,10 @@ return [
 
         '/profile' => 'UserController@profileFromQuery',
         '/user/{username}' => 'UserController@profile',
+        '/saved' => 'SavedPostController@index',
+        '/admin' => 'AdminController@index',
+        '/admin/users' => 'AdminUserController@index',
+        '/admin/posts' => 'AdminPostController@index',
 
         '/settings' => 'SettingController@index',
 
@@ -78,6 +82,8 @@ return [
         // ============ SETTINGS ============
         '/setting-api/update-privacy' => 'SettingController@updatePrivacy',
         '/setting-api/unblock' => 'SettingController@unblock',
+        '/saved/unsave' => 'SavedPostController@unsave',
+        '/admin/users/toggle-status' => 'AdminUserController@toggleStatus',
 
         // ============ CHAT ============
         '/chat-api/upload' => 'MessageController@apiUpload',

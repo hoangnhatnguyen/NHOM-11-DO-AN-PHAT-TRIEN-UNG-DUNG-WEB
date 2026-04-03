@@ -3,8 +3,11 @@
 class Follow extends BaseModel {
 	protected string $table = 'follows';
 
-	public function follow(int $followerId, int $followingId)
+	public function follow(?int $followerId = null, ?int $followingId = null)
     {
+		if ($followerId === null || $followingId === null) {
+			return false;
+		}
 		if ($followerId === $followingId) {
 			return false; // Cannot follow yourself
 		}

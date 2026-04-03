@@ -41,8 +41,7 @@ try {
 
     if (!$post) {
         // Fallback: get basic post info
-        $conn = new Database();
-        $pdo = $conn->connect();
+        $pdo = Database::getInstance()->getConnection();
         $stmt = $pdo->prepare('
             SELECT p.*, u.name as user_name, u.avatar_url
             FROM posts p

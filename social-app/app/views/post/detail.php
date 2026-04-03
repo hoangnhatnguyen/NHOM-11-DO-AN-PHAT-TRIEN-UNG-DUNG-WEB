@@ -2,38 +2,23 @@
 require_once dirname(__DIR__, 2) . '/helpers/notification_helper.php';
 if (!function_exists('format_comment_time_vi')) {
 	function format_comment_time_vi(?string $rawDateTime): string {
-		if ($rawDateTime === null || trim($rawDateTime) === '') {
-			return '';
-		}
-
-		try {
-			$createdAt = new DateTimeImmutable($rawDateTime);
-			$now = new DateTimeImmutable('now');
-		} catch (Throwable $e) {
-			return '';
-		}
-
-		$diffSeconds = $now->getTimestamp() - $createdAt->getTimestamp();
-		if ($diffSeconds < 0) {
-			$diffSeconds = 0;
-		}
-
-		if ($diffSeconds >= 86400) {
-			return $createdAt->format('d/m/Y');
-		}
-
-		if ($diffSeconds >= 3600) {
-			return (string) floor($diffSeconds / 3600) . ' giờ trước';
-		}
-
-		if ($diffSeconds >= 60) {
-			return (string) floor($diffSeconds / 60) . ' phút trước';
-		}
-
-		return 'vừa xong';
+		return notification_time_ago_vi($rawDateTime);
 	}
 }
 ?>
+
+<style>
+	.post-detail-media {
+		width: 100%;
+		max-height: 48vh;
+		object-fit: contain;
+		background: #f8f9fa;
+	}
+
+	.modal .post-detail-media {
+		max-height: 42vh;
+	}
+</style>
 
 <div class="mb-3">
 	<a href="<?= BASE_URL ?>/" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3" id="back-to-post">
@@ -49,6 +34,7 @@ if (!function_exists('format_comment_time_vi')) {
         $detailAvRaw = (string) ($post['author_avatar_url'] ?? '');
         $detailAvSrc = $detailAvRaw !== '' ? media_public_src($detailAvRaw) : '';
 		$detailVisible = (string) ($post['visible'] ?? 'public');
+		$profileBase = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 		$detailVisibleIcon = 'bi-globe2';
 		$detailVisibleLabel = 'Công khai';
 		if ($detailVisible === 'followers') {
@@ -60,7 +46,7 @@ if (!function_exists('format_comment_time_vi')) {
 		}
         ?>
         <div class="d-flex align-items-start justify-content-between gap-2">
-            <a href="<?= htmlspecialchars(profile_url($detailAuthor), ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0">
+			<a href="<?= htmlspecialchars($profileBase . '/profile?u=' . rawurlencode($detailAuthor), ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0">
                 <?php if ($detailAvSrc !== ''): ?>
                     <img src="<?= htmlspecialchars($detailAvSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" width="44" height="44" class="rounded-circle flex-shrink-0" style="object-fit:cover"
                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -79,23 +65,20 @@ if (!function_exists('format_comment_time_vi')) {
 
             <?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
                 <div class="dropdown">
-                    <button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+					<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
                         <i class="bi bi-three-dots"></i>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
+					<ul class="dropdown-menu dropdown-menu-end post-action-menu">
                         <li>
                             <a class="dropdown-item" href="<?= BASE_URL ?>/post/edit/<?= (int) $post['id'] ?>">
                                 Chỉnh sửa
                             </a>
                         </li>
                         <li>
-                            <a
-                                class="dropdown-item text-danger"
-                                href="<?= BASE_URL ?>/post/delete/<?= (int) $post['id'] ?>"
-                                onclick="return confirm('Bạn có chắc muốn xóa bài viết này?')"
-                            >
-                                Xóa bài viết
-                            </a>
+							<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
+								<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+								<button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
+							</form>
                         </li>
                     </ul>
                 </div>
@@ -113,16 +96,16 @@ if (!function_exists('format_comment_time_vi')) {
 			$isVideo = (($m['media_type'] ?? '') === 'video');
 			?>
 			<?php if ($isVideo): ?>
-			<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4 mb-2" playsinline></video>
+			<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4 mb-2 post-detail-media" playsinline></video>
 			<?php else: ?>
-			<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 mb-2 w-100" style="object-fit: cover;" alt="">
+			<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 mb-2 w-100 post-detail-media" alt="">
 			<?php endif; ?>
 		<?php endforeach; ?>
 
 		<hr class="my-3">
 
 		<div class="d-flex align-items-center gap-4 flex-wrap mb-3 small">
-			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/like" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-like" data-post-id="<?= (int) $post['id'] ?>">
+			<form method="POST" action="/post/<?= (int) $post['id'] ?>/like" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-like" data-post-id="<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 				<button id="like-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>" aria-label="Yêu thích">
 					<i id="like-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_liked']) ? 'bi-heart-fill' : 'bi-heart' ?>"></i>
@@ -132,10 +115,10 @@ if (!function_exists('format_comment_time_vi')) {
 
 			<a href="#comment-box" class="text-decoration-none d-inline-flex align-items-center gap-1 text-secondary" aria-label="Bình luận">
 				<i class="bi bi-chat"></i>
-				<span><?= (int) ($post['comment_count'] ?? 0) ?></span>
+				<span id="comment-count-<?= (int) $post['id'] ?>"><?= (int) ($post['comment_count'] ?? 0) ?></span>
 			</a>
 
-			<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/share" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-share js-share-form" data-post-id="<?= (int) $post['id'] ?>" data-post-url="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>">
+			<form method="POST" action="/post/<?= (int) $post['id'] ?>/share" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-share js-share-form" data-post-id="<?= (int) $post['id'] ?>" data-post-url="/post/<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 text-secondary" aria-label="Chia sẻ">
 					<i class="bi bi-share"></i>
@@ -144,7 +127,7 @@ if (!function_exists('format_comment_time_vi')) {
 			</form>
 
 			<!-- Save post -->
-            <form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/save" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-save" data-post-id="<?= (int) $post['id'] ?>">
+            <form method="POST" action="/post/<?= (int) $post['id'] ?>/save" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-save" data-post-id="<?= (int) $post['id'] ?>">
 				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 				<button id="save-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>" aria-label="Lưu bài viết">
 					<i id="save-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_saved']) ? 'bi-bookmark-fill' : 'bi-bookmark' ?>"></i>
@@ -155,7 +138,7 @@ if (!function_exists('format_comment_time_vi')) {
 
         <hr class="my-3">
 		<!-- Comment form -->
-		<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/comment" class="mb-3" id="comment-box">
+		<form method="POST" action="/post/<?= (int) $post['id'] ?>/comment" class="mb-3 comment-form" id="comment-box">
 			<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 			<div class="input-group rounded-4 p-2 bg-light">
 				<input type="text" name="content" class="form-control border-0 bg-light" placeholder="Viết bình luận..." required>
@@ -182,6 +165,14 @@ if (!function_exists('format_comment_time_vi')) {
 		</div>
 	</div>
 </article>
-
+<!-- Hidden data for JS -->
+<?php
+$currentUserAvatar = (string) ($currentUser['avatar_url'] ?? '');
+$currentUserAvatarSrc = $currentUserAvatar ? media_public_src($currentUserAvatar) : '';
+?>
+<div class="d-none">
+	<span class="currentUserName"><?= htmlspecialchars($currentUser['username'] ?? 'Người dùng') ?></span>
+	<img class="currentUserAvatar" data-avatar="<?= htmlspecialchars($currentUserAvatarSrc) ?>" alt="">
+</div>
 <script src="/public/js/comment.js"></script>
 <script src="/public/js/back-actions.js"></script>

@@ -1,19 +1,46 @@
 <div class="mb-3">
-	<a href="<?= BASE_URL ?>/post/<?= (int) ($post['id'] ?? 0) ?>" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3">
+	<a href="<?= BASE_URL ?>/" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3">
 		<i class="bi bi-arrow-left me-1"></i> Chỉnh sửa
 	</a>
 </div>
 
 <article class="card border-0 shadow-sm rounded-4">
 	<div class="card-body p-3 p-md-4">
+		<?php
+		$editUsername = (string) ($currentUser['username'] ?? 'Người dùng');
+		$editAvatarRaw = (string) ($currentUser['avatar_url'] ?? '');
+		$editAvatarSrc = $editAvatarRaw !== '' && function_exists('media_public_src')
+			? media_public_src($editAvatarRaw)
+			: '';
+		$editAvatarColor = class_exists('Avatar') ? Avatar::colors($editUsername) : ['bg' => '#8adfd7', 'fg' => '#0a3d3a'];
+		?>
 		<form method="POST" action="<?= BASE_URL ?>/post/update/<?= (int) ($post['id'] ?? 0) ?>" enctype="multipart/form-data">
 			<input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) ($csrfToken ?? '')) ?>">
+			<div id="editSaveMsg" class="alert py-2 mb-3 d-none" role="alert"></div>
 			<?php if (($_GET['error'] ?? '') === 'empty'): ?>
 				<div class="alert alert-warning py-2 mb-3" role="alert">Bài viết phải có nội dung hoặc ít nhất 1 media.</div>
 			<?php endif; ?>
+			<?php if (($_GET['saved'] ?? '') === '1'): ?>
+				<div class="alert alert-success py-2 mb-3" role="alert">Đã lưu chỉnh sửa bài viết.</div>
+			<?php endif; ?>
 
 			<div class="d-flex border-bottom pb-3 mb-3">
-				<div class="avatar-sm me-2"><?= strtoupper(substr((string) ($currentUser['username'] ?? 'U'), 0, 1)) ?></div>
+				<?php if ($editAvatarSrc !== ''): ?>
+					<img src="<?= htmlspecialchars($editAvatarSrc, ENT_QUOTES, 'UTF-8') ?>"
+						 class="rounded-circle me-2"
+						 width="40" height="40"
+						 style="object-fit: cover; flex-shrink: 0;"
+						 alt="Avatar"
+						 loading="lazy"
+						 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+					<div class="avatar-sm me-2" style="background: <?= htmlspecialchars($editAvatarColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($editAvatarColor['fg'], ENT_QUOTES, 'UTF-8') ?>; display:none;">
+						<?= htmlspecialchars(Avatar::initials($editUsername), ENT_QUOTES, 'UTF-8') ?>
+					</div>
+				<?php else: ?>
+					<div class="avatar-sm me-2" style="background: <?= htmlspecialchars($editAvatarColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($editAvatarColor['fg'], ENT_QUOTES, 'UTF-8') ?>;">
+						<?= htmlspecialchars(Avatar::initials($editUsername), ENT_QUOTES, 'UTF-8') ?>
+					</div>
+				<?php endif; ?>
 
 				<div class="flex-grow-1">
 					<div class="fw-semibold"><?= htmlspecialchars((string) ($currentUser['username'] ?? 'Người dùng')) ?></div>
@@ -223,6 +250,66 @@ document.addEventListener("DOMContentLoaded", function () {
 	initPrivacyFromValue();
 	const textarea = document.querySelector("textarea[name='content']");
 	if (textarea) autoResize(textarea);
+
+	const editForm = document.querySelector('form[action*="/post/update/"]');
+	const saveMsg = document.getElementById('editSaveMsg');
+	if (editForm) {
+		editForm.addEventListener('submit', async function (e) {
+			e.preventDefault();
+			const submitBtn = editForm.querySelector('button[type="submit"]');
+			const oldText = submitBtn ? submitBtn.textContent : '';
+			if (submitBtn) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = 'Đang lưu...';
+			}
+
+			if (saveMsg) {
+				saveMsg.className = 'alert py-2 mb-3 d-none';
+				saveMsg.textContent = '';
+			}
+
+			try {
+				const res = await fetch(editForm.action, {
+					method: 'POST',
+					body: new FormData(editForm),
+					credentials: 'same-origin',
+					headers: {
+						'X-Requested-With': 'XMLHttpRequest'
+					}
+				});
+
+				const text = await res.text();
+				let data = null;
+				try { data = JSON.parse(text); } catch (_) { data = null; }
+
+				if (!data || !data.ok) {
+					const msg = data && data.msg === 'empty'
+						? 'Bài viết phải có nội dung hoặc ít nhất 1 media.'
+						: 'Không thể lưu chỉnh sửa. Vui lòng thử lại.';
+					if (saveMsg) {
+						saveMsg.className = 'alert alert-warning py-2 mb-3';
+						saveMsg.textContent = msg;
+					}
+					return;
+				}
+
+				if (saveMsg) {
+					saveMsg.className = 'alert alert-success py-2 mb-3';
+					saveMsg.textContent = 'Đã lưu chỉnh sửa bài viết.';
+				}
+			} catch (err) {
+				if (saveMsg) {
+					saveMsg.className = 'alert alert-danger py-2 mb-3';
+					saveMsg.textContent = 'Lỗi kết nối khi lưu bài viết.';
+				}
+			} finally {
+				if (submitBtn) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = oldText;
+				}
+			}
+		});
+	}
 
 	const fileInput = document.getElementById("editfileInput");
 	if (fileInput) {

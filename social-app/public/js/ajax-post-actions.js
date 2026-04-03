@@ -52,6 +52,14 @@
 		});
 	}
 
+	function updateAll(selector, updater, root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		var targets = scope.querySelectorAll(selector);
+		targets.forEach(function (el) {
+			updater(el);
+		});
+	}
+
 	document.addEventListener('submit', function (e) {
 		var form = e.target;
 		if (!form || !form.matches('form.ajax-post-like, form.ajax-post-save, form.ajax-post-share')) {
@@ -96,54 +104,45 @@
 				if (!data || !data.ok) return;
 
 				if (data.kind === 'like') {
-					var countEl = document.getElementById('like-count-' + data.postId);
-					var btnEl = document.getElementById('like-btn-' + data.postId);
-					var iconEl = document.getElementById('like-icon-' + data.postId);
-
-					if (countEl) {
+					updateAll('#like-count-' + data.postId, function (countEl) {
 						countEl.textContent = data.like_count;
 						removeClasses(countEl, ['text-danger', 'text-secondary']);
 						countEl.classList.add(data.is_liked ? 'text-danger' : 'text-secondary');
-					}
+					});
 
-					if (btnEl) {
+					updateAll('#like-btn-' + data.postId, function (btnEl) {
 						removeClasses(btnEl, ['text-danger', 'text-secondary']);
 						btnEl.classList.add(data.is_liked ? 'text-danger' : 'text-secondary');
-					}
+					});
 
-					if (iconEl) {
+					updateAll('#like-icon-' + data.postId, function (iconEl) {
 						removeClasses(iconEl, ['bi-heart', 'bi-heart-fill']);
 						iconEl.classList.add(data.is_liked ? 'bi-heart-fill' : 'bi-heart');
-					}
+					});
 				}
 
 				if (data.kind === 'save') {
-					var countElS = document.getElementById('save-count-' + data.postId);
-					var btnElS = document.getElementById('save-btn-' + data.postId);
-					var iconElS = document.getElementById('save-icon-' + data.postId);
-
-					if (countElS) {
+					updateAll('#save-count-' + data.postId, function (countElS) {
 						countElS.textContent = data.save_count;
 						removeClasses(countElS, ['text-warning', 'text-secondary']);
 						countElS.classList.add(data.is_saved ? 'text-warning' : 'text-secondary');
-					}
+					});
 
-					if (btnElS) {
+					updateAll('#save-btn-' + data.postId, function (btnElS) {
 						removeClasses(btnElS, ['text-warning', 'text-secondary']);
 						btnElS.classList.add(data.is_saved ? 'text-warning' : 'text-secondary');
-					}
+					});
 
-					if (iconElS) {
+					updateAll('#save-icon-' + data.postId, function (iconElS) {
 						removeClasses(iconElS, ['bi-bookmark', 'bi-bookmark-fill']);
 						iconElS.classList.add(data.is_saved ? 'bi-bookmark-fill' : 'bi-bookmark');
-					}
+					});
 				}
 
 				if (data.kind === 'share') {
-					var countElSh = document.getElementById('share-count-' + data.postId);
-					if (countElSh) {
+					updateAll('#share-count-' + data.postId, function (countElSh) {
 						countElSh.textContent = data.share_count;
-					}
+					});
 					var postUrl = form.getAttribute('data-post-url');
 					if (postUrl) {
 						openShareModal(new URL(postUrl, window.location.origin).toString());
@@ -153,15 +152,6 @@
 			.catch(function () {});
 	});
 
-	document.addEventListener('click', function (e) {
-		var card = e.target.closest('.js-post-card');
-		if (!card) return;
-		if (e.target.closest('a, button, form, input, textarea, select, label, .dropdown-menu, [data-bs-toggle="dropdown"]')) {
-			return;
-		}
-		var url = card.getAttribute('data-post-url');
-		if (url) {
-			window.location.href = url;
-		}
-	});
+	// Intentionally disable click-to-open on post card background.
+	// Only explicit actions (comment button, media click, links/buttons/forms) should trigger behavior.
 })();

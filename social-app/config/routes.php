@@ -58,6 +58,7 @@ return [
         '/post/{id}/save' => 'PostController@save',
         '/post/{id}/share' => 'PostController@share',
         '/post/{id}/comment' => 'PostController@comment',
+        '/post/{id}/delete' => 'PostController@delete',
         '/login' => 'AuthController@login',
         '/register' => 'AuthController@register',
         '/logout' => 'AuthController@logout',

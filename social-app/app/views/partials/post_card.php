@@ -23,7 +23,7 @@ if ($visible === 'followers') {
 	$visibleLabel = 'Chỉ mình tôi';
 }
 ?>
-<article class="card border-0 shadow-sm rounded-4 mb-3 js-post-card" data-post-url="<?= BASE_URL ?>/post/<?= $postId ?>">
+<article class="card border-0 shadow-sm rounded-4 mb-3 js-post-card" data-post-id="<?= $postId ?>" data-post-url="/post/<?= $postId ?>">
 	<div class="card-body p-3 p-md-4">
 		<div>
 			<div class="d-flex align-items-start justify-content-between mb-3 position-relative" style="z-index: 2;">
@@ -63,23 +63,20 @@ if ($visible === 'followers') {
 				</a>
 				<?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
 					<div class="dropdown position-relative" style="z-index: 3;">
-						<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+						<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
 							<i class="bi bi-three-dots"></i>
 						</button>
-						<ul class="dropdown-menu dropdown-menu-end">
+						<ul class="dropdown-menu dropdown-menu-end post-action-menu">
 							<li>
 								<a class="dropdown-item" href="<?= BASE_URL ?>/post/edit/<?= (int) $post['id'] ?>">
 									Chỉnh sửa
 								</a>
 							</li>
 							<li>
-								<a
-									class="dropdown-item text-danger"
-									href="<?= BASE_URL ?>/post/delete/<?= (int) $post['id'] ?>"
-									onclick="return confirm('Bạn có chắc muốn xóa bài viết này?')"
-								>
-									Xóa bài viết
-								</a>
+								<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
+									<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+									<button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
+								</form>
 							</li>
 						</ul>
 					</div>
@@ -112,7 +109,7 @@ if ($visible === 'followers') {
 										<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4 <?= $totalMedia === 1 ? '' : 'post-media-tile' ?>" playsinline></video>
 									<?php else: ?>
 										<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>"
-										class="img-fluid rounded-4 <?= $totalMedia === 1 ? 'w-100' : 'post-media-tile' ?>" alt=""
+										class="img-fluid rounded-4 js-open-post-modal-media <?= $totalMedia === 1 ? 'w-100' : 'post-media-tile' ?>" alt=""
 										loading="lazy"
 										style="background: #f0f0f0;">
 									<?php endif; ?>
@@ -131,7 +128,7 @@ if ($visible === 'followers') {
 			<div class="d-flex align-items-center gap-3">
 			<form
 				method="POST"
-				action="<?= BASE_URL ?>/post/<?= $postId ?>/like"
+				action="/post/<?= $postId ?>/like"
 				class="m-0 d-inline-flex align-items-center gap-1 ajax-post-like"
 				data-post-id="<?= $postId ?>"
 			>
@@ -147,16 +144,16 @@ if ($visible === 'followers') {
 					</button>
 					<span id="like-count-<?= $postId ?>" class="<?= $isLiked ? 'text-danger' : 'text-secondary' ?>"><?= $likes ?></span>
 				</form>
-				<a href="<?= BASE_URL ?>/post/<?= $postId ?>#comment-box" class="text-decoration-none d-inline-flex align-items-center gap-1 text-secondary" aria-label="Bình luận">
+				<button class="js-comment-btn text-decoration-none d-inline-flex align-items-center gap-1 text-secondary border-0 bg-transparent p-0" style="cursor: pointer; font: inherit;" aria-label="Bình luận">
 					<i class="bi bi-chat"></i>
-					<span><?= $comments ?></span>
-				</a>
+					<span id="comment-count-<?= $postId ?>"><?= $comments ?></span>
+				</button>
 				<form
 					method="POST"
-					action="<?= BASE_URL ?>/post/<?= $postId ?>/share"
-					class="m-0 d-inline-flex align-items-center gap-1 ajax-post-share js-share-form"
-					data-post-id="<?= $postId ?>"
-					data-post-url="<?= BASE_URL ?>/post/<?= $postId ?>"
+			action="/post/<?= $postId ?>/share"
+			class="m-0 d-inline-flex align-items-center gap-1 ajax-post-share js-share-form"
+			data-post-id="<?= $postId ?>"
+			data-post-url="/post/<?= $postId ?>"
 				>
 					<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 					<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 text-secondary" aria-label="Chia sẻ">
@@ -167,7 +164,7 @@ if ($visible === 'followers') {
 			</div>
 			<form
 					method="POST"
-					action="<?= BASE_URL ?>/post/<?= $postId ?>/save"
+				action="/post/<?= $postId ?>/save"
 					class="m-0 d-inline-flex align-items-center gap-1 ajax-post-save"
 					data-post-id="<?= $postId ?>"
 				>

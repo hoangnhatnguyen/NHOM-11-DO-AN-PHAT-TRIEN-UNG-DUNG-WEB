@@ -19,9 +19,10 @@ class HomeController extends BaseController {
 			$tab = (string) ($_GET['tab'] ?? '');
 			$feedTab = ($tab === 'following') ? 'following' : 'foryou';
 			$postModel = new Post();
+			// Load only 5 posts initially
 			$posts = $feedTab === 'following'
-				? $postModel->getFeedFollowing($viewerId)
-				: $postModel->getFeed($viewerId);
+				? $postModel->getFeedFollowingPaginated($viewerId, 5, 0)
+				: $postModel->getFeedPaginated($viewerId, 5, 0);
 		} catch (Throwable $e) {
 			$dbError = $e->getMessage();
 		}

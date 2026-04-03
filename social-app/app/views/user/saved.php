@@ -47,7 +47,7 @@ $meColor = Avatar::colors($meName);
                         ?>
                         <div class="card border-0 shadow-sm rounded-4 mb-1">
                             <div class="card-body d-flex justify-content-between align-items-center gap-2">
-                                <a href="<?= BASE_URL ?>/post/<?= (int) ($post['id'] ?? 0) ?>" class="d-flex align-items-center gap-3 text-decoration-none text-dark flex-grow-1">
+                                <a href="<?= BASE_URL ?>/post/<?= (int) ($post['id'] ?? 0) ?>" class="js-open-post-modal d-flex align-items-center gap-3 text-decoration-none text-dark flex-grow-1" data-post-id="<?= (int) ($post['id'] ?? 0) ?>">
                                     <img
                                         src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>"
                                         class="rounded-3"

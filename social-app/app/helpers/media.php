@@ -33,9 +33,17 @@ function media_public_src(string $mediaUrl): string {
 			$_SESSION['_media_cache'] = [];
 		}
 		
-		// Nếu đã cache, return luôn
+		// Nếu đã cache và còn hạn, return luôn
 		if (isset($_SESSION['_media_cache'][$mediaUrl])) {
-			return $_SESSION['_media_cache'][$mediaUrl];
+			$cached = $_SESSION['_media_cache'][$mediaUrl];
+			// Check if cache is still valid (expires in 12 hours from cache time, not 24 to be safe)
+			$cacheTime = $cached['time'] ?? 0;
+			$cacheExpires = $cacheTime + 43200; // 12 hours = 43200 seconds
+			if (time() < $cacheExpires) {
+				return $cached['url'];
+			}
+			// Cache expired, remove it
+			unset($_SESSION['_media_cache'][$mediaUrl]);
 		}
 		
 		// Nếu chưa cache, generate presigned URL
@@ -49,8 +57,11 @@ function media_public_src(string $mediaUrl): string {
 				return '';
 			}
 			
-			// Cache vào session
-			$_SESSION['_media_cache'][$mediaUrl] = $presignedUrl;
+			// Cache vào session with timestamp
+			$_SESSION['_media_cache'][$mediaUrl] = [
+				'url' => $presignedUrl,
+				'time' => time()
+			];
 			return $presignedUrl;
 		} catch (\Throwable $e) {
 			error_log('Presigned URL error for key [' . $mediaUrl . ']: ' . $e->getMessage());

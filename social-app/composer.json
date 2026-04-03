@@ -13,7 +13,7 @@
     ],
     "require": {
         "php": ">=8.0",
-        "aws/aws-sdk-php": "^3.300",
+        "aws/aws-sdk-php": "^2.8",
         "guzzlehttp/guzzle": "^7.4.5",
         "phpmailer/phpmailer": "^7.0"
     },

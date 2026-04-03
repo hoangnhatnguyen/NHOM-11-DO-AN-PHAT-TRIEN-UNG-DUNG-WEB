@@ -56,4 +56,9 @@ class PostMedia extends BaseModel {
         ");
         $stmt->execute($params);
     }
+
+    public function deleteAllForPost(int $postId): void {
+        $stmt = $this->db->prepare("DELETE FROM {$this->table} WHERE post_id = :post_id");
+        $stmt->execute(['post_id' => $postId]);
+    }
 }

@@ -7,6 +7,13 @@
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 	<link href="<?= BASE_URL ?>/public/css/style.css" rel="stylesheet">
+	<link href="<?= BASE_URL ?>/public/css/saved.css" rel="stylesheet">
+	<link href="<?= BASE_URL ?>/public/css/post-media.css" rel="stylesheet">
+	<?php foreach (($pageStyles ?? []) as $style): ?>
+		<?php $href = (string) ($style['href'] ?? ''); ?>
+		<?php if ($href === '') { continue; } ?>
+		<link href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" rel="stylesheet">
+	<?php endforeach; ?>
 </head>
 <body class="app-bg">
 	<?php include VIEW_PATH . 'partials/navbar.php'; ?>
@@ -32,5 +39,10 @@
 	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
 	<script src="<?= BASE_URL ?>/public/js/right_widgets.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
+	<?php foreach (($pageScripts ?? []) as $script): ?>
+		<?php $src = (string) ($script['src'] ?? ''); ?>
+		<?php if ($src === '') { continue; } ?>
+		<script src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>"<?= !empty($script['module']) ? ' type="module"' : '' ?>></script>
+	<?php endforeach; ?>
 </body>
 </html>

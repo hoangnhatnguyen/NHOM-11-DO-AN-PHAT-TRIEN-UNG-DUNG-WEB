@@ -3,13 +3,11 @@ $composerName = (string) (($currentUser['username'] ?? 'Người dùng'));
 $composerColor = Avatar::colors($composerName);
 ?>
 
-
-
-
-<form method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
+<form id="feedComposerForm" method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-
-
+    <?php if (($_GET['composer_error'] ?? '') === 'empty'): ?>
+        <div class="alert alert-warning py-2 mb-3" role="alert">Bạn cần nhập nội dung hoặc chọn ít nhất 1 ảnh trước khi đăng.</div>
+    <?php endif; ?>
     <div class="d-flex border-bottom pb-3 mb-3">
         <?php
         $composerAvatarUrl = $currentUser['avatar_url'] ?? '';
@@ -35,14 +33,8 @@ $composerColor = Avatar::colors($composerName);
                         rows="2"
                         placeholder="Hãy viết gì đó..."
                         oninput="autoResize(this)"></textarea>
-            <!-- PREVIEW IMAGE -->
             <div id="feedPreviewContainer" class="mt-3 d-none">
-                <div class="preview-wrapper position-relative">
-                    <img id="feedPreviewImage" class="img-fluid rounded-4 w-100">
-
-                    <button type="button" class="bi bi-x text-white preview-remove"
-                            onclick="removePreview()"></button>
-                </div>
+                <div class="row g-2" id="feedPreviewGrid"></div>
             </div>
         </div>            
     </div>
@@ -84,10 +76,10 @@ $composerColor = Avatar::colors($composerName);
         <div>
                 <label class="btn btn-light btn-sm rounded-pill">
                     <i class="bi bi-image"></i>
-                    <input type="file" name="media[]" id="feedFileInput" hidden>
+                    <input type="file" name="media[]" id="feedFileInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden multiple>
                 </label>
             </div>
-        <button class="btn btn-primary rounded-pill px-4">Đăng</button>
+        <button id="feedComposerSubmit" class="btn btn-primary rounded-pill px-4">Đăng</button>
     </div>
 </form>
 
@@ -99,21 +91,17 @@ function autoResize(el) {
 document.addEventListener("DOMContentLoaded", function () {
 
     const feedfileInput = document.getElementById("feedFileInput");
-    const feedpreviewImage = document.getElementById("feedPreviewImage");
     const feedpreviewContainer = document.getElementById("feedPreviewContainer");
+    const feedpreviewGrid = document.getElementById("feedPreviewGrid");
 
-    const feedtextarea = document.querySelector("textarea[name='content']");
-    const feedsubmitBtn = document.getElementById("btnSubmit");
+    const feedtextarea = document.querySelector("#feedComposerForm textarea[name='content']");
+    const submitBtn = document.getElementById("feedComposerSubmit");
 
     function checkEnableButton() {
+        if (!submitBtn || !feedtextarea) return;
         const hasText = feedtextarea.value.trim().length > 0;
         const hasImage = feedfileInput.files.length > 0;
-
-        if (hasText || hasImage) {
-            submitBtn.disabled = false;
-        } else {
-            submitBtn.disabled = true;
-        }
+        submitBtn.disabled = !(hasText || hasImage);
     }
 
     if (!feedfileInput) {
@@ -121,40 +109,58 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    feedfileInput.addEventListener("change", function () {
-        const file = this.files[0];
-        if (!file) return;
+    function removeNewMediaAt(index) {
+        try {
+            const dt = new DataTransfer();
+            Array.from(feedfileInput.files || []).forEach(function (file, i) {
+                if (i !== index) dt.items.add(file);
+            });
+            feedfileInput.files = dt.files;
+        } catch (e) {
+            feedfileInput.value = "";
+        }
+        renderPreview();
+        checkEnableButton();
+    }
 
-        if (!file.type.startsWith("image/")) {
-            alert("Vui lòng chọn ảnh!");
+    function renderPreview() {
+        const files = Array.from(feedfileInput.files || []);
+        feedpreviewGrid.innerHTML = "";
+        if (!files.length) {
+            feedpreviewContainer.classList.add("d-none");
             return;
         }
-
-        const reader = new FileReader();
-
-        reader.onload = function (e) {
-            feedpreviewImage.src = e.target.result;
-            feedpreviewContainer.classList.remove("d-none");
-
-            console.log("Preview loaded OK"); // debug
-        };
-
-        reader.readAsDataURL(file);
-    });
-
-    window.removePreview = function () {
-        feedpreviewContainer.classList.add("d-none");
-        feedpreviewImage.src = "";
-        feedfileInput.value = "";
-
-        checkEnableButton();
-    };
+        files.forEach(function (file, index) {
+            if (!file.type.startsWith("image/")) return;
+            const col = document.createElement("div");
+            col.className = "col-6";
+            const wrapper = document.createElement("div");
+            wrapper.className = "preview-wrapper position-relative";
+            const img = document.createElement("img");
+            img.className = "img-fluid rounded-4 w-100 post-media-tile";
+            img.alt = "";
+            img.src = URL.createObjectURL(file);
+            wrapper.appendChild(img);
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "bi bi-x text-white preview-remove";
+            removeBtn.addEventListener("click", function () { removeNewMediaAt(index); });
+            wrapper.appendChild(removeBtn);
+            col.appendChild(wrapper);
+            feedpreviewGrid.appendChild(col);
+        });
+        feedpreviewContainer.classList.remove("d-none");
+    }
 
     // check khi nhập text
     feedtextarea.addEventListener("input", checkEnableButton);
 
-    // check khi chọn ảnh
-    feedfileInput.addEventListener("change", checkEnableButton);
+    feedfileInput.addEventListener("change", function () {
+        renderPreview();
+        checkEnableButton();
+    });
+
+    checkEnableButton();
 });
 
 function setPrivacy(value, icon, label) {

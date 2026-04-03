@@ -1,6 +1,35 @@
+
 function appBaseUrl() {
-  const b = window.__APP_BASE__;
-  return typeof b === "string" ? b.replace(/\/$/, "") : "";
+  var b = window.__APP_BASE__;
+  if (typeof b === "string") {
+    b = b.replace(/\/$/, "");
+    if (b !== "") return b;
+  }
+  var path = window.location.pathname.replace(/\/$/, "");
+  if (path === "") path = "/";
+  var lower = path.toLowerCase();
+  var markers = [
+    "/notifications",
+    "/messages",
+    "/search",
+    "/settings",
+    "/login",
+    "/register",
+    "/post/",
+    "/profile",
+    "/user/",
+    "/users/finder",
+  ];
+  for (var i = 0; i < markers.length; i++) {
+    var m = markers[i];
+    var idx = lower.indexOf(m);
+    if (idx !== -1) {
+      return path.slice(0, idx) || "";
+    }
+  }
+  var slash = path.lastIndexOf("/");
+  if (slash > 0) return path.slice(0, slash);
+  return "";
 }
 
 function updateSidebarNotifBadge(unread) {
@@ -43,6 +72,8 @@ function loadNoti() {
       var html = "";
       notifications.forEach(function (n) {
         var href = base + (n.link && n.link.charAt(0) === "/" ? n.link : "/" + (n.link || ""));
+        var nid = parseInt(n.id || "0", 10);
+        var nidAttr = nid > 0 ? ' data-notification-id="' + String(nid) + '"' : "";
         var msg = (n.message || "").replace(/</g, "&lt;");
         var av = (n.avatar || "").replace(/"/g, "&quot;");
         var ini = String(n.avatar_initial || "?").replace(/</g, "&lt;");
@@ -60,13 +91,15 @@ function loadNoti() {
             ini +
             "</div>";
         html +=
-          "<a href=\"" +
-          href +
-          "\" class=\"list-group-item list-group-item-action py-2 px-3 d-flex gap-2 align-items-start text-decoration-none\">" +
+          "<div class=\"list-group-item list-group-item-action py-2 px-3 d-flex gap-2 align-items-start text-decoration-none noti-row\" tabindex=\"0\" role=\"link\" data-href=\"" +
+          href.replace(/"/g, "&quot;") +
+          "\"" +
+          nidAttr +
+          ">" +
           avBlock +
           "<div class=\"small text-body\">" +
           msg +
-          "</div></a>";
+          "</div></div>";
       });
       box.innerHTML = html;
     })
@@ -77,17 +110,36 @@ function markNotificationReadThenNavigate(notificationId, href) {
   var base = appBaseUrl();
   var fd = new FormData();
   fd.append("id", String(notificationId));
-  fetch(base + "/api/notification_mark_read.php", {
+  var url = base + "/user-api/notification-mark-read";
+  fetch(url, {
     method: "POST",
     body: fd,
     credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    },
   })
     .then(function (r) {
-      return r.json();
+      return r.text().then(function (text) {
+        var data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          data = null;
+        }
+        return { okHttp: r.ok, data: data };
+      });
     })
-    .then(function (data) {
-      if (data && typeof data.unread !== "undefined") {
+    .then(function (pack) {
+      var data = pack.data;
+      if (data && data.ok && typeof data.unread !== "undefined") {
         updateSidebarNotifBadge(data.unread);
+        document
+          .querySelectorAll('.noti-row[data-notification-id="' + String(notificationId) + '"] .noti-dot')
+          .forEach(function (el) {
+            el.remove();
+          });
       }
       if (href && href !== "#") {
         window.location.assign(href);
@@ -100,21 +152,54 @@ function markNotificationReadThenNavigate(notificationId, href) {
     });
 }
 
+function notiRowNavigate(row, e) {
+  var nid = parseInt(row.getAttribute("data-notification-id") || "0", 10);
+  if (nid <= 0) return;
+  if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+  var rowHref = row.getAttribute("data-href") || row.getAttribute("href") || "";
+  var innerLink = e.target.closest("a[href]");
+  var navigateHref = rowHref;
+
+  if (innerLink && row.contains(innerLink)) {
+    var ih = (innerLink.getAttribute("href") || "").trim();
+    if (ih && ih !== "#" && ih.toLowerCase().indexOf("javascript:") !== 0) {
+      navigateHref = ih;
+    }
+    e.preventDefault();
+  } else {
+    if (!rowHref || rowHref === "#") return;
+    e.preventDefault();
+  }
+
+  if (!navigateHref || navigateHref === "#") return;
+
+  markNotificationReadThenNavigate(nid, navigateHref);
+}
+
 document.addEventListener(
   "click",
   function (e) {
-    var a = e.target.closest("a.noti-row");
-    if (!a) return;
-    var nid = parseInt(a.getAttribute("data-notification-id") || "0", 10);
-    if (nid <= 0) return;
-    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    var href = a.getAttribute("href") || "";
-    if (!href || href === "#") return;
-    e.preventDefault();
-    markNotificationReadThenNavigate(nid, href);
+    var row = e.target.closest(".noti-row");
+    if (!row) return;
+    notiRowNavigate(row, e);
   },
   true
 );
+
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter") return;
+  var row = e.target.closest(".noti-row");
+  if (!row || document.activeElement !== row) return;
+  e.preventDefault();
+  var nid = parseInt(row.getAttribute("data-notification-id") || "0", 10);
+  var href = row.getAttribute("data-href") || row.getAttribute("href") || "";
+  if (nid > 0 && href && href !== "#") {
+    markNotificationReadThenNavigate(nid, href);
+  } else if (href && href !== "#") {
+    window.location.assign(href);
+  }
+});
 
 document.addEventListener("DOMContentLoaded", function () {
   loadNoti();

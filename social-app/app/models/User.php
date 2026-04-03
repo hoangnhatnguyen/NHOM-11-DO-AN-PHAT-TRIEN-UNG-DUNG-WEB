@@ -3,6 +3,50 @@
 class User extends BaseModel {
 	protected string $table = 'users';
 
+	public function countAllUsers(): int {
+		$stmt = $this->db->query("SELECT COUNT(*) FROM {$this->table}");
+		return (int) $stmt->fetchColumn();
+	}
+
+	public function countNewUsersToday(): int {
+		$stmt = $this->db->query("SELECT COUNT(*) FROM {$this->table} WHERE DATE(created_at) = CURRENT_DATE()");
+		return (int) $stmt->fetchColumn();
+	}
+
+	public function hasAnyAdmin(): bool {
+		$stmt = $this->db->query("SELECT 1 FROM {$this->table} WHERE role = 'admin' LIMIT 1");
+		return $stmt->fetchColumn() !== false;
+	}
+
+	public function searchForAdmin(string $keyword = ''): array {
+		$keyword = trim($keyword);
+		if ($keyword === '') {
+			$stmt = $this->db->query("
+				SELECT id, username, email, role, is_active, created_at
+				FROM {$this->table}
+				ORDER BY id DESC
+			");
+			return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		}
+
+		$stmt = $this->db->prepare("
+			SELECT id, username, email, role, is_active, created_at
+			FROM {$this->table}
+			WHERE username LIKE :kw OR email LIKE :kw
+			ORDER BY id DESC
+		");
+		$stmt->execute(['kw' => '%' . $keyword . '%']);
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function setActiveStatus(int $userId, int $active): bool {
+		$stmt = $this->db->prepare("UPDATE {$this->table} SET is_active = :active WHERE id = :id");
+		return $stmt->execute([
+			'active' => $active ? 1 : 0,
+			'id' => $userId,
+		]);
+	}
+
 	public function searchForChat(int $excludeUserId, string $query = '', int $limit = 20): array {
 		$limit = max(1, min($limit, 50));
 		$params = [

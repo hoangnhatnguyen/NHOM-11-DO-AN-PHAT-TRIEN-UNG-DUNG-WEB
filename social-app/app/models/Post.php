@@ -6,6 +6,57 @@ require_once __DIR__ . '/PostHashtag.php';
 class Post extends BaseModel {
     protected string $table = 'posts';
 
+    public function countAllPosts(): int {
+        $stmt = $this->db->query("SELECT COUNT(*) FROM {$this->table}");
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * @param array{keyword?: string, field?: string} $filter
+     * @return array<int, array<string, mixed>>
+     */
+    public function getAdminPosts(array $filter = []): array {
+        $keyword = trim((string) ($filter['keyword'] ?? ''));
+        $field = (string) ($filter['field'] ?? 'content');
+        if (!in_array($field, ['content', 'user', 'hashtag'], true)) {
+            $field = 'content';
+        }
+
+        $sql = "
+            SELECT
+                p.id,
+                p.content,
+                p.created_at,
+                u.username AS author_name
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+        ";
+        $params = [];
+
+        if ($field === 'hashtag') {
+            $sql .= "
+                LEFT JOIN post_hashtags ph ON ph.post_id = p.id
+                LEFT JOIN hashtags h ON h.id = ph.hashtag_id
+            ";
+        }
+
+        if ($keyword !== '') {
+            if ($field === 'user') {
+                $sql .= ' WHERE u.username LIKE :kw ';
+            } elseif ($field === 'hashtag') {
+                $sql .= ' WHERE h.name LIKE :kw ';
+            } else {
+                $sql .= ' WHERE p.content LIKE :kw ';
+            }
+            $params['kw'] = '%' . $keyword . '%';
+        }
+
+        $sql .= ' GROUP BY p.id, p.content, p.created_at, u.username ORDER BY p.id DESC ';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     //CREATE POST
     public function create(array $data): int {
         $sql = "INSERT INTO {$this->table} 
@@ -66,6 +117,7 @@ class Post extends BaseModel {
             SELECT
                 p.*,
                 u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
                 (
                     SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
                 ) AS like_count,
@@ -129,9 +181,71 @@ class Post extends BaseModel {
                 ) AS is_saved
             FROM posts p
             JOIN users u ON u.id = p.user_id
+            WHERE p.status = 'active'
+              AND p.visible = 'public'
             ORDER BY p.id DESC
         ");
         $stmt->execute([
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+        ]);
+
+        $posts = $stmt->fetchAll();
+
+        $mediaModel = new PostMedia();
+        $postIds = array_map(static function ($p) {
+            return (int) ($p['id'] ?? 0);
+        }, $posts);
+        $tagMap = (new PostHashtag())->getTagNamesForPostIds($postIds);
+
+        foreach ($posts as &$post) {
+            $pid = (int) ($post['id'] ?? 0);
+            $post['media'] = $mediaModel->getByPost($pid);
+            $post['hashtag_names'] = $tagMap[$pid] ?? [];
+        }
+        unset($post);
+
+        return $posts;
+    }
+
+    /**
+     * Bài viết public của một user (trang cá nhân), đầy đủ stats + is_liked/is_saved theo viewer.
+     */
+    public function getPostsByUserForProfile(int $profileUserId, int $viewerId): array {
+        if ($profileUserId <= 0) {
+            return [];
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT
+                p.*,
+                u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
+                (
+                    SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
+                ) AS like_count,
+                (
+                    SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id
+                ) AS comment_count,
+                (
+                    SELECT COUNT(*) FROM shares s WHERE s.post_id = p.id
+                ) AS share_count,
+                (
+                    SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id
+                ) AS save_count,
+                EXISTS(
+                    SELECT 1 FROM likes l2 WHERE l2.post_id = p.id AND l2.user_id = :viewer_like
+                ) AS is_liked,
+                EXISTS(
+                    SELECT 1 FROM saved_posts sp2 WHERE sp2.post_id = p.id AND sp2.user_id = :viewer_save
+                ) AS is_saved
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.user_id = :profile_uid AND p.status = 'active'
+            ORDER BY p.created_at DESC
+        ");
+        $stmt->execute([
+            'profile_uid' => $profileUserId,
             'viewer_like' => $viewerId,
             'viewer_save' => $viewerId,
         ]);
@@ -187,18 +301,16 @@ class Post extends BaseModel {
                 ) AS is_saved
             FROM posts p
             JOIN users u ON u.id = p.user_id
-            WHERE (
-                p.user_id = :viewer_self
-                OR p.user_id IN (
-                    SELECT following_id FROM follows WHERE follower_id = :viewer_follow
-                )
-            )
+            WHERE p.status = 'active'
+              AND p.user_id IN (
+                  SELECT following_id FROM follows WHERE follower_id = :viewer_follow
+              )
+              AND p.visible IN ('public', 'followers')
             ORDER BY p.id DESC
         ");
         $stmt->execute([
             'viewer_like' => $viewerId,
             'viewer_save' => $viewerId,
-            'viewer_self' => $viewerId,
             'viewer_follow' => $viewerId,
         ]);
 
@@ -615,6 +727,45 @@ class Post extends BaseModel {
         return $stmt->fetchColumn() !== false;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getSavedPostsByUser(int $userId): array {
+        $stmt = $this->db->prepare("
+            SELECT
+                p.id,
+                p.content,
+                p.created_at,
+                u.username,
+                pm.media_url
+            FROM saved_posts sp
+            JOIN posts p ON p.id = sp.post_id
+            JOIN users u ON u.id = p.user_id
+            LEFT JOIN post_media pm ON pm.id = (
+                SELECT pm2.id
+                FROM post_media pm2
+                WHERE pm2.post_id = p.id
+                ORDER BY pm2.id ASC
+                LIMIT 1
+            )
+            WHERE sp.user_id = :user_id
+            ORDER BY p.id DESC
+        ");
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function removeSavedPost(int $postId, int $userId): void {
+        $stmt = $this->db->prepare("
+            DELETE FROM saved_posts
+            WHERE post_id = :post_id AND user_id = :user_id
+        ");
+        $stmt->execute([
+            'post_id' => $postId,
+            'user_id' => $userId,
+        ]);
+    }
+
     public function addComment(int $postId, int $userId, string $content): int {
         $stmt = $this->db->prepare("
             INSERT INTO comments (post_id, user_id, content)
@@ -680,6 +831,21 @@ class Post extends BaseModel {
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM shares WHERE post_id = :post_id");
         $stmt->execute(['post_id' => $postId]);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Xóa bài: dọn object S3 + post_media trước khi xóa row posts.
+     */
+    public function delete(int $id): bool {
+        require_once __DIR__ . '/../helpers/media.php';
+        $mediaModel = new PostMedia();
+        $rows = $mediaModel->getByPost($id);
+        foreach ($rows as $row) {
+            delete_stored_media((string) ($row['media_url'] ?? ''));
+        }
+        $mediaModel->deleteAllForPost($id);
+
+        return parent::delete($id);
     }
 
     private function ensureReplyTableExists(): void {

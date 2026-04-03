@@ -23,3 +23,15 @@ if ($appUrl !== '') {
 	define('BASE_URL', $detectBaseFromScript());
 }
 
+if (!function_exists('profile_url')) {
+	/**
+	 * URL trang cá nhân (query) — tránh lỗi Apache với username có dấu chấm (vd. lee.d_113).
+	 */
+	function profile_url(string $username): string
+	{
+		$base = rtrim((string) (defined('BASE_URL') ? BASE_URL : ''), '/');
+
+		return $base . '/profile?u=' . rawurlencode($username);
+	}
+}
+

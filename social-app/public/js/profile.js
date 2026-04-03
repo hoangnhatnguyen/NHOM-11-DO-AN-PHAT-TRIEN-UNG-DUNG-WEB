@@ -1,10 +1,20 @@
-// ===== CONFIG =====
-const BASE = window.location.origin;
+
+const BASE =
+    typeof window.__APP_BASE__ === "string"
+        ? window.__APP_BASE__.replace(/\/$/, "")
+        : "";
+
+function mediaViewUrl(keyOrUrl) {
+    const s = String(keyOrUrl || "").trim();
+    if (!s) return "";
+    if (/^https?:\/\//i.test(s)) return s;
+    if (!BASE) return s;
+    return BASE + "/media/view?key=" + encodeURIComponent(s);
+}
 
 // ===== ELEMENT =====
-const avatarImg = document.getElementById("avatarImg");
 const avatarInput = document.getElementById("avatarInput");
-const avatarOverlay = document.getElementById("avatarOverlay");
+const avatarContainer = document.getElementById("profileAvatarContainer");
 
 let isEditing = false;
 
@@ -13,7 +23,6 @@ const editBtn = document.getElementById("editBtn");
 
 editBtn?.addEventListener("click", () => {
     isEditing = true;
-    avatarOverlay?.classList.remove("d-none");
 
     let bioText = document.getElementById("bioText");
     let originalBio = bioText.innerText;
@@ -34,7 +43,8 @@ editBtn?.addEventListener("click", () => {
 
         fetch(BASE + "/user-api/update-profile", {
             method: "POST",
-            body: new URLSearchParams({ bio })
+            credentials: "same-origin",
+            body: new URLSearchParams({ bio }),
         }).then(() => location.reload());
     };
 
@@ -43,94 +53,79 @@ editBtn?.addEventListener("click", () => {
     };
 });
 
-// ===== AVATAR =====
-avatarImg?.addEventListener("click", () => {
-    if (isEditing) avatarInput.click();
-});
+// ===== AVATAR: chủ tài khoản — bấm vào ảnh / vùng avatar là chọn file (không cần "Chỉnh sửa") =====
+function triggerAvatarPicker() {
+    if (!avatarInput || avatarContainer?.dataset.changeAvatar !== "1") return;
+    avatarInput.click();
+}
 
-avatarOverlay?.addEventListener("click", () => {
-    if (isEditing) avatarInput.click();
+avatarContainer?.addEventListener("click", (e) => {
+    if (avatarContainer.dataset.changeAvatar !== "1") return;
+    e.preventDefault();
+    triggerAvatarPicker();
 });
 
 avatarInput?.addEventListener("change", () => {
+    const file = avatarInput.files && avatarInput.files[0];
+    if (!file) return;
+
     let form = new FormData();
-    form.append("avatar", avatarInput.files[0]);
+    form.append("avatar", file);
 
     fetch(BASE + "/user-api/upload-avatar", {
         method: "POST",
-        body: form
+        body: form,
+        credentials: "same-origin",
     })
-        .then(r => r.json())
-        .then(data => {
+        .then((r) => r.json())
+        .then((data) => {
             if (data.error) {
-                console.error('Upload error:', data.error);
-                alert('Upload failed: ' + data.error);
+                console.error("Upload error:", data.error);
+                let msg = "Không tải được ảnh: " + data.error;
+                if (data.hint) msg += "\n\n" + data.hint;
+                alert(msg);
             } else if (data.success || data.url) {
-                // Reload page để render avatar mới
                 location.reload();
             } else {
-                console.error('Unexpected response:', data);
-                alert('Upload failed');
+                console.error("Unexpected response:", data);
+                alert("Tải ảnh thất bại.");
             }
         })
-        .catch(err => {
-            console.error('Avatar upload error:', err);
-            alert('Upload error: ' + err.message);
+        .catch((err) => {
+            console.error("Avatar upload error:", err);
+            alert("Lỗi tải ảnh: " + err.message);
+        })
+        .finally(() => {
+            avatarInput.value = "";
         });
 });
 
-// ===== POSTS =====
-function loadPosts() {
-    fetch(BASE + "/user-api/posts?user_id=" + USER_ID)
-        .then(r => r.json())
-        .then(data => {
-            let html = "";
-
-            if (!data.posts || data.posts.length === 0) {
-                html = "<p class='text-muted'>Chưa có bài viết nào</p>";
-            } else {
-                data.posts.forEach(p => {
-                    let mediaHtml = "";
-                    if (p.media && Array.isArray(p.media)) {
-                        p.media.forEach(m => {
-                            let displayUrl = m.display_url || '';
-                            if (displayUrl) {
-                                mediaHtml += `<img src="${displayUrl}" class="img-fluid rounded mb-2" alt="">`;
-                            }
-                        });
-                    }
-                    
-                    html += `
-                        <div class="card p-3 mb-3">
-                            <p>${p.content ?? ''}</p>
-                            ${mediaHtml}
-                        </div>
-                    `;
-                });
-            }
-
-            document.getElementById("tabContent").innerHTML = html;
-        });
-}
-
 // ===== FOLLOW =====
 document.getElementById("followersBtn")?.addEventListener("click", () => {
-    fetch(BASE + "/user-api/followers?user_id=" + USER_ID)
-        .then(r => r.json())
-        .then(data => {
+    fetch(BASE + "/user-api/followers?user_id=" + USER_ID, { credentials: "same-origin" })
+        .then((r) => r.json())
+        .then((data) => {
             renderList(data.followers, "Chưa có follower nào 😢");
             new bootstrap.Modal(document.getElementById("followModal")).show();
         });
 });
 
 document.getElementById("followingBtn")?.addEventListener("click", () => {
-    fetch(BASE + "/user-api/following?user_id=" + USER_ID)
-        .then(r => r.json())
-        .then(data => {
+    fetch(BASE + "/user-api/following?user_id=" + USER_ID, { credentials: "same-origin" })
+        .then((r) => r.json())
+        .then((data) => {
             renderList(data.following, "Bạn chưa follow ai cả 😆");
             new bootstrap.Modal(document.getElementById("followModal")).show();
         });
 });
+
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
 
 function renderList(list, emptyMsg) {
     let html = "";
@@ -138,12 +133,16 @@ function renderList(list, emptyMsg) {
     if (!list || list.length === 0) {
         html = `<p class="text-center text-muted">${emptyMsg}</p>`;
     } else {
-        list.forEach(u => {
+        list.forEach((u) => {
+            const uname = String(u.username || "");
+            const href = BASE + "/profile?u=" + encodeURIComponent(uname);
+            const rawAv = u.avatar_url ? String(u.avatar_url) : "";
+            const av = rawAv ? mediaViewUrl(rawAv) : BASE + "/public/default-avatar.png";
             html += `
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <img src="${u.avatar_url || '/public/default-avatar.png'}" width="40" height="40" class="rounded-circle">
-                    <span>${u.username}</span>
-                </div>
+                <a href="${escHtml(href)}" class="d-flex align-items-center gap-2 mb-2 text-decoration-none text-body">
+                    <img src="${escHtml(av)}" width="40" height="40" class="rounded-circle" alt="">
+                    <span>${escHtml(uname)}</span>
+                </a>
             `;
         });
     }
@@ -152,13 +151,13 @@ function renderList(list, emptyMsg) {
 }
 
 // ===== BADGE REMOVE =====
-document.querySelectorAll(".badge-item").forEach(badge => {
+document.querySelectorAll(".badge-item").forEach((badge) => {
     badge.addEventListener("click", (e) => {
         if (!isEditing) return;
 
         e.stopPropagation();
 
-        document.querySelectorAll(".badge-popup").forEach(p => p.remove());
+        document.querySelectorAll(".badge-popup").forEach((p) => p.remove());
 
         let popup = document.createElement("div");
         popup.className = "badge-popup position-absolute bg-white border rounded px-2 py-1";
@@ -172,7 +171,8 @@ document.querySelectorAll(".badge-item").forEach(badge => {
         popup.querySelector("button").onclick = () => {
             fetch(BASE + "/user-api/remove-badge", {
                 method: "POST",
-                body: new URLSearchParams({ badge_id: badge.dataset.id })
+                credentials: "same-origin",
+                body: new URLSearchParams({ badge_id: badge.dataset.id }),
             }).then(() => location.reload());
         };
     });
@@ -192,18 +192,14 @@ addBtn?.addEventListener("click", () => {
 searchInput?.addEventListener("input", () => {
     let q = searchInput.value.trim();
 
-    fetch(BASE + "/user-api/search-badge?q=" + encodeURIComponent(q))
-        .then(r => r.json())
-        .then(res => {
+    fetch(BASE + "/user-api/search-badge?q=" + encodeURIComponent(q), { credentials: "same-origin" })
+        .then((r) => r.json())
+        .then((res) => {
             let list = res.data || [];
             let html = "";
 
-            // check exact match
-            let hasExact = list.some(
-                b => b.name.toLowerCase() === q.toLowerCase()
-            );
+            let hasExact = list.some((b) => b.name.toLowerCase() === q.toLowerCase());
 
-            // nếu KHÔNG có exact → cho tạo mới
             if (q !== "" && !hasExact) {
                 html += `
                     <div class="p-2 text-primary fw-bold"
@@ -214,8 +210,7 @@ searchInput?.addEventListener("input", () => {
                 `;
             }
 
-            // list badge có sẵn
-            list.forEach(b => {
+            list.forEach((b) => {
                 html += `
                     <div class="p-2 border-bottom badge-select"
                          style="cursor:pointer"
@@ -227,7 +222,7 @@ searchInput?.addEventListener("input", () => {
 
             resultBox.innerHTML = html;
 
-            document.querySelectorAll(".badge-select").forEach(el => {
+            document.querySelectorAll(".badge-select").forEach((el) => {
                 el.onclick = () => addBadge(el.dataset.name);
             });
         });
@@ -240,19 +235,18 @@ searchInput?.addEventListener("keydown", (e) => {
     }
 });
 
-// ADD
 function addBadge(name) {
     if (!name) return;
 
     fetch(BASE + "/user-api/add-badge", {
         method: "POST",
-        body: new URLSearchParams({ name })
+        credentials: "same-origin",
+        body: new URLSearchParams({ name }),
     })
-        .then(r => r.json())
+        .then((r) => r.json())
         .then(() => location.reload());
 }
 
-// CLICK OUTSIDE CLOSE
 document.addEventListener("click", (e) => {
     if (!popup) return;
 
@@ -260,30 +254,46 @@ document.addEventListener("click", (e) => {
         popup.classList.add("d-none");
     }
 });
-document.querySelectorAll("[data-tab]").forEach(tab => {
-    tab.addEventListener("click", () => {
 
-        document.querySelectorAll("[data-tab]").forEach(t => t.classList.remove("active"));
+let activityLoaded = false;
+
+document.querySelectorAll("[data-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+        document.querySelectorAll("[data-tab]").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
 
+        const postsEl = document.getElementById("tabContentPosts");
+        const activityEl = document.getElementById("tabContentActivity");
+
         if (tab.dataset.tab === "posts") {
-            loadPosts();
+            postsEl?.classList.remove("d-none");
+            activityEl?.classList.add("d-none");
         } else if (tab.dataset.tab === "activity") {
-            loadActivity();
+            postsEl?.classList.add("d-none");
+            activityEl?.classList.remove("d-none");
+            if (!activityLoaded) {
+                activityLoaded = true;
+                loadActivity();
+            }
         }
     });
 });
-function loadActivity() {
-    fetch(BASE + "/user-api/activity?user_id=" + USER_ID)
-        .then(r => r.json())
-        .then(data => {
 
+function loadActivity() {
+    const el = document.getElementById("tabContentActivity");
+    if (!el) return;
+
+    el.innerHTML = "<p class='text-muted mb-0'>Đang tải...</p>";
+
+    fetch(BASE + "/user-api/activity?user_id=" + USER_ID, { credentials: "same-origin" })
+        .then((r) => r.json())
+        .then((data) => {
             let html = "";
 
             if (!data.activities || data.activities.length === 0) {
-                html = "<p class='text-muted'>Chưa có hoạt động nào 😴</p>";
+                html = "<p class='text-muted mb-0'>Chưa có hoạt động nào 😴</p>";
             } else {
-                data.activities.forEach(a => {
+                data.activities.forEach((a) => {
                     html += `
                         <div class="card p-2 mb-2 text-start">
                             <small class="text-muted">${a.type}</small>
@@ -293,8 +303,86 @@ function loadActivity() {
                 });
             }
 
-            document.getElementById("tabContent").innerHTML = html;
+            el.innerHTML = html;
+        })
+        .catch(() => {
+            el.innerHTML = "<p class='text-danger small mb-0'>Không tải được hoạt động.</p>";
         });
 }
-// INIT
-loadPosts();
+
+// ===== PROFILE: follow / unfollow (trang người khác) =====
+(function () {
+    const btn = document.getElementById("profileFollowBtn");
+    if (!btn) return;
+
+    const targetId = parseInt(btn.getAttribute("data-user-id") || "0", 10);
+    const username = btn.getAttribute("data-username") || "";
+    const modalEl = document.getElementById("unfollowConfirmModal");
+    const modalText = document.getElementById("unfollowConfirmText");
+    const confirmBtn = document.getElementById("unfollowConfirmBtn");
+
+    function setFollowingUi(following) {
+        btn.setAttribute("data-following", following ? "true" : "false");
+        if (following) {
+            btn.textContent = "Đã theo dõi";
+            btn.classList.remove("btn-brand-follow");
+            btn.classList.add("btn-brand-follow-outline");
+        } else {
+            btn.textContent = "Theo dõi";
+            btn.classList.remove("btn-brand-follow-outline");
+            btn.classList.add("btn-brand-follow");
+        }
+    }
+
+    setFollowingUi(btn.getAttribute("data-following") === "true");
+
+    btn.addEventListener("click", async function () {
+        const isFollowing = btn.getAttribute("data-following") === "true";
+        if (!isFollowing) {
+            btn.disabled = true;
+            const fd = new FormData();
+            fd.append("target_id", String(targetId));
+            try {
+                const r = await fetch(BASE + "/user-api/follow?action=follow", {
+                    method: "POST",
+                    body: fd,
+                    credentials: "same-origin",
+                });
+                const data = await r.json();
+                if (data && data.success) {
+                    setFollowingUi(true);
+                }
+            } catch (e) {}
+            btn.disabled = false;
+            return;
+        }
+
+        if (modalText) {
+            modalText.textContent = "Bạn có chắc muốn hủy theo dõi @" + username + "?";
+        }
+        if (modalEl && typeof bootstrap !== "undefined") {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    });
+
+    confirmBtn?.addEventListener("click", async function () {
+        confirmBtn.disabled = true;
+        const fd = new FormData();
+        fd.append("target_id", String(targetId));
+        try {
+            const r = await fetch(BASE + "/user-api/follow?action=unfollow", {
+                method: "POST",
+                body: fd,
+                credentials: "same-origin",
+            });
+            const data = await r.json();
+            if (data && data.success) {
+                setFollowingUi(false);
+                if (modalEl && typeof bootstrap !== "undefined") {
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                }
+            }
+        } catch (e) {}
+        confirmBtn.disabled = false;
+    });
+})();

@@ -35,9 +35,17 @@ function format_notification_snippet(?string $raw): string
         return '';
     }
     $e = htmlspecialchars($raw, ENT_QUOTES, 'UTF-8');
-    return (string) preg_replace(
+    $base = rtrim((string) (defined('BASE_URL') ? BASE_URL : ''), '/');
+    return (string) preg_replace_callback(
         '/@([a-zA-Z0-9_.]+)/u',
-        '<span class="text-primary fw-semibold">@$1</span>',
+        static function (array $m) use ($base): string {
+            $u = $m[1];
+            $profilePath = rtrim($base, '/') . '/profile?u=' . rawurlencode($u);
+            $href = htmlspecialchars($profilePath, ENT_QUOTES, 'UTF-8');
+            $label = htmlspecialchars($u, ENT_QUOTES, 'UTF-8');
+            return '<a class="text-primary fw-semibold text-decoration-none mention-profile-link position-relative" style="z-index:3" href="'
+                . $href . '">@' . $label . '</a>';
+        },
         $e
     );
 }

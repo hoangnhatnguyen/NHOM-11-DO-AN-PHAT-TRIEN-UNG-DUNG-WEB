@@ -1,8 +1,20 @@
-<?php $activeMenu = 'profile'; ?>
+<?php
+// Chỉ coi là tab "Trang cá nhân" khi đang xem hồ sơ của chính mình
+$activeMenu = $isOwner ? 'profile' : 'browse';
+$profilePosts = $profilePosts ?? [];
+?>
 
 <script>
-const USER_ID = <?= (int)$user['id'] ?>;
+const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 </script>
+
+<?php if (!empty($isOwner)): ?>
+<style>
+#profileAvatarContainer[data-change-avatar="1"] { cursor: pointer; }
+#profileAvatarContainer[data-change-avatar="1"]:hover #avatarOverlay { opacity: 1; }
+#avatarOverlay { opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+</style>
+<?php endif; ?>
 
 <div class="container mt-3 ms-3 px-4.5">
     <div class="row">
@@ -22,16 +34,14 @@ const USER_ID = <?= (int)$user['id'] ?>;
                     <div class="position-relative d-inline-block"
                          id="profileAvatarContainer"
                          data-avatar-container
+                         data-change-avatar="<?= !empty($isOwner) ? '1' : '0' ?>"
                          data-avatar-initial="<?= htmlspecialchars(strtoupper(substr($user['username'], 0, 1))) ?>">
                         
                         <?php if (!empty($user['avatar_url'])): ?>
                             <!-- Mode 1: Image Avatar (khi có url) -->
                             <?php
-                            // Use media helper to generate correct URL
                             $avatarUrl = $user['avatar_url'] ?? '';
                             $displayUrl = $avatarUrl ? media_public_src($avatarUrl) : '';
-                            // Debug logging
-                            error_log('Avatar Debug [' . $user['username'] . ']: avatar_url=[' . $avatarUrl . '], displayUrl=[' . $displayUrl . ']');
                             ?>
                             <?php if ($displayUrl): ?>
                             <img id="avatarImg"
@@ -66,12 +76,12 @@ const USER_ID = <?= (int)$user['id'] ?>;
 
                         <?php if($isOwner): ?>
                             <div id="avatarOverlay"
-                                 class="position-absolute top-50 start-50 translate-middle text-white fw-bold d-none"
-                                 style="background:rgba(0,0,0,0.5); padding:6px 10px; border-radius:20px; cursor:pointer;">
+                                 class="position-absolute top-50 start-50 translate-middle text-white fw-bold rounded-pill"
+                                 style="background:rgba(0,0,0,0.55); padding:6px 12px; font-size:0.85rem;">
                                 Đổi ảnh
                             </div>
 
-                            <input type="file" id="avatarInput" class="d-none">
+                            <input type="file" id="avatarInput" class="d-none" accept="image/jpeg,image/png,image/gif,image/webp">
                         <?php endif; ?>
                     </div>
 
@@ -92,6 +102,23 @@ const USER_ID = <?= (int)$user['id'] ?>;
                             <b><?= $stats['following'] ?></b> following
                         </span>
                     </div>
+
+                    <?php if (!$isOwner): ?>
+                        <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+                            <a href="<?= BASE_URL ?>/messages?user=<?= (int) ($user['id'] ?? 0) ?>"
+                               class="btn btn-brand-follow rounded-pill">
+                                <i class="bi bi-chat-dots me-1"></i>Nhắn tin
+                            </a>
+                            <button type="button"
+                                    id="profileFollowBtn"
+                                    class="btn rounded-pill <?= !empty($isFollowing) ? 'btn-brand-follow-outline' : 'btn-brand-follow' ?>"
+                                    data-user-id="<?= (int) ($user['id'] ?? 0) ?>"
+                                    data-username="<?= htmlspecialchars((string) ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-following="<?= !empty($isFollowing) ? 'true' : 'false' ?>">
+                                <?= !empty($isFollowing) ? 'Đã theo dõi' : 'Theo dõi' ?>
+                            </button>
+                        </div>
+                    <?php endif; ?>
 
                     <?php if ($isOwner): ?>
                         <button class="btn btn-outline-primary mt-3" id="editBtn">
@@ -149,9 +176,18 @@ const USER_ID = <?= (int)$user['id'] ?>;
                     </li>
                 </ul>
 
-                <div id="tabContent" class="mt-3 text-muted">
-                    Đang tải...
+                <div id="tabContentPosts" class="mt-3">
+                    <?php if (empty($profilePosts)): ?>
+                        <p class="text-muted mb-0">Chưa có bài viết nào</p>
+                    <?php else: ?>
+                        <?php foreach ($profilePosts as $post): ?>
+                            <?php $currentUser = $currentUser ?? ($_SESSION['user'] ?? null); ?>
+                            <?php include VIEW_PATH . 'partials/post_card.php'; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
+
+                <div id="tabContentActivity" class="mt-3 d-none text-muted"></div>
 
             </div>
         </div>
@@ -165,6 +201,24 @@ const USER_ID = <?= (int)$user['id'] ?>;
         <div class="modal-content p-3">
             <h5 id="modalTitle" class="text-center mb-3"></h5>
             <div id="followList"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="unfollowConfirmModal" tabindex="-1" aria-labelledby="unfollowConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold" id="unfollowConfirmLabel">Hủy theo dõi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-0 text-secondary" id="unfollowConfirmText"></p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Không</button>
+                <button type="button" class="btn btn-brand-follow rounded-pill" id="unfollowConfirmBtn">Hủy theo dõi</button>
+            </div>
         </div>
     </div>
 </div>

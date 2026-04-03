@@ -7,6 +7,39 @@ require_once __DIR__ . '/../helpers/notification_helper.php';
 
 class NotificationController extends BaseController
 {
+    /**
+     * POST id — đánh dấu 1 thông báo đã đọc (JSON). Đi qua front controller, tránh lỗi đường dẫn tới api/*.php.
+     */
+    public function markReadApi(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (empty($_SESSION['user']['id'])) {
+            echo json_encode(['ok' => false, 'msg' => 'not login'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $userId = (int) $_SESSION['user']['id'];
+        $notificationId = (int) ($_POST['id'] ?? 0);
+
+        if ($notificationId <= 0) {
+            echo json_encode(['ok' => false, 'msg' => 'bad id'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $conn = Database::getInstance()->getConnection();
+        } catch (Throwable $e) {
+            echo json_encode(['ok' => false, 'msg' => 'db'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        notification_mark_read($conn, $userId, $notificationId);
+        $unread = notifications_unread_count($conn, $userId);
+
+        echo json_encode(['ok' => true, 'unread' => $unread], JSON_UNESCAPED_UNICODE);
+    }
+
     public function index(): void
     {
         $this->requireAuth();
@@ -53,9 +86,9 @@ class NotificationController extends BaseController
 
         $snippet = '';
         if ($type === 'comment' || $type === 'mention_comment' || $type === 'mention') {
-            $snippet = (string) ($n['comment_text'] ?? '');
+            $snippet = trim(strip_tags((string) ($n['comment_text'] ?? '')));
         } elseif ($type === 'mention_post') {
-            $snippet = (string) ($n['post_text'] ?? '');
+            $snippet = trim(strip_tags((string) ($n['post_text'] ?? '')));
         }
 
         $messageHtml = '';
@@ -86,12 +119,9 @@ class NotificationController extends BaseController
 
         $link = '#';
         if ($type === 'follow') {
-            $actorId = (int) ($n['actor_id'] ?? 0);
-            if ($actorId <= 0 && isset($n['reference_id'])) {
-                $actorId = (int) $n['reference_id'];
-            }
-            if ($actorId > 0) {
-                $link = BASE_URL . '/users/finder?id=' . $actorId;
+            $uname = trim((string) $actor);
+            if ($uname !== '') {
+                $link = profile_url($uname);
             }
         } elseif ($postId > 0) {
             $frag = '';

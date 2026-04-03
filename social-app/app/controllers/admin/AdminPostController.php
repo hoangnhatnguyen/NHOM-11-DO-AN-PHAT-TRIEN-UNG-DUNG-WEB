@@ -1,15 +1,25 @@
 <?php
 require_once __DIR__ . '/../../models/Post.php';
+require_once __DIR__ . '/AdminFilterController.php';
 
-/**
- * AdminPostController - Quản lý bài viết
- */
 class AdminPostController extends BaseController {
 
     public function index(): void {
         $this->requireAdmin();
-        $posts = (new Post())->findAll();
-        $this->render('admin/posts/index', compact('posts'), 'admin');
+        $keyword = trim((string) ($_GET['keyword'] ?? ''));
+        $field = (string) ($_GET['field'] ?? 'content');
+        $filter = new AdminFilterController();
+        $posts = $filter->filterPosts($keyword, $field);
+        $this->render('admin/posts/index', [
+            'title' => 'Quản lý bài viết',
+            'currentUser' => $_SESSION['user'] ?? null,
+            'csrfToken' => $this->csrfToken(),
+            'activeMenu' => 'home',
+            'adminTab' => 'posts',
+            'posts' => $posts,
+            'keyword' => $keyword,
+            'field' => $field,
+        ], 'feed');
     }
 
     public function destroy(?string $id): void {

@@ -1,6 +1,37 @@
+/**
+ * BASE_URL từ PHP; nếu rỗng thì suy ra từ pathname để fetch /api/* và /user-api/* không bị trỏ nhầm lên gốc host.
+ */
 function appBaseUrl() {
-  const b = window.__APP_BASE__;
-  return typeof b === "string" ? b.replace(/\/$/, "") : "";
+  var b = window.__APP_BASE__;
+  if (typeof b === "string") {
+    b = b.replace(/\/$/, "");
+    if (b !== "") return b;
+  }
+  var path = window.location.pathname.replace(/\/$/, "");
+  if (path === "") path = "/";
+  var lower = path.toLowerCase();
+  var markers = [
+    "/search",
+    "/notifications",
+    "/messages",
+    "/settings",
+    "/login",
+    "/register",
+    "/post/",
+    "/profile",
+    "/user/",
+    "/users/finder",
+  ];
+  for (var i = 0; i < markers.length; i++) {
+    var m = markers[i];
+    var idx = lower.indexOf(m);
+    if (idx !== -1) {
+      return path.slice(0, idx) || "";
+    }
+  }
+  var slash = path.lastIndexOf("/");
+  if (slash > 0) return path.slice(0, slash);
+  return "";
 }
 
 /** Cùng key localStorage "recent" với search.js — luôn gọi hàm này khi mở kết quả tìm từ sidebar */
@@ -62,21 +93,34 @@ document.addEventListener("keydown", function (e) {
 
 function loadTrending() {
   const base = appBaseUrl();
+  const box = document.getElementById("right-trending");
+  if (!box) return;
+
   fetch(base + "/api/search.php?type=trending_full", { credentials: "same-origin" })
-    .then((res) => res.json())
     .then((res) => {
-      const box = document.getElementById("right-trending");
-      if (!box) return;
+      if (!res.ok) throw new Error("trending");
+      return res.json();
+    })
+    .then((res) => {
+      if (!res || res.status !== "success" || !Array.isArray(res.data)) {
+        return;
+      }
+      const data = res.data;
+      if (data.length === 0) {
+        box.innerHTML =
+          '<p class="text-muted small mb-0">Chưa có hashtag nào trong bài viết active.</p>';
+        return;
+      }
 
-      const data = res.data || [];
-
+      box.className = "d-flex flex-column gap-2";
       box.innerHTML = data
         .map((t, i) => {
           const name = typeof t === "string" ? t : String(t.name || "");
+          if (!name) return "";
           const qVal = "#" + name;
           return `
         <div class="trend" data-q="${escapeAttr(qVal)}" role="button" tabindex="0">
-          <small>#${i + 1} Trending</small><br>
+          <small class="text-secondary">#${i + 1} Trending</small><br>
           <b>#${escapeHtml(name)}</b>
         </div>
       `;
@@ -95,23 +139,49 @@ function escapeHtml(s) {
 
 function loadSuggestUsers() {
   const base = appBaseUrl();
+  const box = document.getElementById("suggestBox");
+  if (!box) return;
+
   fetch(base + "/api/search.php?type=suggest_users", { credentials: "same-origin" })
-    .then((res) => res.json())
     .then((res) => {
-      const box = document.getElementById("suggestBox");
+      if (!res.ok) throw new Error("suggest_http");
+      return res.json();
+    })
+    .then((res) => {
       if (!box) return;
 
       const data = res.data || [];
       if (!Array.isArray(data)) return;
 
+      if (data.length === 0) {
+        box.innerHTML =
+          '<li class="text-muted small mb-0">Chưa có tài khoản để gợi ý (hoặc bạn đã theo dõi hết).</li>';
+        return;
+      }
+
       box.innerHTML = data
         .map(
-          (u) => `
-        <li class="d-flex justify-content-between align-items-center mb-2">
-          <span>@${escapeHtml(u.username)}</span>
-          <button type="button" class="btn btn-sm rounded-pill btn-outline-primary btn-follow-suggest" data-user-id="${escapeAttr(String(u.id))}">Theo dõi</button>
+          (u) => {
+            const uname = String(u.username || "");
+            const profileHref = base + "/profile?u=" + encodeURIComponent(uname);
+            const avatarSrc = String(u.avatar_src || "").trim();
+            const initials = escapeHtml(String(u.initials || "").slice(0, 4));
+            const bg = escapeAttr(String(u.avatar_bg || "#6c757d"));
+            const fg = escapeAttr(String(u.avatar_fg || "#ffffff"));
+            const avatarHtml = avatarSrc
+              ? `<img src="${escapeAttr(avatarSrc)}" alt="" width="36" height="36" class="rounded-circle flex-shrink-0" style="object-fit:cover" onerror="this.style.display='none'; var s=this.nextElementSibling; if(s) s.style.display='flex';">
+          <span class="avatar-sm flex-shrink-0 align-items-center justify-content-center" style="background:${bg};color:${fg};display:none;width:36px;height:36px;border-radius:50%;font-weight:600;font-size:0.85rem;">${initials}</span>`
+              : `<span class="avatar-sm flex-shrink-0 d-flex align-items-center justify-content-center" style="background:${bg};color:${fg};width:36px;height:36px;border-radius:50%;font-weight:600;font-size:0.85rem;">${initials}</span>`;
+            return `
+        <li class="d-flex justify-content-between align-items-center mb-2 gap-2">
+          <a href="${escapeAttr(profileHref)}" class="text-decoration-none text-body d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+            ${avatarHtml}
+            <span class="text-truncate">@${escapeHtml(uname)}</span>
+          </a>
+          <button type="button" class="btn btn-sm rounded-pill btn-brand-follow btn-follow-suggest flex-shrink-0" data-user-id="${escapeAttr(String(u.id))}">Theo dõi</button>
         </li>
-      `
+      `;
+          }
         )
         .join("");
 
@@ -142,5 +212,9 @@ function loadSuggestUsers() {
         });
       });
     })
-    .catch(() => {});
+    .catch(function () {
+      if (!box) return;
+      box.innerHTML =
+        '<li class="text-muted small mb-0">Không tải được gợi ý. Hãy tải lại trang (Ctrl+F5) hoặc kiểm tra đường dẫn ứng dụng (BASE_URL).</li>';
+    });
 }

@@ -1,5 +1,8 @@
 <form method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+    <?php if (($_GET['composer_error'] ?? '') === 'empty'): ?>
+        <div class="alert alert-warning py-2 mb-3" role="alert">Bạn cần nhập nội dung hoặc chọn ít nhất 1 ảnh trước khi đăng.</div>
+    <?php endif; ?>
 
 
     <div class="d-flex border-bottom pb-3 mb-3">
@@ -60,10 +63,10 @@
         <div>
                 <label class="btn btn-light btn-sm rounded-pill">
                     <i class="bi bi-image"></i>
-                    <input type="file" name="media[]" id="fileInput" hidden>
+                    <input type="file" name="media[]" id="fileInput" hidden multiple accept="image/jpeg,image/png,image/gif,image/webp">
                 </label>
             </div>
-        <button class="btn btn-primary rounded-pill px-4">Đăng</button>
+        <button id="btnSubmit" class="btn btn-primary rounded-pill px-4">Đăng</button>
     </div>
 </form>
 <script>

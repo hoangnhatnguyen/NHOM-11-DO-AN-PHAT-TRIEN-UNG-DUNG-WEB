@@ -28,10 +28,11 @@ try {
 try {
     if ($type === 'trending') {
         $stmt = $conn->query("
-            SELECT h.name, COUNT(ph.post_id) as count
+            SELECT h.name, COUNT(DISTINCT ph.post_id) AS count
             FROM hashtags h
-            JOIN post_hashtags ph ON h.id = ph.hashtag_id
-            GROUP BY h.id
+            INNER JOIN post_hashtags ph ON h.id = ph.hashtag_id
+            INNER JOIN posts p ON p.id = ph.post_id AND p.status = 'active'
+            GROUP BY h.id, h.name
             ORDER BY count DESC
             LIMIT 10
         ");
@@ -43,27 +44,58 @@ try {
     }
 
     if ($type === 'suggest_users') {
-        $stmt = $conn->query("
-            SELECT id, username
-            FROM users
-            ORDER BY RAND()
-            LIMIT 5
-        ");
+        require_once __DIR__ . '/../app/helpers/media.php';
+        require_once __DIR__ . '/../app/core/Avatar.php';
+
+        if ($currentUserId) {
+            $stmt = $conn->prepare('
+                SELECT id, username, avatar_url
+                FROM users
+                WHERE id != :uid
+                ORDER BY RAND()
+                LIMIT 5
+            ');
+            $stmt->execute(['uid' => $currentUserId]);
+        } else {
+            $stmt = $conn->query('
+                SELECT id, username, avatar_url
+                FROM users
+                ORDER BY RAND()
+                LIMIT 5
+            ');
+        }
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $data = [];
+        foreach ($rows as $row) {
+            $uname = (string) ($row['username'] ?? '');
+            $rawAv = (string) ($row['avatar_url'] ?? '');
+            $avatarSrc = $rawAv !== '' ? media_public_src($rawAv) : '';
+            $c = Avatar::colors($uname);
+            $data[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'username' => $uname,
+                'avatar_src' => $avatarSrc,
+                'initials' => Avatar::initials($uname),
+                'avatar_bg' => $c['bg'],
+                'avatar_fg' => $c['fg'],
+            ];
+        }
         echo json_encode([
             'status' => 'success',
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'data' => $data,
         ]);
         exit;
     }
 
     if ($type === 'trending_full') {
         $stmt = $conn->query("
-            SELECT h.name, COUNT(ph.post_id) as total
+            SELECT h.name, COUNT(DISTINCT ph.post_id) AS total
             FROM hashtags h
-            JOIN post_hashtags ph ON h.id = ph.hashtag_id
-            GROUP BY h.id
+            INNER JOIN post_hashtags ph ON h.id = ph.hashtag_id
+            INNER JOIN posts p ON p.id = ph.post_id AND p.status = 'active'
+            GROUP BY h.id, h.name
             ORDER BY total DESC
-            LIMIT 5
+            LIMIT 10
         ");
         echo json_encode([
             'status' => 'success',

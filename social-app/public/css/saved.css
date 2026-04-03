@@ -1,0 +1,50 @@
+/* Theme overrides (included from layouts after style.css). */
+.btn-primary,
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary.active,
+.btn-outline-primary.active,
+.btn-outline-primary:active {
+	background-color: #1A6291;
+	border-color: #1A6291;
+}
+
+.btn-outline-primary.active,
+.btn-outline-primary:active {
+	color: #fff;
+}
+
+.btn-warning,
+.btn-warning:hover,
+.btn-warning:focus,
+.btn-warning:active,
+.btn-warning.active {
+	background-color: #e0f3ff;
+	border-color: #e0f3ff;
+	color: #1A6291;
+}
+
+/* Saved page: keep chat look and scroll inside the list area. */
+.chat-shell--saved .chat-frame--saved {
+	height: calc(100vh - var(--app-nav-height) - 5rem) !important;
+	min-height: calc(100vh - var(--app-nav-height) - 5rem) !important;
+	overflow: hidden !important;
+}
+
+.chat-shell--saved .chat-thread-panel--saved {
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.chat-shell--saved .saved-message-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: none;
+	overflow-y: auto;
+	overflow-x: hidden;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}

@@ -34,7 +34,7 @@ class SearchController extends BaseController
                 $tag = ltrim($qTrim, '#');
 
                 $sql = "
-                    SELECT p.*, u.username
+                    SELECT p.*, u.username, u.avatar_url AS author_avatar_url
                     FROM hashtags h
                     JOIN post_hashtags ph ON h.id = ph.hashtag_id
                     JOIN posts p ON p.id = ph.post_id
@@ -45,7 +45,7 @@ class SearchController extends BaseController
                 $params['tag'] = $tag;
             } else {
                 $sql = "
-                    SELECT p.*, u.username
+                    SELECT p.*, u.username, u.avatar_url AS author_avatar_url
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
                     WHERE p.content LIKE :q
@@ -95,7 +95,7 @@ class SearchController extends BaseController
 
             if ($tab === 'top') {
                 $sql = "
-                    SELECT u.id, u.username, COUNT(f.following_id) as followers
+                    SELECT u.id, u.username, u.avatar_url, COUNT(f.following_id) as followers
                     FROM users u
                     LEFT JOIN follows f ON f.following_id = u.id
                     WHERE u.username LIKE :q
@@ -133,7 +133,7 @@ class SearchController extends BaseController
                 $sql .= ' GROUP BY u.id ORDER BY followers DESC LIMIT 3';
             } else {
                 $sql = "
-                    SELECT u.id, u.username
+                    SELECT u.id, u.username, u.avatar_url
                     FROM users u
                     WHERE u.username LIKE :q
                 ";

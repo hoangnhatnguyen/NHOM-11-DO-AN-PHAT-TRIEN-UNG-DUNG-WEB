@@ -23,11 +23,17 @@ return [
         '/chat-api/bootstrap' => 'MessageController@apiBootstrap',
         '/chat-api/users' => 'MessageController@apiUsers',
         '/chat-api/users/{id}' => 'MessageController@apiUser',
+        '/media/view' => 'MessageController@mediaView',
 
         // ============ USERS & DISCOVERY ============
         '/users/finder' => 'UserController@finder',
 
+        '/profile' => 'UserController@profileFromQuery',
         '/user/{username}' => 'UserController@profile',
+        '/saved' => 'SavedPostController@index',
+        '/admin' => 'AdminController@index',
+        '/admin/users' => 'AdminUserController@index',
+        '/admin/posts' => 'AdminPostController@index',
 
         '/settings' => 'SettingController@index',
 
@@ -71,10 +77,13 @@ return [
         '/user-api/remove-badge' => 'UserController@removeBadge',
         '/user-api/search-badge' => 'UserController@searchBadge',
         '/user-api/add-badge' => 'UserController@addBadge',
+        '/user-api/notification-mark-read' => 'NotificationController@markReadApi',
 
         // ============ SETTINGS ============
         '/setting-api/update-privacy' => 'SettingController@updatePrivacy',
         '/setting-api/unblock' => 'SettingController@unblock',
+        '/saved/unsave' => 'SavedPostController@unsave',
+        '/admin/users/toggle-status' => 'AdminUserController@toggleStatus',
 
         // ============ CHAT ============
         '/chat-api/upload' => 'MessageController@apiUpload',

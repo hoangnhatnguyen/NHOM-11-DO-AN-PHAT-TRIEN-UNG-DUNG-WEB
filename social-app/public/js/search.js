@@ -1,6 +1,37 @@
+/**
+ * Giống right_widgets.js / notification.js: tránh fetch nhầm lên /api/* gốc domain khi BASE_URL rỗng.
+ */
 function appBaseUrl() {
-  const b = window.__APP_BASE__;
-  return typeof b === "string" ? b.replace(/\/$/, "") : "";
+  var b = window.__APP_BASE__;
+  if (typeof b === "string") {
+    b = b.replace(/\/$/, "");
+    if (b !== "") return b;
+  }
+  var path = window.location.pathname.replace(/\/$/, "");
+  if (path === "") path = "/";
+  var lower = path.toLowerCase();
+  var markers = [
+    "/search",
+    "/notifications",
+    "/messages",
+    "/settings",
+    "/login",
+    "/register",
+    "/post/",
+    "/profile",
+    "/user/",
+    "/users/finder",
+  ];
+  for (var i = 0; i < markers.length; i++) {
+    var m = markers[i];
+    var idx = lower.indexOf(m);
+    if (idx !== -1) {
+      return path.slice(0, idx) || "";
+    }
+  }
+  var slash = path.lastIndexOf("/");
+  if (slash > 0) return path.slice(0, slash);
+  return "";
 }
 
 function escapeAttr(s) {
@@ -40,9 +71,47 @@ function goSearch(q, e) {
     base + "/search?q=" + encodeURIComponent(key) + "&tab=top";
 }
 
+
+function bindStaticFollowSuggestButtons(root) {
+  const base = appBaseUrl();
+  root.querySelectorAll("button.btn-follow-suggest[data-user-id]").forEach((btn) => {
+    if (btn.closest("#suggestBox")) return;
+    if (btn.dataset.followBound === "1") return;
+    btn.dataset.followBound = "1";
+    btn.addEventListener("click", function () {
+      const id = parseInt(this.getAttribute("data-user-id") || "0", 10);
+      if (!id) return;
+      const self = this;
+      self.disabled = true;
+      const fd = new FormData();
+      fd.append("target_id", String(id));
+      fetch(base + "/user-api/follow?action=follow", {
+        method: "POST",
+        body: fd,
+        credentials: "same-origin",
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.success) {
+            self.textContent = "Đã theo dõi";
+            self.classList.remove("btn-brand-follow");
+            self.classList.add("btn-brand-follow-outline");
+            self.disabled = false;
+            self.dataset.followDone = "1";
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (self.dataset.followDone !== "1") self.disabled = false;
+        });
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   bindTabs();
   bindSearch();
+  bindStaticFollowSuggestButtons(document);
 
   const params = new URLSearchParams(window.location.search);
   const q = params.get("q");
@@ -183,7 +252,10 @@ function renderRecent(box) {
 function renderTrending(box) {
   const base = appBaseUrl();
   fetch(base + "/api/search.php?type=trending", { credentials: "same-origin" })
-    .then((r) => r.json())
+    .then((r) => {
+      if (!r.ok) throw new Error("trending");
+      return r.json();
+    })
     .then((res) => {
       let hashtags = [];
 

@@ -1603,4 +1603,3 @@ if (!root) {
 		window.alert(message);
 	}
 }
-

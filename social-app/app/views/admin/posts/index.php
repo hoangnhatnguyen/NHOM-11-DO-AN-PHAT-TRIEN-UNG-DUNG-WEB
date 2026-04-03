@@ -28,7 +28,7 @@
 		</div>
 	<?php else: ?>
 		<?php foreach ($posts as $post): ?>
-			<a href="<?= BASE_URL ?>/post/<?= (int) ($post['id'] ?? 0) ?>" class="text-decoration-none text-dark">
+			<a href="<?= BASE_URL ?>/post/<?= (int) ($post['id'] ?? 0) ?>" class="js-open-post-modal text-decoration-none text-dark" data-post-id="<?= (int) ($post['id'] ?? 0) ?>">
 				<div class="card border-0 shadow-sm rounded-4 mb-3">
 					<div class="card-body">
 						<div class="d-flex align-items-center justify-content-between mb-2">

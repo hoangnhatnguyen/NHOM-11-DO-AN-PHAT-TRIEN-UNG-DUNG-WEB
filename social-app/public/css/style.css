@@ -1076,6 +1076,11 @@
     width: 100%;
 }
 
+.post-action-menu {
+	z-index: 2000;
+	min-width: 11rem;
+}
+
 .card,
 .card-body {
     overflow: visible !important;

@@ -142,14 +142,48 @@ function markNotificationReadThenNavigate(notificationId, href) {
           });
       }
       if (href && href !== "#") {
-        window.location.assign(href);
+        navigateWithModalIfPossible(href);
       }
     })
     .catch(function () {
       if (href && href !== "#") {
-        window.location.assign(href);
+        navigateWithModalIfPossible(href);
       }
     });
+}
+
+function extractPostInfoFromHref(href) {
+  if (!href || href === "#") return null;
+  try {
+    var u = new URL(href, window.location.origin);
+    var m = u.pathname.match(/\/post\/(\d+)\/?$/);
+    if (!m) return null;
+    return {
+      postId: m[1],
+      hash: u.hash || "",
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+function navigateWithModalIfPossible(href) {
+  var info = extractPostInfoFromHref(href);
+  if (info && typeof window.openPostDetail === "function") {
+    window.openPostDetail(info.postId);
+
+    if (info.hash && info.hash.length > 1) {
+      setTimeout(function () {
+        var target = document.querySelector('#postDetailContent ' + info.hash);
+        if (target && typeof target.scrollIntoView === "function") {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+    }
+    return;
+  }
+
+  window.location.assign(href);
 }
 
 function notiRowNavigate(row, e) {
@@ -197,7 +231,7 @@ document.addEventListener("keydown", function (e) {
   if (nid > 0 && href && href !== "#") {
     markNotificationReadThenNavigate(nid, href);
   } else if (href && href !== "#") {
-    window.location.assign(href);
+    navigateWithModalIfPossible(href);
   }
 });
 

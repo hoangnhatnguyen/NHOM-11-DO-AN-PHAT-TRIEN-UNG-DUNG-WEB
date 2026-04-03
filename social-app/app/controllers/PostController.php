@@ -302,12 +302,22 @@ class PostController extends BaseController {
     public function update($id) {
         $this->requireAuth();
         if (!$this->verifyCsrf($_POST['_csrf'] ?? null)) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'csrf_invalid']);
+                exit;
+            }
             die('CSRF invalid');
         }
 
         $postId = (int) $id;
         $post = (new Post())->findById($postId);
         if ($post === null) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'not_found']);
+                exit;
+            }
             http_response_code(404);
             echo 'Không tìm thấy bài viết';
             return;
@@ -315,6 +325,11 @@ class PostController extends BaseController {
 
         $currentUserId = (int) ($_SESSION['user']['id'] ?? 0);
         if ((int) ($post['user_id'] ?? 0) !== $currentUserId) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'forbidden']);
+                exit;
+            }
             http_response_code(403);
             echo '403 Forbidden';
             return;
@@ -350,17 +365,43 @@ class PostController extends BaseController {
         $hasExistingMedia = !empty($remainingMedia);
         $hasNewUpload = !empty($_FILES['media']['name'][0]);
         if ($parsedUpdate['plain'] === '' && !$hasExistingMedia && !$hasNewUpload) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'empty']);
+                exit;
+            }
             $this->redirect('/post/edit/' . $postId . '?error=empty');
             return;
         }
 
         $this->processUploadedPostMedia($postId, $mediaModel);
 
-        $this->redirect('/post/' . $postId);
+        if ($this->isAjaxRequest()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => true,
+                'msg' => 'updated',
+                'postId' => $postId,
+            ]);
+            exit;
+        }
+
+        $this->redirect('/post/edit/' . $postId . '?saved=1');
     }
 
     public function delete($id) {
         $this->requireAuth();
+
+        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+            http_response_code(405);
+            echo '405 Method Not Allowed';
+            return;
+        }
+
+        if (!$this->verifyCsrf($_POST['_csrf'] ?? null)) {
+            die('CSRF invalid');
+        }
+
         $postId = (int) $id;
         $post = (new Post())->findById($postId);
         if ($post === null) {

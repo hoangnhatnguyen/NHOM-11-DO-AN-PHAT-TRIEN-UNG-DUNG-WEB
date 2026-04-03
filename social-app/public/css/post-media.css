@@ -17,6 +17,10 @@
 	border-radius: 16px;
 }
 
+.js-open-post-modal-media {
+	cursor: pointer;
+}
+
 /* Keep saved page visually same as chat, but remove forced empty space. */
 .chat-frame--saved {
 	min-height: auto;

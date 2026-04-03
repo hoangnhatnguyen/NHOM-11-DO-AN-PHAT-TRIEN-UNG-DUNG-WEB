@@ -14,7 +14,7 @@
 	</div>
 </div>
 
-<div class="feed-post">
+<div class="feed-post" data-feed-tab="<?= htmlspecialchars($feedTab) ?>" data-offset="5" data-has-more="<?= count($posts ?? []) >= 5 ? 'true' : 'false' ?>">
 	<?php if (!empty($dbError)): ?>
 		<div class="alert alert-danger rounded-4">DB error: <?= htmlspecialchars($dbError) ?></div>
 	<?php endif; ?>
@@ -35,4 +35,16 @@
 			<?php include VIEW_PATH . 'partials/post_card.php'; ?>
 		<?php endforeach; ?>
 	<?php endif; ?>
+
+	<!-- Loading indicator -->
+	<div class="feed-loading" style="display: none; text-align: center; padding: 20px;">
+		<div class="spinner-border text-primary" role="status">
+			<span class="visually-hidden">Đang tải...</span>
+		</div>
+	</div>
+
+	<!-- No more posts indicator -->
+	<div class="feed-no-more" style="display: none; text-align: center; padding: 20px; color: #6c757d;">
+		<p class="mb-0">Không còn bài viết nào</p>
+	</div>
 </div>

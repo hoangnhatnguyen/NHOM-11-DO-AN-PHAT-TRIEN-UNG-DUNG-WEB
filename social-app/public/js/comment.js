@@ -45,23 +45,17 @@
 		return colors[hash % colors.length];
 	}
 
-	// Debug: Log all reply forms on page load
-	window.addEventListener('load', function () {
-		const replyForms = document.querySelectorAll('form[id^="reply-form-"]');
-		console.log('Page loaded - Total reply forms found:', replyForms.length);
-		replyForms.forEach(form => {
-			console.log('  - Form ID:', form.id, 'Classes:', form.className);
-		});
+	function incrementCommentCount(postId, delta) {
+		if (!postId) return;
+		const nDelta = Number(delta || 0);
+		if (!Number.isFinite(nDelta) || nDelta === 0) return;
 
-		// Also check all toggle buttons
-		const toggleBtns = document.querySelectorAll('.toggle-reply-form-btn');
-		console.log('Total toggle buttons found:', toggleBtns.length);
-		toggleBtns.forEach(btn => {
-			const target = btn.dataset.target;
-			const form = document.querySelector(target);
-			console.log('  - Button data-target:', target, 'Form exists:', !!form);
+		document.querySelectorAll('#comment-count-' + postId).forEach((el) => {
+			const current = parseInt((el.textContent || '0').trim(), 10);
+			const safeCurrent = Number.isFinite(current) ? current : 0;
+			el.textContent = String(Math.max(0, safeCurrent + nDelta));
 		});
-	});
+	}
 
 	/**
 	 * Handle top-level comment form submission
@@ -86,7 +80,6 @@
 		}
 
 		if (!postId) {
-			console.error('Post ID not found');
 			return;
 		}
 
@@ -113,11 +106,9 @@
 		})
 			.then(res => res.text())
 			.then(text => {
-				console.log('Comment Response:', text);
 				try {
 					return JSON.parse(text);
 				} catch (err) {
-					console.error('JSON Parse Error:', err, 'Response:', text);
 					// Fallback to reload
 					window.location.reload();
 					return null;
@@ -132,6 +123,7 @@
 				if (data.ok || data.status === 'success') {
 					// Success - reset form
 					form.reset();
+					incrementCommentCount(postId, 1);
 
 					// Create new comment element with proper tree structure
 					const commentId = data.comment_id || Date.now();
@@ -173,9 +165,7 @@
 					
 					if (commentsContainer) {
 						commentsContainer.insertAdjacentHTML('afterbegin', newCommentHtml);
-						console.log('New comment inserted:', commentId);
 					} else {
-						console.error('Comments container not found, reloading page');
 						window.location.reload();
 					}
 				} else {
@@ -183,7 +173,6 @@
 				}
 			})
 			.catch(err => {
-				console.error('Comment error:', err);
 				alert('Lỗi gửi bình luận');
 			})
 			.finally(() => {
@@ -205,7 +194,6 @@
 			return;
 		}
 
-		console.log('Reply form submitted:', form.id, form.action);
 		e.preventDefault();
 
 		const content = form.querySelector('input[name="content"]')?.value?.trim() || '';
@@ -265,9 +253,8 @@
 					const avatarUrl = document.querySelector('.currentUserAvatar')?.getAttribute('data-avatar') || '';
 					const colors = getAvatarColors(username);
 					const postId = form.action.match(/\/post\/(\d+)/)?.[1] || 0;
+					incrementCommentCount(postId, 1);
 					const csrf = form.querySelector('input[name="_csrf"]')?.value || '';
-					
-					console.log('Reply Success:', { parentCommentId, replyId, avatarUrl, username });
 					
 					// Get parent node to calculate correct indent
 					const parentNode = document.getElementById('comment-' + parentCommentId);
@@ -321,7 +308,7 @@
 							const containerHtml = `<div id="${repliesContainerId}" class="mt-2"></div>`;
 							insertAfterEl.insertAdjacentHTML('afterend', containerHtml);
 							repliesContainer = document.getElementById(repliesContainerId);
-							console.log('Created replies container:', repliesContainerId, 'after:', insertAfterEl.id || 'comment-' + parentCommentId);
+
 						}
 					}
 					
@@ -330,21 +317,17 @@
 						repliesContainer.classList.remove('d-none');
 						// Append reply to container
 						repliesContainer.insertAdjacentHTML('beforeend', newReplyHtml);
-						console.log('Reply inserted into:', repliesContainerId);
-					} else {
-						console.error('Could not find or create replies container:', repliesContainerId);
+				} else {
+					// Could not find or create replies container
 					}
 				} else if (data.status === 'error' || !data.ok) {
 					const errorMsg = data.error || 'Không thể gửi trả lời';
-					console.error('Reply error:', errorMsg);
 					alert('Lỗi: ' + errorMsg);
 				} else {
 					alert('Lỗi: ' + (data.error || data.status || 'Không thể gửi'));
 				}
 			})
 			.catch(err => {
-				console.error('Reply fetch error:', err);
-				console.error('Error stack:', err.stack);
 				alert('Lỗi gửi trả lời: ' + err.message);
 			})
 			.finally(() => {
@@ -373,15 +356,12 @@
 		const level = parseInt(btn.getAttribute('data-level') || '1', 10);
 		const formId = 'reply-form-' + commentId;
 
-		console.log('Reply Toggle - Button clicked for comment:', commentId, 'Author:', commentAuthor);
-
 		// Check if form already exists
 		let form = document.getElementById(formId);
 		if (form) {
 			// Toggle existing form
 			const isHidden = form.classList.contains('d-none');
 			form.classList.toggle('d-none');
-			console.log('Reply Toggle - Form toggled:', !isHidden ? 'hidden' : 'shown');
 			if (isHidden) {
 				form.querySelector('input[name="content"]')?.focus();
 			}
@@ -425,7 +405,6 @@
 			// Move cursor to end of text
 			inputField.setSelectionRange(inputField.value.length, inputField.value.length);
 		}
-		console.log('Reply Toggle - Form created and shown');
 	});
 
 	/**
@@ -484,8 +463,6 @@
 			return;
 		}
 
-		console.log('Mention clicked for user:', username, 'in comment:', commentId);
-
 		// Trigger reply button if it exists
 		const replyBtn = commentNode.querySelector('.toggle-reply-form-btn');
 		if (replyBtn) {
@@ -514,4 +491,9 @@
 			}
 		}, 50);
 	});
+	
+	// Expose function for modal context (event delegation handles all comment interactions)
+	window.reinitializeCommentHandlers = function() {
+		// No re-initialization needed - all handlers use event delegation on document
+	};
 })();

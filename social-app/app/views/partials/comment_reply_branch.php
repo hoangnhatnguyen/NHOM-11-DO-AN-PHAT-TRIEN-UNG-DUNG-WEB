@@ -21,6 +21,7 @@ $childrenCount = is_array($children) ? count($children) : 0;
 $author = (string) ($node['author_name'] ?? 'Người dùng');
 $content = (string) ($node['content'] ?? '');
 $createdAt = $node['created_at'] ?? null;
+$profileBase = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 $avatarUrlRaw = (string) ($node['author_avatar_url'] ?? '');
 $avatarDisplayUrl = $avatarUrlRaw ? media_public_src($avatarUrlRaw) : '';
 $authorColor = Avatar::colors($author);
@@ -37,7 +38,7 @@ $hasChildren = $childrenCount > 0;
 	<div class="d-flex gap-2">
 		<!-- Avatar column -->
 		<div class="flex-shrink-0">
-			<a href="<?= htmlspecialchars(profile_url($author), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none">
+			<a href="<?= htmlspecialchars($profileBase . '/profile?u=' . rawurlencode($author), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none">
 				<?php if ($avatarDisplayUrl): ?>
 					<img src="<?= htmlspecialchars($avatarDisplayUrl, ENT_QUOTES, 'UTF-8') ?>"
 						 class="rounded-circle"
@@ -57,7 +58,7 @@ $hasChildren = $childrenCount > 0;
 		<div class="flex-grow-1 min-width-0">
 			<!-- Comment bubble -->
 			<div class="border rounded-3 p-2 bg-light comment-bubble">
-				<a href="<?= htmlspecialchars(profile_url($author), ENT_QUOTES, 'UTF-8') ?>" class="small fw-semibold text-decoration-none text-dark"><?= htmlspecialchars($author) ?></a>
+				<a href="<?= htmlspecialchars($profileBase . '/profile?u=' . rawurlencode($author), ENT_QUOTES, 'UTF-8') ?>" class="small fw-semibold text-decoration-none text-dark"><?= htmlspecialchars($author) ?></a>
 				<div class="small text-break"><?= format_post_body_html($content) ?></div>
 			</div>
 

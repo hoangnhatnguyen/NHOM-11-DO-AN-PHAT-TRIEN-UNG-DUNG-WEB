@@ -333,6 +333,132 @@ class Post extends BaseModel {
     }
 
     /**
+     * Lấy feed với phân trang (limit số bài viết)
+     */
+    public function getFeedPaginated(int $viewerId = 0, int $limit = 5, int $offset = 0): array {
+        $stmt = $this->db->prepare("
+            SELECT 
+                p.*,
+                u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
+                (
+                    SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
+                ) AS like_count,
+                (
+                    SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id
+                ) AS comment_count,
+                (
+                    SELECT COUNT(*) FROM shares s WHERE s.post_id = p.id
+                ) AS share_count,
+                (
+                    SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id
+                ) AS save_count,
+                EXISTS(
+                    SELECT 1 FROM likes l2 WHERE l2.post_id = p.id AND l2.user_id = :viewer_like
+                ) AS is_liked,
+                EXISTS(
+                    SELECT 1 FROM saved_posts sp2 WHERE sp2.post_id = p.id AND sp2.user_id = :viewer_save
+                ) AS is_saved
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.status = 'active'
+              AND p.visible = 'public'
+            ORDER BY p.id DESC
+            LIMIT :limit OFFSET :offset
+        ");
+        $stmt->execute([
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+            'limit' => (int) $limit,
+            'offset' => (int) $offset,
+        ]);
+
+        $posts = $stmt->fetchAll();
+
+        $mediaModel = new PostMedia();
+        $postIds = array_map(static function ($p) {
+            return (int) ($p['id'] ?? 0);
+        }, $posts);
+        $tagMap = (new PostHashtag())->getTagNamesForPostIds($postIds);
+
+        foreach ($posts as &$post) {
+            $pid = (int) ($post['id'] ?? 0);
+            $post['media'] = $mediaModel->getByPost($pid);
+            $post['hashtag_names'] = $tagMap[$pid] ?? [];
+        }
+        unset($post);
+
+        return $posts;
+    }
+
+    /**
+     * Feed theo dõi với phân trang
+     */
+    public function getFeedFollowingPaginated(int $viewerId = 0, int $limit = 5, int $offset = 0): array {
+        if ($viewerId <= 0) {
+            return [];
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT 
+                p.*,
+                u.username AS author_name,
+                u.avatar_url AS author_avatar_url,
+                (
+                    SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id
+                ) AS like_count,
+                (
+                    SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id
+                ) AS comment_count,
+                (
+                    SELECT COUNT(*) FROM shares s WHERE s.post_id = p.id
+                ) AS share_count,
+                (
+                    SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id
+                ) AS save_count,
+                EXISTS(
+                    SELECT 1 FROM likes l2 WHERE l2.post_id = p.id AND l2.user_id = :viewer_like
+                ) AS is_liked,
+                EXISTS(
+                    SELECT 1 FROM saved_posts sp2 WHERE sp2.post_id = p.id AND sp2.user_id = :viewer_save
+                ) AS is_saved
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.status = 'active'
+              AND p.user_id IN (
+                  SELECT following_id FROM follows WHERE follower_id = :viewer_follow
+              )
+              AND p.visible IN ('public', 'followers')
+            ORDER BY p.id DESC
+            LIMIT :limit OFFSET :offset
+        ");
+        $stmt->execute([
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+            'viewer_follow' => $viewerId,
+            'limit' => (int) $limit,
+            'offset' => (int) $offset,
+        ]);
+
+        $posts = $stmt->fetchAll();
+
+        $mediaModel = new PostMedia();
+        $postIds = array_map(static function ($p) {
+            return (int) ($p['id'] ?? 0);
+        }, $posts);
+        $tagMap = (new PostHashtag())->getTagNamesForPostIds($postIds);
+
+        foreach ($posts as &$post) {
+            $pid = (int) ($post['id'] ?? 0);
+            $post['media'] = $mediaModel->getByPost($pid);
+            $post['hashtag_names'] = $tagMap[$pid] ?? [];
+        }
+        unset($post);
+
+        return $posts;
+    }
+
+    /**
      * Bổ sung like/comment/share/save + trạng thái viewer cho danh sách post đã có sẵn (vd. tìm kiếm).
      *
      * @param array<int, array<string, mixed>> $posts

@@ -11,8 +11,21 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 <?php if (!empty($isOwner)): ?>
 <style>
 #profileAvatarContainer[data-change-avatar="1"] { cursor: pointer; }
-#profileAvatarContainer[data-change-avatar="1"]:hover #avatarOverlay { opacity: 1; }
-#avatarOverlay { opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+#profileAvatarContainer[data-change-avatar="0"] { cursor: default; }
+#profileAvatarContainer[data-change-avatar="1"]:hover #avatarOverlay,
+#profileAvatarContainer[data-change-avatar="1"]:focus-within #avatarOverlay { opacity: 1; }
+#avatarClickTarget {
+	position: absolute;
+	inset: 0;
+	z-index: 3;
+	cursor: pointer;
+}
+#avatarOverlay {
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	border: 0;
+	z-index: 4;
+}
 </style>
 <?php endif; ?>
 
@@ -75,11 +88,20 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                         <?php endif; ?>
 
                         <?php if($isOwner): ?>
-                            <div id="avatarOverlay"
+                            <label
+                                 id="avatarClickTarget"
+                                 for="avatarInput"
+                                 aria-label="Chọn ảnh đại diện mới">
+                            </label>
+
+                            <label
+                                 for="avatarInput"
+                                 id="avatarOverlay"
                                  class="position-absolute top-50 start-50 translate-middle text-white fw-bold rounded-pill"
-                                 style="background:rgba(0,0,0,0.55); padding:6px 12px; font-size:0.85rem;">
+                                 style="background:rgba(0,0,0,0.55); padding:6px 12px; font-size:0.85rem;"
+                                 aria-label="Đổi ảnh đại diện">
                                 Đổi ảnh
-                            </div>
+                            </label>
 
                             <input type="file" id="avatarInput" class="d-none" accept="image/jpeg,image/png,image/gif,image/webp">
                         <?php endif; ?>
@@ -180,10 +202,73 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                     <?php if (empty($profilePosts)): ?>
                         <p class="text-muted mb-0">Chưa có bài viết nào</p>
                     <?php else: ?>
-                        <?php foreach ($profilePosts as $post): ?>
-                            <?php $currentUser = $currentUser ?? ($_SESSION['user'] ?? null); ?>
-                            <?php include VIEW_PATH . 'partials/post_card.php'; ?>
-                        <?php endforeach; ?>
+                        <div class="profile-post-grid" aria-label="Danh sách bài đăng">
+                            <?php foreach ($profilePosts as $post): ?>
+                                <?php
+                                $postId = (int) ($post['id'] ?? 0);
+                                $content = trim((string) ($post['content'] ?? ''));
+                                $mediaItems = array_values(array_filter((array) ($post['media'] ?? []), static function ($item) {
+                                    return trim((string) ($item['media_url'] ?? '')) !== '';
+                                }));
+                                $coverMedia = $mediaItems[0] ?? null;
+                                $coverUrl = $coverMedia ? media_public_src((string) ($coverMedia['media_url'] ?? '')) : '';
+                                $coverType = (string) ($coverMedia['media_type'] ?? 'image');
+                                $isVideoCover = $coverUrl !== '' && $coverType === 'video';
+                                $extraMediaCount = max(0, count($mediaItems) - 1);
+                                $previewText = $content !== '' ? $content : 'Bài viết không có nội dung';
+                                ?>
+                                <a
+                                    href="<?= BASE_URL ?>/post/<?= $postId ?>"
+                                    class="profile-post-tile js-open-post-modal"
+                                    data-post-id="<?= $postId ?>"
+                                    aria-label="Mở bài viết #<?= $postId ?>"
+                                >
+                                    <?php if ($coverUrl !== ''): ?>
+                                        <?php if ($isVideoCover): ?>
+                                            <video
+                                                class="profile-post-cover"
+                                                src="<?= htmlspecialchars($coverUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                                muted
+                                                playsinline
+                                                preload="metadata"
+                                            ></video>
+                                        <?php else: ?>
+                                            <img
+                                                src="<?= htmlspecialchars($coverUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                                class="profile-post-cover"
+                                                alt="<?= htmlspecialchars($previewText, ENT_QUOTES, 'UTF-8') ?>"
+                                                loading="lazy"
+                                            >
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <div class="profile-post-cover profile-post-cover-text">
+                                            <p><?= htmlspecialchars($previewText, ENT_QUOTES, 'UTF-8') ?></p>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <div class="profile-post-meta">
+                                        <?php if ($isVideoCover): ?>
+                                            <span class="profile-post-badge">
+                                                <i class="bi bi-play-circle-fill"></i>
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if ($extraMediaCount > 0): ?>
+                                            <span class="profile-post-badge">
+                                                <i class="bi bi-images"></i>
+                                                <span><?= count($mediaItems) ?></span>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="profile-post-overlay">
+                                        <div class="profile-post-stats">
+                                            <span><i class="bi bi-heart-fill"></i> <?= (int) ($post['like_count'] ?? 0) ?></span>
+                                            <span><i class="bi bi-chat-fill"></i> <?= (int) ($post['comment_count'] ?? 0) ?></span>
+                                        </div>
+                                    </div>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
                     <?php endif; ?>
                 </div>
 

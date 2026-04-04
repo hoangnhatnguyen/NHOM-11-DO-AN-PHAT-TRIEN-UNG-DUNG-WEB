@@ -53,18 +53,6 @@ editBtn?.addEventListener("click", () => {
     };
 });
 
-// ===== AVATAR: chủ tài khoản — bấm vào ảnh / vùng avatar là chọn file (không cần "Chỉnh sửa") =====
-function triggerAvatarPicker() {
-    if (!avatarInput || avatarContainer?.dataset.changeAvatar !== "1") return;
-    avatarInput.click();
-}
-
-avatarContainer?.addEventListener("click", (e) => {
-    if (avatarContainer.dataset.changeAvatar !== "1") return;
-    e.preventDefault();
-    triggerAvatarPicker();
-});
-
 avatarInput?.addEventListener("change", () => {
     const file = avatarInput.files && avatarInput.files[0];
     if (!file) return;
@@ -127,6 +115,11 @@ function escHtml(s) {
         .replace(/"/g, "&quot;");
 }
 
+function initialOf(name) {
+    const value = String(name || "").trim();
+    return value ? value.charAt(0).toUpperCase() : "?";
+}
+
 function renderList(list, emptyMsg) {
     let html = "";
 
@@ -137,10 +130,29 @@ function renderList(list, emptyMsg) {
             const uname = String(u.username || "");
             const href = BASE + "/profile?u=" + encodeURIComponent(uname);
             const rawAv = u.avatar_url ? String(u.avatar_url) : "";
-            const av = rawAv ? mediaViewUrl(rawAv) : BASE + "/public/default-avatar.png";
+            const av = rawAv ? mediaViewUrl(rawAv) : "";
+            const initial = initialOf(uname);
             html += `
                 <a href="${escHtml(href)}" class="d-flex align-items-center gap-2 mb-2 text-decoration-none text-body">
-                    <img src="${escHtml(av)}" width="40" height="40" class="rounded-circle" alt="">
+                    ${
+                        av
+                            ? `<img
+                                    src="${escHtml(av)}"
+                                    width="40"
+                                    height="40"
+                                    class="rounded-circle object-fit-cover flex-shrink-0"
+                                    alt="${escHtml(uname)}"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+                               >
+                               <span
+                                    class="rounded-circle align-items-center justify-content-center flex-shrink-0"
+                                    style="width:40px; height:40px; background:#8adfd7; color:#0a3d3a; font-weight:700; display:none;"
+                               >${escHtml(initial)}</span>`
+                            : `<span
+                                    class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                                    style="width:40px; height:40px; background:#8adfd7; color:#0a3d3a; font-weight:700;"
+                               >${escHtml(initial)}</span>`
+                    }
                     <span>${escHtml(uname)}</span>
                 </a>
             `;

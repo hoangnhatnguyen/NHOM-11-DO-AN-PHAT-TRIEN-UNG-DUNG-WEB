@@ -1081,6 +1081,111 @@
 	min-width: 11rem;
 }
 
+.profile-post-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.profile-post-tile {
+	position: relative;
+	display: block;
+	aspect-ratio: 1 / 1;
+	background: #eef2f6;
+	border-radius: 8px;
+	overflow: hidden;
+	text-decoration: none;
+	color: inherit;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.profile-post-cover {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	background: #dde5ee;
+}
+
+.profile-post-cover-text {
+	display: flex;
+	align-items: flex-end;
+	padding: 14px;
+	background:
+		linear-gradient(160deg, rgba(26, 98, 145, 0.14), rgba(17, 24, 39, 0.08)),
+		linear-gradient(180deg, #fbfcfd, #e9f0f6);
+}
+
+.profile-post-cover-text p {
+	margin: 0;
+	display: -webkit-box;
+	-webkit-line-clamp: 5;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	font-size: 0.94rem;
+	line-height: 1.45;
+	color: #1f2937;
+}
+
+.profile-post-meta {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	display: flex;
+	gap: 6px;
+	z-index: 2;
+}
+
+.profile-post-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 5px 8px;
+	border-radius: 999px;
+	background: rgba(17, 24, 39, 0.62);
+	color: #fff;
+	font-size: 0.78rem;
+	font-weight: 600;
+	backdrop-filter: blur(4px);
+}
+
+.profile-post-overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), rgba(15, 23, 42, 0.58));
+	opacity: 0;
+	transition: opacity 0.18s ease;
+	z-index: 1;
+}
+
+.profile-post-stats {
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	color: #fff;
+	font-weight: 700;
+	font-size: 0.95rem;
+}
+
+.profile-post-stats span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.profile-post-tile:hover .profile-post-overlay,
+.profile-post-tile:focus-visible .profile-post-overlay {
+	opacity: 1;
+}
+
+.profile-post-tile:focus-visible {
+	outline: 2px solid #1a6291;
+	outline-offset: 2px;
+}
+
 .card,
 .card-body {
     overflow: visible !important;
@@ -1201,6 +1306,10 @@
 
 /* ============ MOBILE SCREENS ============ */
 @media (max-width: 767.98px) {
+	.profile-post-grid {
+		gap: 4px;
+	}
+
 	.sidebar-menu {
 		flex-direction: row !important;
 		overflow-x: auto;

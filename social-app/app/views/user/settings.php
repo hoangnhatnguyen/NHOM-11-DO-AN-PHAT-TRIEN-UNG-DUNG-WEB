@@ -1,16 +1,16 @@
 <?php $activeMenu = 'settings'; ?>
 
-<div class="container mt-3 ms-3 px-4">
-    <div class="row">
+<div class="container-fluid feed-layout px-lg-4">
+    <div class="row g-3 g-lg-4 feed-layout-row">
 
         <!-- LEFT SIDEBAR -->
-        <div class="col-md-3">
+        <div class="col-12 col-md-2 col-lg-3 feed-sidebar-column">
             <?php include __DIR__ . '/../partials/feed/left_sidebar.php'; ?>
         </div>
 
         <!-- SETTINGS CONTENT -->
-        <div class="col-md-6">
-            <div class="card p-4">
+        <div class="col-12 col-md-7 col-lg-6 bg-white feed-main-column">
+            <div class="card border-0 p-4">
 
                 <h5 class="mb-3">Quyền riêng tư</h5>
 
@@ -66,8 +66,8 @@
             </div>
         </div>
 
-        <!-- RIGHT WIDGET -->
-        <div class="col-md-3">
+        <!-- RIGHT WIDGETS -->
+        <div class="col-12 col-md-3 col-lg-3 feed-widgets-column">
             <?php include __DIR__ . '/../partials/feed/right_widgets.php'; ?>
         </div>
 

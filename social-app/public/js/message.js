@@ -29,7 +29,10 @@ if (!root) {
 	// no-op for non-chat pages
 } else {
 	const state = {
-		baseUrl: root.dataset.baseUrl || '',
+		baseUrl:
+			root.dataset.baseUrl
+			|| (typeof window.__APP_BASE__ === 'string' ? window.__APP_BASE__.replace(/\/$/, '') : '')
+			|| '',
 		csrfToken: root.dataset.csrfToken || '',
 		me: {
 			id: Number(root.dataset.currentUserId || 0),
@@ -53,6 +56,9 @@ if (!root) {
 		messageCache: [],
 		isLoadingMoreMessages: false,
 		hasMoreMessages: true,
+		peerMetaCache: new Map(),
+		peerMetaPending: new Set(),
+		peerMetaNamePending: new Set(),
 	};
 
 	const ui = {
@@ -69,6 +75,7 @@ if (!root) {
 		detailHandle: document.getElementById('chatDetailHandle'),
 		detailStatus: document.getElementById('chatDetailStatus'),
 		detailUser: document.getElementById('chatDetailUser'),
+		detailAvatar: document.getElementById('chatDetailAvatar'),
 		attachmentList: document.getElementById('chatAttachmentList'),
 		attachmentCount: document.getElementById('chatAttachmentCount'),
 		textInput: document.getElementById('chatTextInput'),
@@ -367,6 +374,22 @@ if (!root) {
 		setDetailPanelOpen(!ui.root.classList.contains('chat-detail-open'));
 	});
 
+	const openActivePeerProfile = () => {
+		const username = String(state.activePeer?.username || '').trim();
+		if (!username) return;
+		window.location.assign(`${state.baseUrl}/profile?u=${encodeURIComponent(username)}`);
+	};
+
+	if (ui.detailAvatar) {
+		ui.detailAvatar.addEventListener('click', openActivePeerProfile);
+		ui.detailAvatar.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter' || event.key === ' ') {
+				event.preventDefault();
+				openActivePeerProfile();
+			}
+		});
+	}
+
 	// User profile menu
 	const avatarBtn = document.getElementById('chatAvatarBtn');
 	const userMenu = document.getElementById('chatUserMenu');
@@ -472,11 +495,18 @@ if (!root) {
 	function renderNewConvSuggestions(users) {
 		newConvSuggestions.innerHTML = users.map((user) => {
 			const avatarColor = avatarColorByName(user.username);
+			const avatarUrl = resolveAvatarUrl(user.avatarSrc || user.avatarUrl || '');
+			const initials = (user.username?.charAt(0).toUpperCase() || 'U');
 			return `
 				<div class="d-flex align-items-center gap-2 p-2 border-bottom chat-user-suggestion" data-user-id="${user.id}" style="cursor: pointer;">
-					<div style="width: 40px; height: 40px; border-radius: 50%; background: ${avatarColor.bg}; color: ${avatarColor.fg}; display: flex; align-items: center; justify-content: center; font-weight: 600;">
-						${user.username?.charAt(0).toUpperCase() || 'U'}
-					</div>
+					${avatarUrl
+						? `<div style="position:relative; width:40px; height:40px; flex-shrink:0;">
+								<img src="${escapeHtml(avatarUrl)}" class="rounded-circle" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+								<div style="display:none; width:100%; height:100%; border-radius:50%; background:${avatarColor.bg}; color:${avatarColor.fg}; align-items:center; justify-content:center; font-weight:600;">${escapeHtml(initials)}</div>
+							</div>`
+						: `<div style="width: 40px; height: 40px; border-radius: 50%; background: ${avatarColor.bg}; color: ${avatarColor.fg}; display: flex; align-items: center; justify-content: center; font-weight: 600;">
+								${escapeHtml(initials)}
+							</div>`}
 					<div>
 						<div style="font-weight: 500;">${escapeHtml(user.username)}</div>
 						<small style="color: #6b7280;">${escapeHtml(user.email)}</small>
@@ -511,11 +541,15 @@ if (!root) {
 				
 				suggestionsDiv.innerHTML = users.map((user) => {
 					const avatarColor = avatarColorByName(user.username);
+					const avatarUrl = resolveAvatarUrl(user.avatarSrc || user.avatarUrl || '');
 					return `
 						<div class="d-flex align-items-center gap-2 p-2 border-bottom chat-user-suggestion" data-user-id="${user.id}">
-							<div style="width: 40px; height: 40px; border-radius: 50%; background: ${avatarColor.bg}; color: ${avatarColor.fg}; display: flex; align-items: center; justify-content: center; font-weight: 600;">
-								${user.initials}
-							</div>
+							${avatarUrl
+								? `<div style="position:relative; width:40px; height:40px; flex-shrink:0;">
+										<img src="${escapeHtml(avatarUrl)}" class="rounded-circle" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+										<div style="display:none; width:100%; height:100%; border-radius:50%; background:${avatarColor.bg}; color:${avatarColor.fg}; align-items:center; justify-content:center; font-weight:600;">${escapeHtml(user.initials)}</div>
+									</div>`
+								: `<div style="width: 40px; height: 40px; border-radius: 50%; background: ${avatarColor.bg}; color: ${avatarColor.fg}; display: flex; align-items: center; justify-content: center; font-weight: 600;">${escapeHtml(user.initials)}</div>`}
 							<div>
 								<div style="font-weight: 500;">${escapeHtml(user.username)}</div>
 								<small style="color: #6b7280;">${escapeHtml(user.email)}</small>
@@ -570,6 +604,15 @@ if (!root) {
 
 			state.conversations = rows;
 			state.conversationsMap = new Map(rows.map((entry) => [entry.id, entry]));
+
+			rows.forEach((entry) => {
+				const peerId = Number(entry?.peer?.id || 0);
+				if (peerId > 0 && !entry?.peer?.avatarSrc && !entry?.peer?.avatarUrl) {
+					ensurePeerMeta(peerId);
+				} else if (peerId <= 0 && !entry?.peer?.avatarSrc && !entry?.peer?.avatarUrl) {
+					ensurePeerMetaByUsername(entry?.peer?.username || '');
+				}
+			});
 			
 			// Check if order changed (for unselected conversations)
 			const newOrder = rows.map(c => c.id);
@@ -694,7 +737,7 @@ if (!root) {
 		ui.conversationList.innerHTML = rows.map((item) => {
 			const isActive = item.id === state.activeConversationId;
 			const avatarStyle = avatarStyleByName(item.peer.username);
-			const avatarUrl = item.peer.avatarUrl || '';
+			const avatarUrl = resolveAvatarUrl(item.peer.avatarSrc || item.peer.avatarUrl || '');
 			const isFromOther = item.lastSenderId && String(item.lastSenderId) !== String(state.me.id);
 			
 			// Unread nếu: từ người khác AND (chưa đọc HOẶC tin mới hơn lần đọc cuối)
@@ -713,11 +756,10 @@ if (!root) {
 			// Avatar render: nếu có URL thì hiển thị ảnh + fallback text, không thì chỉ text
 			let avatarHtml = '';
 			if (avatarUrl) {
-				const fullAvatarUrl = window.__APP_BASE__ + '/public' + avatarUrl;
 				avatarHtml = `
 					<div style="position:relative; width:40px; height:40px;">
 						<img id="conv-avatar-${item.id}" 
-							 src="${escapeHtml(fullAvatarUrl)}" 
+							 src="${escapeHtml(avatarUrl)}" 
 							 class="rounded-circle" 
 							 style="width:100%; height:100%; object-fit:cover;"
 							 onerror="document.getElementById('conv-avatar-${item.id}').style.display='none'; document.getElementById('conv-avatar-text-${item.id}').style.display='flex';">
@@ -764,7 +806,12 @@ if (!root) {
 		ui.searchSuggestions.classList.remove('d-none');
 		ui.searchSuggestions.innerHTML = state.searchUsers.map((item) => `
 			<button type="button" class="chat-suggestion-item" data-user-id="${item.id}">
-				<span class="chat-conversation-avatar" style="${avatarStyleByName(item.username)}">${escapeHtml(item.initials)}</span>
+					${resolveAvatarUrl(item.avatarSrc || item.avatarUrl || '')
+						? `<span style="position:relative; width:30px; height:30px; display:inline-flex; flex-shrink:0;">
+								<img src="${escapeHtml(resolveAvatarUrl(item.avatarSrc || item.avatarUrl || ''))}" class="rounded-circle" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';">
+								<span class="chat-conversation-avatar" style="display:none; ${avatarStyleByName(item.username)}">${escapeHtml(item.initials)}</span>
+							</span>`
+						: `<span class="chat-conversation-avatar" style="${avatarStyleByName(item.username)}">${escapeHtml(item.initials)}</span>`}
 				<span>
 					<strong>${escapeHtml(item.username)}</strong>
 					<small>${escapeHtml(item.email)}</small>
@@ -794,6 +841,8 @@ if (!root) {
 			return;
 		}
 
+		state.peerMetaCache.set(Number(user.id || 0), user);
+
 		const conversationId = buildConversationId(state.me.id, user.id);
 		const convRef = doc(state.db, 'conversations', conversationId);
 
@@ -808,7 +857,8 @@ if (!root) {
 					id: state.me.id,
 					username: state.me.username,
 					email: '',
-					avatarUrl: '',
+					avatarUrl: state.me.avatarUrl || state.me.avatarSrc || '',
+					avatarSrc: state.me.avatarSrc || '',
 					initials: state.me.initial,
 				},
 				[String(user.id)]: {
@@ -816,6 +866,7 @@ if (!root) {
 					username: user.username,
 					email: user.email,
 					avatarUrl: user.avatarUrl || '',
+					avatarSrc: user.avatarSrc || '',
 					initials: user.initials,
 				},
 			},
@@ -870,11 +921,15 @@ if (!root) {
 			ui.detailStatus.textContent = 'Ngoại tuyến';
 			ui.attachmentCount.textContent = '0';
 			ui.attachmentList.innerHTML = '';
-			ui.headerAvatar.removeAttribute('style');
-			const detailAvatar = ui.detailUser.querySelector('.chat-user-avatar');
-			if (detailAvatar) {
-				detailAvatar.textContent = '?';
-				detailAvatar.removeAttribute('style');
+			ui.headerAvatar.innerHTML = '?';
+			setAvatarFallback(ui.headerAvatar, 'User', '?');
+			if (ui.detailAvatar) {
+				ui.detailAvatar.innerHTML = '?';
+				setAvatarFallback(ui.detailAvatar, 'User', '?');
+				ui.detailAvatar.style.cursor = 'default';
+				ui.detailAvatar.removeAttribute('role');
+				ui.detailAvatar.removeAttribute('tabindex');
+				ui.detailAvatar.removeAttribute('title');
 			}
 			state.activePeer = null;
 			subscribePeerPresence(0);
@@ -885,15 +940,24 @@ if (!root) {
 		state.activePeer = conversation.peer;
 
 		ui.headerName.textContent = conversation.peer.username;
-		ui.headerAvatar.textContent = conversation.peer.initials;
-		ui.headerAvatar.setAttribute('style', avatarStyleByName(conversation.peer.username));
+		setAvatarElement(ui.headerAvatar, {
+			name: conversation.peer.username,
+			initials: conversation.peer.initials,
+			url: resolveAvatarUrl(conversation.peer.avatarSrc || conversation.peer.avatarUrl || ''),
+		});
 
 		ui.detailName.textContent = conversation.peer.username;
 		ui.detailHandle.textContent = conversation.peer.email ? `@${conversation.peer.email}` : '';
-		const detailAvatar = ui.detailUser.querySelector('.chat-user-avatar');
-		if (detailAvatar) {
-			detailAvatar.textContent = conversation.peer.initials;
-			detailAvatar.setAttribute('style', avatarStyleByName(conversation.peer.username));
+		if (ui.detailAvatar) {
+			setAvatarElement(ui.detailAvatar, {
+				name: conversation.peer.username,
+				initials: conversation.peer.initials,
+				url: resolveAvatarUrl(conversation.peer.avatarSrc || conversation.peer.avatarUrl || ''),
+			});
+			ui.detailAvatar.style.cursor = 'pointer';
+			ui.detailAvatar.setAttribute('role', 'link');
+			ui.detailAvatar.setAttribute('tabindex', '0');
+			ui.detailAvatar.setAttribute('title', 'Xem trang cá nhân');
 		}
 		subscribePeerPresence(conversation.peer.id);
 
@@ -1116,6 +1180,16 @@ if (!root) {
 		ui.messageList.innerHTML = rows.map((item) => {
 			const mine = String(item.senderId) === String(state.me.id);
 			const avatarName = mine ? state.me.username : (state.activePeer?.username || 'User');
+			const avatarInitial = mine ? state.me.initial : (state.activePeer?.initials || '?');
+			const avatarUrl = mine
+				? resolveAvatarUrl(state.me.avatarSrc || state.me.avatarUrl || '')
+				: resolveAvatarUrl(state.activePeer?.avatarSrc || state.activePeer?.avatarUrl || '');
+			const avatarStyle = avatarStyleByName(avatarName);
+			const avatarHtml = avatarUrl
+				? `<span class="chat-message-avatar" style="position:relative; overflow:hidden; background:transparent; color:transparent;">
+						<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(avatarName)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none'; this.parentElement.style.background='${avatarStyle.match(/background:([^;]+)/)?.[1] || '#1a6291'}'; this.parentElement.style.color='${avatarStyle.match(/color:([^;]+)/)?.[1] || '#fff'}'; this.parentElement.textContent='${escapeHtml(avatarInitial)}';">
+				   </span>`
+				: `<span class="chat-message-avatar" style="${avatarStyle}">${escapeHtml(avatarInitial)}</span>`;
 			let messageContent = '';
 
 			if (item.type === 'attachment') {
@@ -1138,7 +1212,7 @@ if (!root) {
 
 			return `
 				<div class="chat-message-row ${mine ? 'mine' : 'their'}">
-					<div class="chat-message-avatar" style="${avatarStyleByName(avatarName)}">${mine ? escapeHtml(state.me.initial) : escapeHtml(state.activePeer?.initials || '?')}</div>
+					${avatarHtml}
 					<div class="chat-message-body">
 						<div class="chat-bubble ${mine ? 'mine' : 'their'}">${messageContent}</div>
 						<div class="chat-time">${escapeHtml(formatShortTime(item.createdAt))}</div>
@@ -1414,12 +1488,40 @@ if (!root) {
 	function normalizeConversation(id, data) {
 		const participantMeta = data.participantMeta || {};
 		const myId = String(state.me.id);
-		const peerId = Object.keys(participantMeta).find((key) => key !== myId) || '';
-		const peer = participantMeta[peerId] || {
+		const peerKey = Object.keys(participantMeta).find((key) => {
+			const keyNum = parseAppUserId(key);
+			return key !== myId && keyNum !== state.me.id;
+		}) || '';
+
+		const participantIds = Array.isArray(data.participants) ? data.participants : [];
+		const peerIdFromParticipants = participantIds
+			.map((v) => parseAppUserId(v))
+			.find((v) => v > 0 && v !== state.me.id) || 0;
+
+		const participantKeys = Array.isArray(data.participantKeys) ? data.participantKeys : [];
+		const peerIdFromParticipantKeys = participantKeys
+			.map((v) => parseAppUserId(v))
+			.find((v) => v > 0 && v !== state.me.id) || 0;
+
+		const peerIdFromConversationId = parsePeerIdFromConversationId(id, state.me.id);
+
+		const peerIdFromKey = parseAppUserId(peerKey);
+		const peer = participantMeta[peerKey]
+			|| participantMeta[String(peerIdFromParticipants)]
+			|| participantMeta[String(peerIdFromParticipantKeys)]
+			|| participantMeta[`app_${peerIdFromParticipants}`]
+			|| participantMeta[`app_${peerIdFromParticipantKeys}`]
+			|| {
 			username: 'Người dùng',
 			email: '',
 			initials: '?',
 		};
+		const peerNumericId = parseAppUserId(peer.id)
+			|| peerIdFromKey
+			|| peerIdFromParticipants
+			|| peerIdFromParticipantKeys
+			|| peerIdFromConversationId;
+		const cached = state.peerMetaCache.get(peerNumericId) || null;
 
 		return {
 			id,
@@ -1432,13 +1534,168 @@ if (!root) {
 			lastMessageText: data.lastMessageText || '',
 			updatedAt: data.updatedAt,
 			peer: {
-				id: Number(peer.id || peerId || 0),
-				username: peer.username || 'Người dùng',
-				email: peer.email || '',
-				initials: peer.initials || ((peer.username || 'U').charAt(0).toUpperCase()),
-				avatarUrl: peer.avatarUrl || '',
+				id: peerNumericId,
+				username: peer.username || cached?.username || 'Người dùng',
+				email: peer.email || cached?.email || '',
+				initials: peer.initials || cached?.initials || ((peer.username || cached?.username || 'U').charAt(0).toUpperCase()),
+				avatarUrl: peer.avatarUrl || peer.avatar_url || cached?.avatarUrl || '',
+				avatarSrc: peer.avatarSrc || peer.avatar_src || cached?.avatarSrc || '',
 			},
 		};
+	}
+
+	async function ensurePeerMeta(peerId) {
+		const id = Number(peerId || 0);
+		if (id <= 0) return;
+		if (state.peerMetaCache.has(id)) return;
+		if (state.peerMetaPending.has(id)) return;
+
+		state.peerMetaPending.add(id);
+		try {
+			const data = await apiGet(`/chat-api/users/${id}`);
+			const item = data?.item;
+			if (!item) return;
+			state.peerMetaCache.set(id, item);
+
+			let mutated = false;
+			state.conversations = state.conversations.map((conv) => {
+				if (Number(conv?.peer?.id || 0) !== id) return conv;
+				mutated = true;
+				return {
+					...conv,
+					peer: {
+						...conv.peer,
+						username: item.username || conv.peer.username,
+						email: item.email || conv.peer.email,
+						initials: item.initials || conv.peer.initials,
+						avatarUrl: item.avatarUrl || conv.peer.avatarUrl,
+						avatarSrc: item.avatarSrc || conv.peer.avatarSrc,
+					},
+				};
+			});
+
+			if (mutated) {
+				state.conversationsMap = new Map(state.conversations.map((entry) => [entry.id, entry]));
+				renderConversationList(ui.searchInput.value.trim().toLowerCase());
+				if (state.activeConversationId && state.conversationsMap.has(state.activeConversationId)) {
+					syncHeaderAndDetails(state.conversationsMap.get(state.activeConversationId));
+				}
+			}
+		} catch (error) {
+			// Ignore; fallback initials remains visible
+		} finally {
+			state.peerMetaPending.delete(id);
+		}
+	}
+
+	async function ensurePeerMetaByUsername(username) {
+		const uname = String(username || '').trim();
+		if (!uname || uname.toLowerCase() === 'người dùng') return;
+
+		const key = uname.toLowerCase();
+		if (state.peerMetaNamePending.has(key)) return;
+
+		state.peerMetaNamePending.add(key);
+		try {
+			const data = await apiGet(`/chat-api/users?q=${encodeURIComponent(uname)}&limit=20`);
+			const items = Array.isArray(data?.items) ? data.items : [];
+			const exact = items.find((u) => String(u?.username || '').toLowerCase() === key) || null;
+			if (!exact) return;
+
+			const id = Number(exact.id || 0);
+			if (id > 0) {
+				state.peerMetaCache.set(id, exact);
+			}
+
+			let mutated = false;
+			state.conversations = state.conversations.map((conv) => {
+				const convUser = String(conv?.peer?.username || '').toLowerCase();
+				if (convUser !== key) return conv;
+				mutated = true;
+				return {
+					...conv,
+					peer: {
+						...conv.peer,
+						id: Number(conv.peer?.id || 0) > 0 ? conv.peer.id : id,
+						username: exact.username || conv.peer.username,
+						email: exact.email || conv.peer.email,
+						initials: exact.initials || conv.peer.initials,
+						avatarUrl: exact.avatarUrl || conv.peer.avatarUrl,
+						avatarSrc: exact.avatarSrc || conv.peer.avatarSrc,
+					},
+				};
+			});
+
+			if (mutated) {
+				state.conversationsMap = new Map(state.conversations.map((entry) => [entry.id, entry]));
+				renderConversationList(ui.searchInput.value.trim().toLowerCase());
+				if (state.activeConversationId && state.conversationsMap.has(state.activeConversationId)) {
+					syncHeaderAndDetails(state.conversationsMap.get(state.activeConversationId));
+				}
+			}
+		} catch (error) {
+			// Keep fallback initials
+		} finally {
+			state.peerMetaNamePending.delete(key);
+		}
+	}
+
+	function resolveAvatarUrl(rawValue) {
+		const raw = String(rawValue || '').trim();
+		if (!raw) return '';
+		if (/^https?:\/\//i.test(raw)) return raw;
+		const base = String(state.baseUrl || '').replace(/\/$/, '');
+		if (base && raw.startsWith(base + '/')) return raw;
+		if (raw.startsWith('/')) return `${base}${raw}`;
+
+		const normalized = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+		if (/^(avatars|posts|chat)\//i.test(normalized)) {
+			return `${base}/media/view?key=${encodeURIComponent(normalized)}`;
+		}
+		if (/^media\//i.test(normalized)) {
+			return `${base}/public/${normalized}`;
+		}
+		if (/^public\//i.test(normalized)) {
+			return `${base}/${normalized}`;
+		}
+		return `${base}/public/media/${normalized}`;
+	}
+
+	function setAvatarFallback(el, name, initials) {
+		if (!el) return;
+		const color = avatarColorByName(name || 'User');
+		el.style.background = color.bg;
+		el.style.color = color.fg;
+		el.textContent = initials || '?';
+	}
+
+	function setAvatarElement(el, { name, initials, url }) {
+		if (!el) return;
+		const safeInitials = String(initials || '?').charAt(0).toUpperCase() || '?';
+		const resolved = resolveAvatarUrl(url);
+
+		el.innerHTML = '';
+		if (!resolved) {
+			setAvatarFallback(el, name, safeInitials);
+			return;
+		}
+
+		const img = document.createElement('img');
+		img.src = resolved;
+		img.alt = String(name || 'User');
+		img.style.width = '100%';
+		img.style.height = '100%';
+		img.style.objectFit = 'cover';
+		img.style.borderRadius = '50%';
+
+		img.addEventListener('error', () => {
+			el.innerHTML = '';
+			setAvatarFallback(el, name, safeInitials);
+		});
+
+		el.style.background = 'transparent';
+		el.style.color = 'transparent';
+		el.appendChild(img);
 	}
 
 	function isHiddenByDelete(conversation) {
@@ -1483,6 +1740,28 @@ if (!root) {
 	function avatarStyleByName(name) {
 		const color = avatarColorByName(name);
 		return `background:${color.bg};color:${color.fg};`;
+	}
+
+	function parseAppUserId(value) {
+		const s = String(value ?? '').trim();
+		if (!s) return 0;
+		if (/^\d+$/.test(s)) return Number(s);
+		const m = s.match(/^app_(\d+)$/i);
+		if (m) return Number(m[1]);
+		return 0;
+	}
+
+	function parsePeerIdFromConversationId(conversationId, myId) {
+		const s = String(conversationId || '').trim();
+		const m = s.match(/^conv_(\d+)_(\d+)$/i);
+		if (!m) return 0;
+		const a = Number(m[1]);
+		const b = Number(m[2]);
+		if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+		const mine = Number(myId || 0);
+		if (a === mine && b > 0) return b;
+		if (b === mine && a > 0) return a;
+		return 0;
 	}
 
 	function avatarColorByName(name) {

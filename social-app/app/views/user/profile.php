@@ -29,17 +29,17 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 </style>
 <?php endif; ?>
 
-<div class="container mt-3 ms-3 px-4.5">
-    <div class="row">
+<div class="container-fluid feed-layout px-lg-4">
+    <div class="row g-3 g-lg-4 feed-layout-row">
 
         <!-- LEFT SIDEBAR -->
-        <div class="col-md-3">
+        <div class="col-12 col-md-2 col-lg-3 feed-sidebar-column">
             <?php include __DIR__ . '/../partials/feed/left_sidebar.php'; ?>
         </div>
 
         <!-- PROFILE CONTENT -->
-        <div class="col-md-9">
-            <div class="card p-4">
+        <div class="col-12 col-md-10 col-lg-9 bg-white feed-main-column">
+            <div class="card border-0 p-4">
 
                 <!-- ===== PROFILE HEADER ===== -->
                 <div class="mb-4 text-start">

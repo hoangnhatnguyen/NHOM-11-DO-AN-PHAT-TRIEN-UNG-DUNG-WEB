@@ -221,6 +221,22 @@
 	margin-top: 0;
 }
 
+.sidebar-avatar-link {
+	border-radius: 50%;
+	cursor: pointer;
+	transition: opacity 0.2s ease;
+	text-decoration: none;
+}
+
+.sidebar-avatar-link:hover {
+	opacity: 0.8;
+}
+
+.sidebar-avatar-link img,
+.sidebar-avatar-link div {
+	pointer-events: none;
+}
+
 .sidebar-divider {
 	height: 1px;
 	background: #d8e1ea;

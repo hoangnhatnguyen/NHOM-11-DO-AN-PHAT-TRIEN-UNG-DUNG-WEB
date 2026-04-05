@@ -6,7 +6,24 @@
 
 
     <div class="d-flex border-bottom pb-3 mb-3">
-        <div class="avatar-sm me-2"><?= strtoupper(substr((string) ($currentUser['username'] ?? 'U'), 0, 1)) ?></div>
+        <?php
+            $composerName = (string) ($currentUser['username'] ?? 'U');
+            $composerInitial = strtoupper(substr($composerName, 0, 1));
+            $composerAvatarRaw = (string) ($currentUser['avatar_url'] ?? '');
+            $composerAvatarSrc = $composerAvatarRaw !== '' ? media_public_src($composerAvatarRaw) : '';
+        ?>
+        <?php if ($composerAvatarSrc !== ''): ?>
+            <img
+                src="<?= htmlspecialchars($composerAvatarSrc, ENT_QUOTES, 'UTF-8') ?>"
+                alt="<?= htmlspecialchars($composerName, ENT_QUOTES, 'UTF-8') ?>"
+                class="avatar-sm me-2 rounded-circle"
+                style="object-fit: cover;"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+            >
+            <div class="avatar-sm me-2 d-none align-items-center justify-content-center"><?= htmlspecialchars($composerInitial, ENT_QUOTES, 'UTF-8') ?></div>
+        <?php else: ?>
+            <div class="avatar-sm me-2"><?= htmlspecialchars($composerInitial, ENT_QUOTES, 'UTF-8') ?></div>
+        <?php endif; ?>
 
         <div class="flex-grow-1">
             <textarea name="content"

@@ -25,7 +25,6 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 			<a class="chat-rail-btn" href="<?= BASE_URL ?>/saved" data-label="Đã lưu" title="Đã lưu" aria-label="Đã lưu"><i class="bi bi-bookmark"></i></a>
 			<a class="chat-rail-btn" href="<?= htmlspecialchars(profile_url($meName), ENT_QUOTES, 'UTF-8') ?>" data-label="Trang cá nhân" title="Trang cá nhân" aria-label="Trang cá nhân"><i class="bi bi-person"></i></a>
 			<a class="chat-rail-btn" href="<?= BASE_URL ?>/settings" data-label="Cài đặt" title="Cài đặt" aria-label="Cài đặt"><i class="bi bi-gear"></i></a>
-			<button class="chat-rail-btn" id="chatNewConversationBtn" type="button" data-label="Tạo" title="Tạo" aria-label="Tạo"><i class="bi bi-plus-circle-fill"></i></button>
 			
 			<div class="chat-rail-avatar-container">
 				<div style="position:relative; width:40px; height:40px;">
@@ -142,9 +141,8 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 		<aside class="chat-detail-panel" id="chatDetailPanel">
 			<div class="chat-detail-title">Chi tiết</div>
 			<div class="chat-detail-user" id="chatDetailUser">
-				<div class="chat-user-avatar"
-					 id="chatDetailAvatar"
-					 class="d-flex align-items-center justify-content-center rounded-circle"
+				<div id="chatDetailAvatar"
+					 class="chat-user-avatar d-flex align-items-center justify-content-center rounded-circle"
 					 style="width:48px; height:48px; background:#8adfd7; color:#0a3d3a; font-weight:600; font-size:1.2rem;">?</div>
 				<div>
 					<div class="chat-user-name" id="chatDetailName">Chưa chọn</div>

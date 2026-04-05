@@ -52,6 +52,7 @@
 
 	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
 	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
+	<script src="<?= BASE_URL ?>/public/js/message-badge.js" type="module"></script>
 	<script src="<?= BASE_URL ?>/public/js/right_widgets.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/comment.js"></script>

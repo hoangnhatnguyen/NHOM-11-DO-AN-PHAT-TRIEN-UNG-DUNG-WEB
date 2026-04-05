@@ -169,6 +169,12 @@ class UserController extends BaseController {
         $userId = (int)($_GET['user_id'] ?? 0);
 
         $data = $this->followModel->getFollowers($userId);
+        require_once __DIR__ . '/../helpers/media.php';
+        foreach ($data as &$row) {
+            $raw = (string) ($row['avatar_url'] ?? '');
+            $row['avatar_src'] = $raw !== '' ? media_public_src($raw) : '';
+        }
+        unset($row);
 
         echo json_encode(['followers'=>$data]);
     }
@@ -179,6 +185,12 @@ class UserController extends BaseController {
         $userId = (int)($_GET['user_id'] ?? 0);
 
         $data = $this->followModel->getFollowing($userId);
+        require_once __DIR__ . '/../helpers/media.php';
+        foreach ($data as &$row) {
+            $raw = (string) ($row['avatar_url'] ?? '');
+            $row['avatar_src'] = $raw !== '' ? media_public_src($raw) : '';
+        }
+        unset($row);
 
         echo json_encode(['following'=>$data]);
     }

@@ -5,11 +5,30 @@ const BASE =
         : "";
 
 function mediaViewUrl(keyOrUrl) {
-    const s = String(keyOrUrl || "").trim();
-    if (!s) return "";
-    if (/^https?:\/\//i.test(s)) return s;
-    if (!BASE) return s;
-    return BASE + "/media/view?key=" + encodeURIComponent(s);
+    const raw = String(keyOrUrl || "").trim();
+    if (!raw) return "";
+
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (!BASE) return raw;
+
+    if (raw.startsWith(BASE + "/")) return raw;
+    if (raw.startsWith("/")) return BASE + raw;
+
+    const normalized = raw.replace(/\\/g, "/").replace(/^\/+/, "");
+
+    if (/^(avatars|posts|chat)\//i.test(normalized)) {
+        return BASE + "/media/view?key=" + encodeURIComponent(normalized);
+    }
+
+    if (/^media\//i.test(normalized)) {
+        return BASE + "/public/" + normalized;
+    }
+
+    if (/^public\//i.test(normalized)) {
+        return BASE + "/" + normalized;
+    }
+
+    return BASE + "/public/media/" + normalized;
 }
 
 // ===== ELEMENT =====
@@ -129,7 +148,9 @@ function renderList(list, emptyMsg) {
         list.forEach((u) => {
             const uname = String(u.username || "");
             const href = BASE + "/profile?u=" + encodeURIComponent(uname);
-            const rawAv = u.avatar_url ? String(u.avatar_url) : "";
+            const rawAv = u.avatar_src
+                ? String(u.avatar_src)
+                : (u.avatar_url ? String(u.avatar_url) : "");
             const av = rawAv ? mediaViewUrl(rawAv) : "";
             const initial = initialOf(uname);
             html += `

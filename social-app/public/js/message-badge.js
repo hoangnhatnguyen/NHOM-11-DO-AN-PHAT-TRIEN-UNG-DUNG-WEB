@@ -2,6 +2,9 @@
  * Global message notification badge - works on all pages
  */
 (async function initMessageBadge() {
+	const APP_BASE = (typeof window.__APP_BASE__ === 'string' ? window.__APP_BASE__.replace(/\/$/, '') : '');
+	const withBase = (path) => `${APP_BASE}${path}`;
+
 	// Get current user from DOM - try chatApp first, then left-sidebar
 	let chatApp = document.getElementById('chatApp');
 	let userId = Number(chatApp?.dataset.currentUserId || 0);
@@ -9,6 +12,11 @@
 	if (!userId) {
 		const leftSidebar = document.querySelector('.left-sidebar[data-current-user-id]');
 		userId = Number(leftSidebar?.dataset.currentUserId || 0);
+	}
+
+	if (!userId) {
+		const savedShell = document.querySelector('.chat-shell--saved[data-current-user-id]');
+		userId = Number(savedShell?.dataset.currentUserId || 0);
 	}
 	
 	if (!userId) return;
@@ -23,9 +31,10 @@
 		const { getFirestore, collection, where, query, orderBy, limit, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js');
 		
 		// Get bootstrap data (config + token)
-		const res = await fetch('/chat-api/bootstrap', {
+		const res = await fetch(withBase('/chat-api/bootstrap'), {
 			method: 'GET',
 			headers: { 'Content-Type': 'application/json' },
+			credentials: 'same-origin',
 		});
 		const bootstrapData = await res.json();
 		
@@ -94,36 +103,28 @@
 				
 				lastBadgeState = hasUnread;
 				
-				// Update badge in left sidebar - dùng .nav-link chứa tin nhắn
-				const messageLink = document.querySelector('a[href*="/messages"]');
+				// Update all message menu links (leftbar + chat rails)
+				const selectors = [
+					`a[href="${withBase('/messages')}"]`,
+					'a[href="/messages"]',
+					'.chat-rail-btn[aria-label="Tin nhắn"]',
+				];
 				
-				if (messageLink) {
-					let badge = messageLink.querySelector('.message-noti-badge');
-					
+				const links = Array.from(new Set(
+					selectors.flatMap((s) => Array.from(document.querySelectorAll(s)))
+				));
+				
+				links.forEach((link) => {
+					let badge = link.querySelector('.message-noti-badge');
 					if (hasUnread && !badge) {
 						badge = document.createElement('span');
 						badge.className = 'message-noti-badge';
-						messageLink.style.position = 'relative';
-						messageLink.appendChild(badge);
+						link.style.position = 'relative';
+						link.appendChild(badge);
 					} else if (!hasUnread && badge) {
 						badge.remove();
 					}
-				}
-				
-				// Also update chat-rail-btn (messages page sidebar)
-				const chatRailBtn = document.querySelector('.chat-rail-btn[aria-label="Tin nhắn"]');
-				
-				if (chatRailBtn) {
-					let badge = chatRailBtn.querySelector('.message-noti-badge');
-					if (hasUnread && !badge) {
-						badge = document.createElement('span');
-						badge.className = 'message-noti-badge';
-						chatRailBtn.style.position = 'relative';
-						chatRailBtn.appendChild(badge);
-					} else if (!hasUnread && badge) {
-						badge.remove();
-					}
-				}
+				});
 			}, 100); // Debounce 100ms
 		});
 	} catch (error) {

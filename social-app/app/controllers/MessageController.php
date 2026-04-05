@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../services/FirebaseService.php';
 require_once __DIR__ . '/../services/S3Service.php';
+require_once __DIR__ . '/../helpers/media.php';
 
 class MessageController extends BaseController {
 	private const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -22,6 +23,8 @@ class MessageController extends BaseController {
 
 	public function index(): void {
 		$this->requireAuth();
+		$jsPath = dirname(__DIR__, 2) . '/public/js/message.js';
+		$jsVersion = is_file($jsPath) ? (string) filemtime($jsPath) : (string) time();
 
 		$this->render('message/inbox', [
 			'title' => 'Tin nhắn',
@@ -30,7 +33,7 @@ class MessageController extends BaseController {
 			'activeMenu' => 'messages',
 			'pageScripts' => [
 				[
-					'src' => BASE_URL . '/public/js/message.js',
+					'src' => BASE_URL . '/public/js/message.js?v=' . $jsVersion,
 					'module' => true,
 				],
 			],
@@ -208,26 +211,80 @@ class MessageController extends BaseController {
 		}
 	}
 
+	public function mediaView(): void {
+		$this->requireAuth();
+
+		$key = trim((string) ($_GET['key'] ?? ''));
+		if ($key === '') {
+			http_response_code(404);
+			echo 'Not Found';
+			return;
+		}
+
+		$key = rawurldecode($key);
+		$key = ltrim(str_replace('\\', '/', $key), '/');
+
+		if (preg_match('#^https?://#i', $key)) {
+			$extracted = S3Service::extractKeyFromS3Url($key);
+			if ($extracted !== null && $extracted !== '') {
+				$key = ltrim(str_replace('\\', '/', $extracted), '/');
+			}
+		}
+
+		$isS3Key =
+			strpos($key, 'avatars/') === 0
+			|| strpos($key, 'posts/') === 0
+			|| strpos($key, 'chat/') === 0;
+
+		if (!$isS3Key) {
+			http_response_code(404);
+			echo 'Not Found';
+			return;
+		}
+
+		$s3 = new S3Service();
+		if (!$s3->isReady()) {
+			http_response_code(503);
+			echo 'S3 unavailable';
+			return;
+		}
+
+		$url = $s3->getPresignedUrl($key, 86400);
+		if (!$url) {
+			http_response_code(404);
+			echo 'Not Found';
+			return;
+		}
+
+		header('Cache-Control: private, max-age=300');
+		header('Location: ' . $url, true, 302);
+	}
+
 	private function formatSessionUser(): array {
 		$sessionUser = $_SESSION['user'] ?? [];
+		$rawAvatar = (string) ($sessionUser['avatar_url'] ?? '');
 
 		return [
 			'id' => (int) ($sessionUser['id'] ?? 0),
 			'username' => (string) ($sessionUser['username'] ?? ''),
 			'email' => (string) ($sessionUser['email'] ?? ''),
 			'role' => (string) ($sessionUser['role'] ?? 'user'),
+			'avatarUrl' => $rawAvatar,
+			'avatarSrc' => $rawAvatar !== '' ? media_public_src($rawAvatar) : '',
 			'firebaseUid' => 'app_' . (int) ($sessionUser['id'] ?? 0),
 		];
 	}
 
 	private function formatUser(array $user): array {
 		$name = (string) ($user['username'] ?? 'User');
+		$rawAvatar = (string) ($user['avatar_url'] ?? '');
 
 		return [
 			'id' => (int) ($user['id'] ?? 0),
 			'username' => $name,
 			'email' => (string) ($user['email'] ?? ''),
-			'avatarUrl' => (string) ($user['avatar_url'] ?? ''),
+			'avatarUrl' => $rawAvatar,
+			'avatarSrc' => $rawAvatar !== '' ? media_public_src($rawAvatar) : '',
 			'initials' => strtoupper(substr($name, 0, 1)),
 		];
 	}

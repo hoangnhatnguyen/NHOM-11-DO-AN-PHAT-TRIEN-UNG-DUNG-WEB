@@ -29,6 +29,38 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 </style>
 <?php endif; ?>
 
+<style>
+.profile-tabs-wrap {
+    background: #eef3f8;
+    border-radius: 999px;
+    padding: 4px;
+    display: inline-flex;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+}
+.profile-tabs-wrap .nav-item { flex: 0 0 auto; }
+.profile-tabs-wrap .nav-link {
+    border: 0;
+    border-radius: 999px;
+    color: var(--brand-primary);
+    padding: .45rem 1rem;
+    width: auto;
+}
+.profile-tabs-wrap .nav-link.active {
+    background: var(--brand-primary);
+    color: #fff;
+}
+#badgePopup {
+    width: min(360px, calc(100vw - 24px));
+    border-radius: 14px;
+}
+#badgeResult {
+    max-height: 240px;
+    overflow-y: auto;
+}
+</style>
+
 <div class="container-fluid feed-layout px-lg-4">
     <div class="row g-3 g-lg-4 feed-layout-row">
 
@@ -39,10 +71,10 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 
         <!-- PROFILE CONTENT -->
         <div class="col-12 col-md-10 col-lg-9 bg-white feed-main-column">
-            <div class="card border-0 p-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-lg-4">
 
                 <!-- ===== PROFILE HEADER ===== -->
-                <div class="mb-4 text-start">
+                <div class="mb-4 text-start border rounded-4 p-3 p-lg-4 bg-body-tertiary">
 
                     <div class="position-relative d-inline-block"
                          id="profileAvatarContainer"
@@ -107,20 +139,20 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                         <?php endif; ?>
                     </div>
 
-                    <h4 class="mb-2"><?= htmlspecialchars($user['username']) ?></h4>
+                    <h4 class="mb-1 fw-bold"><?= htmlspecialchars($user['username']) ?></h4>
 
-                    <p id="bioText" class="text-muted mb-2">
+                    <p id="bioText" class="text-secondary mb-3">
                         <?= htmlspecialchars($user['bio'] ?? '') ?>
                     </p>
 
-                    <div class="d-flex gap-4 mt-2">
-                        <span><b><?= $stats['posts'] ?></b> bài viết</span>
+                    <div class="d-flex flex-wrap gap-3 mt-2 small">
+                        <span class="px-2 py-1 rounded-pill bg-white border"><b><?= $stats['posts'] ?></b> bài viết</span>
 
-                        <span id="followersBtn" style="cursor:pointer">
+                        <span id="followersBtn" class="px-2 py-1 rounded-pill bg-white border" style="cursor:pointer">
                             <b><?= $stats['followers'] ?></b> followers
                         </span>
 
-                        <span id="followingBtn" style="cursor:pointer">
+                        <span id="followingBtn" class="px-2 py-1 rounded-pill bg-white border" style="cursor:pointer">
                             <b><?= $stats['following'] ?></b> following
                         </span>
                     </div>
@@ -128,12 +160,12 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                     <?php if (!$isOwner): ?>
                         <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
                             <a href="<?= BASE_URL ?>/messages?user=<?= (int) ($user['id'] ?? 0) ?>"
-                               class="btn btn-brand-follow rounded-pill">
+                               class="btn btn-brand-follow rounded-pill px-3">
                                 <i class="bi bi-chat-dots me-1"></i>Nhắn tin
                             </a>
                             <button type="button"
                                     id="profileFollowBtn"
-                                    class="btn rounded-pill <?= !empty($isFollowing) ? 'btn-brand-follow-outline' : 'btn-brand-follow' ?>"
+                                    class="btn rounded-pill px-3 <?= !empty($isFollowing) ? 'btn-brand-follow-outline' : 'btn-brand-follow' ?>"
                                     data-user-id="<?= (int) ($user['id'] ?? 0) ?>"
                                     data-username="<?= htmlspecialchars((string) ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-following="<?= !empty($isFollowing) ? 'true' : 'false' ?>">
@@ -143,7 +175,7 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                     <?php endif; ?>
 
                     <?php if ($isOwner): ?>
-                        <button class="btn btn-outline-primary mt-3" id="editBtn">
+                        <button class="btn btn-brand-follow-outline rounded-pill mt-3 px-3" id="editBtn">
                             Chỉnh sửa
                         </button>
                     <?php endif; ?>
@@ -151,13 +183,13 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                 </div>
 
                 <!-- ===== BADGE ===== -->
-                <div id="badgeArea" class="mt-3 d-flex flex-wrap gap-2">
+                <div id="badgeArea" class="mt-3 d-flex flex-wrap gap-2 align-items-center">
 
                     <?php if (!empty($badges)): ?>
                         <?php foreach ($badges as $b): ?>
-                            <div class="badge bg-primary badge-item px-3 py-2"
+                            <div class="badge badge-item px-3 py-2 rounded-pill text-white"
                                  data-id="<?= $b['id'] ?>"
-                                 style="cursor:pointer; font-size:13px;">
+                                 style="cursor:pointer; font-size:13px; background: var(--brand-primary);">
                                 <?= htmlspecialchars($b['name']) ?>
                             </div>
                         <?php endforeach; ?>
@@ -169,7 +201,7 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 
                     <?php if($isOwner): ?>
                         <button id="addBadgeBtn"
-                                class="btn btn-sm btn-outline-primary d-none">
+                                class="btn btn-sm btn-brand-follow-outline d-none rounded-pill">
                             + Thêm badge
                         </button>
                     <?php endif; ?>
@@ -178,8 +210,8 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 
                 <!-- ===== POPUP ADD BADGE ===== -->
                 <div id="badgePopup"
-                     class="d-none position-fixed top-50 start-50 translate-middle bg-white border rounded p-3 shadow"
-                     style="width:300px; z-index:9999">
+                     class="d-none position-fixed top-50 start-50 translate-middle bg-white border p-3 shadow"
+                     style="z-index:9999">
 
                     <input id="badgeSearch"
                            class="form-control mb-2"
@@ -189,12 +221,12 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                 </div>
 
                 <!-- ===== TABS ===== -->
-                <ul class="nav nav-tabs mt-4">
+                <ul class="nav nav-pills mt-4 profile-tabs-wrap">
                     <li class="nav-item">
-                        <a class="nav-link active" data-tab="posts">Bài đăng</a>
+                        <a class="nav-link active rounded-pill px-3" data-tab="posts" role="button">Bài đăng</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-tab="activity">Tương tác</a>
+                        <a class="nav-link rounded-pill px-3" data-tab="activity" role="button">Tương tác</a>
                     </li>
                 </ul>
 
@@ -282,10 +314,10 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 
 <!-- ===== FOLLOW MODAL ===== -->
 <div class="modal fade" id="followModal">
-    <div class="modal-dialog">
-        <div class="modal-content p-3">
-            <h5 id="modalTitle" class="text-center mb-3"></h5>
-            <div id="followList"></div>
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow rounded-4 p-3">
+            <h5 id="modalTitle" class="text-center mb-3 fw-semibold"></h5>
+            <div id="followList" style="max-height: 55vh; overflow-y: auto;"></div>
         </div>
     </div>
 </div>

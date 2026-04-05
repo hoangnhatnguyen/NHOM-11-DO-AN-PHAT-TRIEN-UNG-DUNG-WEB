@@ -42,6 +42,7 @@ return [
         '/user-api/followers' => 'UserController@apiFollowers',
         '/user-api/following' => 'UserController@apiFollowing',
         '/user-api/activity' => 'UserController@apiActivity',
+        '/user-api/search-badge' => 'UserController@searchBadge',
 
         // ============ NOTIFICATIONS ============
         '/notifications' => 'NotificationController@index',
@@ -76,7 +77,6 @@ return [
         '/user-api/remove-follower' => 'UserController@removeFollower',
         '/user-api/unfollow' => 'UserController@unfollow',
         '/user-api/remove-badge' => 'UserController@removeBadge',
-        '/user-api/search-badge' => 'UserController@searchBadge',
         '/user-api/add-badge' => 'UserController@addBadge',
         '/user-api/notification-mark-read' => 'NotificationController@markReadApi',
 

@@ -287,14 +287,14 @@ class UserController extends BaseController {
         $db = Database::getInstance()->getConnection();
 
         $stmt = $db->prepare("
-            SELECT 'like' as type, p.content, l.created_at
+            SELECT 'like' as type, p.id AS post_id, p.content, l.created_at
             FROM likes l
             JOIN posts p ON l.post_id = p.id
             WHERE l.user_id = ?
 
             UNION ALL
 
-            SELECT 'comment' as type, p.content, c.created_at
+            SELECT 'comment' as type, p.id AS post_id, p.content, c.created_at
             FROM comments c
             JOIN posts p ON c.post_id = p.id
             WHERE c.user_id = ?
@@ -313,8 +313,9 @@ class UserController extends BaseController {
     // ===== SEARCH BADGE =====
     public function searchBadge(): void {
         header('Content-Type: application/json');
+        $this->requireAuth();
 
-        $q = $_GET['q'] ?? '';
+        $q = trim((string) ($_GET['q'] ?? $_POST['q'] ?? ''));
 
         require_once __DIR__ . '/../models/Badge.php';
         $badgeModel = new Badge();
@@ -345,9 +346,11 @@ public function addBadge(): void {
     $list = $badgeModel->search($name);
 
     if (count($list) > 0) {
-        $badgeId = $list[0]['id'];
+        $badgeId = (int) ($list[0]['id'] ?? 0);
+        $badgeName = (string) ($list[0]['name'] ?? $name);
     } else {
-        $badgeId = $badgeModel->create($name);
+        $badgeId = (int) $badgeModel->create($name);
+        $badgeName = $name;
     }
 
     // tránh duplicate
@@ -355,7 +358,13 @@ public function addBadge(): void {
         $userBadgeModel->add($_SESSION['user']['id'], $badgeId);
     }
 
-    echo json_encode(['success'=>true]);
+    echo json_encode([
+        'success' => true,
+        'badge' => [
+            'id' => $badgeId,
+            'name' => $badgeName,
+        ],
+    ]);
 }
 
     // ===== REMOVE BADGE =====

@@ -37,38 +37,67 @@ const avatarContainer = document.getElementById("profileAvatarContainer");
 
 let isEditing = false;
 
+function showProfileNotice(message, type = "success") {
+    const area = document.getElementById("badgeArea") || document.getElementById("bioText");
+    if (!area) return;
+
+    const old = document.getElementById("profileNotice");
+    if (old) old.remove();
+
+    const el = document.createElement("div");
+    el.id = "profileNotice";
+    el.className = `alert alert-${type} py-2 px-3 mt-2 mb-2`;
+    el.textContent = message;
+    area.parentElement?.insertBefore(el, area);
+
+    setTimeout(() => el.remove(), 2200);
+}
+
 // ===== EDIT MODE FULL =====
 const editBtn = document.getElementById("editBtn");
 
 editBtn?.addEventListener("click", () => {
     isEditing = true;
 
-    let bioText = document.getElementById("bioText");
-    let originalBio = bioText.innerText;
+    const bioText = document.getElementById("bioText");
+    const originalBio = (bioText?.innerText || "").trim();
+    if (!bioText) return;
 
     bioText.innerHTML = `
-        <textarea id="bioInput" class="form-control mb-2">${originalBio}</textarea>
+        <textarea id="bioInput" class="form-control mb-2" rows="3">${originalBio}</textarea>
         <div class="d-flex gap-2 justify-content-center">
-            <button class="btn btn-success btn-sm" id="saveBtn">Lưu</button>
+            <button class="btn btn-brand-follow btn-sm" id="saveBtn">Lưu</button>
             <button class="btn btn-secondary btn-sm" id="cancelBtn">Hủy</button>
         </div>
     `;
 
     document.getElementById("addBadgeBtn")?.classList.remove("d-none");
-    editBtn.style.display = "none";
+    editBtn.classList.add("d-none");
 
-    document.getElementById("saveBtn").onclick = () => {
-        let bio = document.getElementById("bioInput").value;
+    document.getElementById("saveBtn").onclick = async () => {
+        const bio = (document.getElementById("bioInput")?.value || "").trim();
 
-        fetch(BASE + "/user-api/update-profile", {
+        const res = await fetch(BASE + "/user-api/update-profile", {
             method: "POST",
             credentials: "same-origin",
             body: new URLSearchParams({ bio }),
-        }).then(() => location.reload());
+        });
+
+        if (!res.ok) {
+            showProfileNotice("Không thể lưu thông tin.", "danger");
+            return;
+        }
+
+        bioText.textContent = bio;
+        isEditing = false;
+        editBtn.classList.remove("d-none");
+        showProfileNotice("Đã lưu thông tin.");
     };
 
     document.getElementById("cancelBtn").onclick = () => {
-        location.reload();
+        bioText.textContent = originalBio;
+        isEditing = false;
+        editBtn.classList.remove("d-none");
     };
 });
 
@@ -134,6 +163,14 @@ function escHtml(s) {
         .replace(/"/g, "&quot;");
 }
 
+    function escAttr(s) {
+        return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
 function initialOf(name) {
     const value = String(name || "").trim();
     return value ? value.charAt(0).toUpperCase() : "?";
@@ -184,7 +221,7 @@ function renderList(list, emptyMsg) {
 }
 
 // ===== BADGE REMOVE =====
-document.querySelectorAll(".badge-item").forEach((badge) => {
+function bindBadgeItemClick(badge) {
     badge.addEventListener("click", (e) => {
         if (!isEditing) return;
 
@@ -201,15 +238,34 @@ document.querySelectorAll(".badge-item").forEach((badge) => {
 
         badge.appendChild(popup);
 
-        popup.querySelector("button").onclick = () => {
-            fetch(BASE + "/user-api/remove-badge", {
+        popup.querySelector("button").onclick = async () => {
+            const res = await fetch(BASE + "/user-api/remove-badge", {
                 method: "POST",
                 credentials: "same-origin",
                 body: new URLSearchParams({ badge_id: badge.dataset.id }),
-            }).then(() => location.reload());
+            });
+
+            if (!res.ok) {
+                showProfileNotice("Không thể xóa badge.", "danger");
+                return;
+            }
+
+            badge.remove();
+            const badgeArea = document.getElementById("badgeArea");
+            const left = badgeArea?.querySelectorAll(".badge-item")?.length || 0;
+            if (left === 0 && badgeArea && !badgeArea.querySelector("[data-empty-badge='1']")) {
+                const empty = document.createElement("div");
+                empty.className = "text-muted small";
+                empty.setAttribute("data-empty-badge", "1");
+                empty.textContent = "Chưa có badge nào ✨";
+                badgeArea.insertBefore(empty, document.getElementById("addBadgeBtn") || null);
+            }
+            showProfileNotice("Đã xóa badge.");
         };
     });
-});
+}
+
+document.querySelectorAll(".badge-item").forEach(bindBadgeItemClick);
 
 // ===== ADD BADGE =====
 const addBtn = document.getElementById("addBadgeBtn");
@@ -222,42 +278,55 @@ addBtn?.addEventListener("click", () => {
     searchInput.focus();
 });
 
+function renderBadgeSearchResult(list, q) {
+    let html = "";
+    const safeQ = escHtml(q);
+    const attrQ = escAttr(q);
+    const hasExact = list.some((b) => String(b.name || "").toLowerCase() === q.toLowerCase());
+
+    if (q !== "" && !hasExact) {
+        html += `
+            <button type="button" class="btn btn-link text-decoration-none fw-semibold p-2 w-100 text-start" data-create-badge="1" data-name="${attrQ}">
+                + Tạo mới "${safeQ}"
+            </button>
+        `;
+    }
+
+    list.forEach((b) => {
+        const name = escHtml(String(b.name || ""));
+        const attrName = escAttr(String(b.name || ""));
+        html += `
+            <button type="button" class="btn btn-light p-2 w-100 text-start border-bottom rounded-0 badge-select" data-name="${attrName}">
+                ${name}
+            </button>
+        `;
+    });
+
+    if (!html) {
+        html = `<div class="text-muted small p-2">Không có kết quả.</div>`;
+    }
+
+    resultBox.innerHTML = html;
+
+    resultBox.querySelectorAll(".badge-select,[data-create-badge='1']").forEach((el) => {
+        el.addEventListener("click", () => addBadge(el.getAttribute("data-name") || ""));
+    });
+}
+
 searchInput?.addEventListener("input", () => {
-    let q = searchInput.value.trim();
+    const q = searchInput.value.trim();
 
     fetch(BASE + "/user-api/search-badge?q=" + encodeURIComponent(q), { credentials: "same-origin" })
-        .then((r) => r.json())
+        .then((r) => {
+            if (!r.ok) throw new Error("search_failed");
+            return r.json();
+        })
         .then((res) => {
-            let list = res.data || [];
-            let html = "";
-
-            let hasExact = list.some((b) => b.name.toLowerCase() === q.toLowerCase());
-
-            if (q !== "" && !hasExact) {
-                html += `
-                    <div class="p-2 text-primary fw-bold"
-                         style="cursor:pointer"
-                         onclick="addBadge('${q}')">
-                        + Tạo mới "${q}"
-                    </div>
-                `;
-            }
-
-            list.forEach((b) => {
-                html += `
-                    <div class="p-2 border-bottom badge-select"
-                         style="cursor:pointer"
-                         data-name="${b.name}">
-                        ${b.name}
-                    </div>
-                `;
-            });
-
-            resultBox.innerHTML = html;
-
-            document.querySelectorAll(".badge-select").forEach((el) => {
-                el.onclick = () => addBadge(el.dataset.name);
-            });
+            const list = Array.isArray(res.data) ? res.data : [];
+            renderBadgeSearchResult(list, q);
+        })
+        .catch(() => {
+            resultBox.innerHTML = `<div class="text-danger small p-2">Không tải được kết quả.</div>`;
         });
 });
 
@@ -277,7 +346,45 @@ function addBadge(name) {
         body: new URLSearchParams({ name }),
     })
         .then((r) => r.json())
-        .then(() => location.reload());
+        .then((res) => {
+            if (!res || !res.success) {
+                showProfileNotice("Không thể thêm badge.", "danger");
+                return;
+            }
+
+            const badgeArea = document.getElementById("badgeArea");
+            if (!badgeArea) return;
+
+            badgeArea.querySelector("[data-empty-badge='1']")?.remove();
+
+            const id = Number(res.badge?.id || 0);
+            const badgeName = String(res.badge?.name || name).trim();
+
+            const duplicated = Array.from(badgeArea.querySelectorAll(".badge-item")).some((el) => {
+                const n = String(el.textContent || "").trim().toLowerCase();
+                return n === badgeName.toLowerCase();
+            });
+            if (duplicated) {
+                showProfileNotice("Badge đã tồn tại.", "info");
+                return;
+            }
+
+            const node = document.createElement("div");
+            node.className = "badge badge-item px-3 py-2 rounded-pill text-white";
+            node.style.cssText = "cursor:pointer; font-size:13px; background: var(--brand-primary);";
+            if (id > 0) node.dataset.id = String(id);
+            node.textContent = badgeName;
+
+            const addButton = document.getElementById("addBadgeBtn");
+            badgeArea.insertBefore(node, addButton || null);
+            bindBadgeItemClick(node);
+
+            if (popup) popup.classList.add("d-none");
+            if (searchInput) searchInput.value = "";
+            if (resultBox) resultBox.innerHTML = "";
+            showProfileNotice("Đã thêm badge.");
+        })
+        .catch(() => showProfileNotice("Không thể thêm badge.", "danger"));
 }
 
 document.addEventListener("click", (e) => {
@@ -327,11 +434,21 @@ function loadActivity() {
                 html = "<p class='text-muted mb-0'>Chưa có hoạt động nào 😴</p>";
             } else {
                 data.activities.forEach((a) => {
+                    const postId = Number(a.post_id || 0);
+                    const href = postId > 0 ? `${BASE}/post/${postId}` : "#";
+                    const typeLabel = a.type === "like" ? "Đã thích bài viết" : "Đã bình luận bài viết";
+                    const content = escHtml(String(a.content || ""));
+                    const when = escHtml(String(a.created_at || ""));
+
                     html += `
-                        <div class="card p-2 mb-2 text-start">
-                            <small class="text-muted">${a.type}</small>
-                            <p class="mb-0">${a.content}</p>
-                        </div>
+                        <a href="${href}"
+                           class="card p-3 mb-2 text-start text-decoration-none text-body ${postId > 0 ? "js-open-post-modal" : ""}"
+                           ${postId > 0 ? `data-post-id="${postId}"` : ""}
+                           style="border-color:#dbe7f3;">
+                            <small class="text-secondary d-block mb-1">${typeLabel}</small>
+                            <p class="mb-1">${content || "(Bài viết không có nội dung)"}</p>
+                            <small class="text-muted">${when}</small>
+                        </a>
                     `;
                 });
             }

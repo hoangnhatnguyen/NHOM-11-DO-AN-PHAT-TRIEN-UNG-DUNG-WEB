@@ -34,6 +34,14 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 		};
 	}
 
+	// Hide global call notification when chat page loads
+	function hideGlobalCallNotification() {
+		const globalCard = document.getElementById('globalIncomingCallCard');
+		if (globalCard) {
+			globalCard.classList.add('d-none');
+		}
+	}
+
 	function getConversationDocRef(conversationId) {
 		return doc(state.db, 'conversations', String(conversationId));
 	}
@@ -151,6 +159,9 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			ui.incomingCallText.textContent = `${callerName} đang gọi video cho bạn.`;
 		}
 		ui.incomingCallCard.classList.remove('d-none');
+		
+		// Hide global notification when showing chat-specific one
+		hideGlobalCallNotification();
 		startIncomingRingtone();
 	}
 

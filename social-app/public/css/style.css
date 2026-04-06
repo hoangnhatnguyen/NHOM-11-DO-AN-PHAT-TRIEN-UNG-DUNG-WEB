@@ -1724,3 +1724,269 @@
 	box-sizing: border-box;
 	display: block !important;
 }
+/* ============ GLOBAL CALL NOTIFICATION ============ */
+.global-call-notification {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 99999;
+	background: linear-gradient(135deg, #1a6291 0%, #155a82 100%);
+	padding: 16px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.call-notification-content {
+	max-width: 600px;
+	margin: 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	color: white;
+}
+
+.call-notification-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-weight: 600;
+	font-size: 16px;
+	flex: 1;
+}
+
+.call-notification-header i {
+	font-size: 20px;
+	animation: pulse-icon 1.5s infinite;
+}
+
+@keyframes pulse-icon {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+.call-notification-text {
+	font-size: 14px;
+	opacity: 0.95;
+	flex: 1;
+}
+
+.call-notification-actions {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.call-accept-btn,
+.call-decline-btn {
+	padding: 8px 16px;
+	border: none;
+	border-radius: 6px;
+	font-weight: 600;
+	font-size: 14px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	text-decoration: none;
+	display: inline-block;
+}
+
+.call-accept-btn {
+	background-color: #10b981;
+	color: white;
+}
+
+.call-accept-btn:hover {
+	background-color: #059669;
+	box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.call-decline-btn {
+	background-color: rgba(255, 255, 255, 0.2);
+	color: white;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.call-decline-btn:hover {
+	background-color: rgba(255, 255, 255, 0.3);
+	border-color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 576px) {
+	.global-call-notification {
+		padding: 12px;
+	}
+
+	.call-notification-content {
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.call-notification-header {
+		width: 100%;
+	}
+
+	.call-notification-text {
+		width: 100%;
+		text-align: center;
+	}
+
+	.call-notification-actions {
+		width: 100%;
+		justify-content: center;
+	}
+
+	.call-accept-btn,
+	.call-decline-btn {
+		flex: 1;
+		text-align: center;
+	}
+}
+
+/* ============ GLOBAL CALL OVERLAY ============ */
+.global-call-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 99998;
+	background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.global-call-stage {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+	padding: 32px 16px;
+	box-sizing: border-box;
+	position: relative;
+}
+
+.global-remote-video {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	background: #000;
+}
+
+.global-local-video {
+	position: absolute;
+	bottom: 32px;
+	right: 16px;
+	width: 120px;
+	height: 160px;
+	border-radius: 12px;
+	border: 3px solid white;
+	object-fit: cover;
+	background: #000;
+	z-index: 100;
+}
+
+.global-call-topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	max-width: 400px;
+	color: white;
+	position: relative;
+	z-index: 110;
+	text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.global-call-peer {
+	font-size: 28px;
+	font-weight: 700;
+	margin-bottom: 8px;
+}
+
+.global-call-status {
+	font-size: 14px;
+	opacity: 0.8;
+}
+
+.global-call-chip {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.2);
+	border: 2px solid rgba(255, 255, 255, 0.3);
+	color: white;
+	cursor: pointer;
+	font-size: 24px;
+	transition: all 0.2s ease;
+	text-decoration: none;
+}
+
+.global-call-chip:hover {
+	background: rgba(255, 255, 255, 0.3);
+	border-color: rgba(255, 255, 255, 0.5);
+}
+
+.global-call-actions {
+	display: flex;
+	gap: 24px;
+	justify-content: center;
+	position: relative;
+	z-index: 110;
+}
+
+.global-call-chip.accept {
+	background: #10b981;
+	border-color: #10b981;
+}
+
+.global-call-chip.accept:hover {
+	background: #059669;
+	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.global-call-chip.decline {
+	background: #ef4444;
+	border-color: #ef4444;
+}
+
+.global-call-chip.decline:hover {
+	background: #dc2626;
+	box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.global-call-chip span {
+	margin-left: 8px;
+}
+
+@media (max-width: 768px) {
+	.global-call-stage {
+		padding: 16px;
+	}
+
+	.global-call-peer {
+		font-size: 24px;
+	}
+
+	.global-call-actions {
+		gap: 16px;
+	}
+
+	.global-call-chip {
+		width: 48px;
+		height: 48px;
+		font-size: 20px;
+	}
+}

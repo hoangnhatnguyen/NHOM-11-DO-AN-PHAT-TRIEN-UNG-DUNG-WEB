@@ -3,19 +3,28 @@
  * Opens post detail in a modal instead of navigating to separate page
  */
 
-document.addEventListener('DOMContentLoaded', function() {
-	const baseUrl = window.__APP_BASE__ || '/';
+let bsModal = null;
+
+// Wait for bootstrap to load before initializing
+function initializeModal() {
+	if (typeof window.bootstrap === 'undefined') {
+		// Bootstrap not ready yet, retry in 100ms
+		setTimeout(initializeModal, 100);
+		return;
+	}
+
 	const modal = document.getElementById('postDetailModal');
-	const modalContent = document.getElementById('postDetailContent');
-	
 	if (!modal) return;
 
-	const bsModal = new bootstrap.Modal(modal);
+	bsModal = new window.bootstrap.Modal(modal);
 
 	/**
 	 * Open post detail in modal
 	 */
 	function openPostDetail(postId) {
+		const baseUrl = window.__APP_BASE__ || '/';
+		const modalContent = document.getElementById('postDetailContent');
+		
 		// Show loading state
 		modalContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>';
 
@@ -43,7 +52,9 @@ document.addEventListener('DOMContentLoaded', function() {
 					}
 					
 					// Show modal
-					bsModal.show();
+					if (bsModal) {
+						bsModal.show();
+					}
 					
 					// Reinitialize AJAX handlers for post actions (like, save, share)
 					// Comment handlers use event delegation on document, so they work automatically
@@ -52,12 +63,16 @@ document.addEventListener('DOMContentLoaded', function() {
 					}
 				} else {
 					modalContent.innerHTML = '<div class="alert alert-danger">Không thể tải bài viết</div>';
-					bsModal.show();
+					if (bsModal) {
+						bsModal.show();
+					}
 				}
 			})
 			.catch(err => {
 				modalContent.innerHTML = '<div class="alert alert-danger">Lỗi tải dữ liệu</div>';
-				bsModal.show();
+				if (bsModal) {
+					bsModal.show();
+				}
 			});
 	}
 
@@ -125,10 +140,23 @@ document.addEventListener('DOMContentLoaded', function() {
 	/**
 	 * Close modal on escape or outside click
 	 */
-	modal.addEventListener('hidden.bs.modal', function() {
-		modalContent.innerHTML = '';
-	});
+	const modalEl = document.getElementById('postDetailModal');
+	if (modalEl) {
+		modalEl.addEventListener('hidden.bs.modal', function() {
+			const modalContent = document.getElementById('postDetailContent');
+			if (modalContent) {
+				modalContent.innerHTML = '';
+			}
+		});
+	}
 
 	// Expose function globally for other scripts
 	window.openPostDetail = openPostDetail;
-});
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', initializeModal);
+} else {
+	initializeModal();
+}

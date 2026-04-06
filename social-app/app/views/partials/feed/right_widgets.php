@@ -69,7 +69,7 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 			<?php if (empty($suggestedFollows)): ?>
 				<p class="text-muted small mb-0">Không còn gợi ý.</p>
 			<?php else: ?>
-				<ul class="list-unstyled mb-0 small">
+				<ul id="suggestBox" class="list-unstyled mb-0 small">
 					<?php foreach ($suggestedFollows as $u): ?>
 						<?php
 							$sid = (int) ($u['id'] ?? 0);

@@ -47,24 +47,44 @@ const SETTINGS_CSRF = <?= json_encode((string) ($csrfToken ?? ''), JSON_UNESCAPE
 
                 <hr>
 
-                <h5>Danh sách chặn</h5>
+                <h5 class="mt-4 mb-3">Danh sách chặn</h5>
 
-                <ul id="blockedList" class="list-unstyled">
-                    <?php if (empty($blocked)): ?>
-                        <div class="text-muted text-center">
-                            Bạn chưa chặn người dùng nào 😌
-                        </div>
-                    <?php else: ?>
-                        <?php foreach($blocked as $u): ?>
-                            <li class="d-flex justify-content-between mb-2">
-                                <span><?= $u['username'] ?></span>
-                                <button class="btn btn-sm btn-danger unblock" data-id="<?= $u['id'] ?>">
-                                    Hủy chặn
-                                </button>
-                            </li>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </ul>
+<div id="blockedList" class="d-flex flex-column gap-2">
+
+    <?php if (empty($blocked)): ?>
+        <div class="text-muted text-center py-4 bg-body-tertiary rounded-4">
+            Bạn chưa chặn người dùng nào 😌
+        </div>
+    <?php else: ?>
+        <?php foreach($blocked as $u): ?>
+           <div class="blocked-item d-flex align-items-center justify-content-between 
+            bg-body-tertiary rounded-4 px-3 py-2">
+
+                <!-- LEFT -->
+                <div class="d-flex align-items-center gap-3">
+
+                    <!-- Avatar -->
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:40px;height:40px;background:#8adfd7;color:#0a3d3a;font-weight:600;">
+                        <?= strtoupper(substr($u['username'], 0, 1)) ?>
+                    </div>
+
+                    <!-- Username -->
+                    <span class="fw-medium">
+                        <?= htmlspecialchars($u['username']) ?>
+                    </span>
+                </div>
+
+                <!-- RIGHT -->
+                <button class="btn btn-sm btn-outline-danger rounded-pill px-3 unblock"
+                        data-id="<?= $u['id'] ?>">
+                    Hủy chặn
+                </button>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+
+</div>
 
             </div>
         </div>
@@ -117,10 +137,19 @@ document.querySelectorAll(".unblock").forEach(btn => {
         })
         .then(data => {
             if (!data.success) throw new Error("unblock_failed");
-            btn.parentElement.remove();
+
+           
+            btn.closest(".blocked-item").remove();
+
             const list = document.getElementById("blockedList");
-            if (list && !list.querySelector("li")) {
-                list.innerHTML = `<div class="text-muted text-center">Bạn chưa chặn người dùng nào 😌</div>`;
+
+        
+            if (list && !list.querySelector(".blocked-item")) {
+                list.innerHTML = `
+                    <div class="text-muted text-center py-4 bg-body-tertiary rounded-4">
+                        Bạn chưa chặn người dùng nào 😌
+                    </div>
+                `;
             }
         })
         .catch(() => alert("Không thể hủy chặn người dùng."));

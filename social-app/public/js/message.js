@@ -725,7 +725,7 @@ if (!root) {
 				return haystack.includes(keyword);
 			});
 
-		rows = rows.filter((item) => !isUserBlockedRelation(Number(item?.peer?.id || 0)));
+		//rows = rows.filter((item) => !isUserBlockedRelation(Number(item?.peer?.id || 0)));
 
 		// Filter hidden conversations by deletion, but ALWAYS show active conversation
 		rows = rows.filter((item) => {
@@ -1023,17 +1023,18 @@ if (!root) {
 					text-align: center;
 					font-weight: 500;
 					line-height: 1.4;
+					margin: 0 20px 20px 20px; /* Thêm margin cho đẹp giống ảnh */
 				`;
 				composerParent?.appendChild(blockedMsg);
 			}
 			
-			// Update message text
-			if (iBlockedThem) {
+			// 👇 SỬA LẠI ĐOẠN TEXT NÀY CHO CHUẨN VỚI ẢNH 👇
+			if (iBlockedThem || state.blockedUserIds.has(Number(peerId || 0))) {
+                // Mình chặn người ta (qua chat hoặc qua settings)
 				blockedMsg.textContent = 'Bạn đã chặn người dùng này. Không thể nhắn tin.';
-			} else if (isBlockedInDb) {
-				blockedMsg.textContent = 'Không thể nhắn tin do quan hệ chặn.';
 			} else {
-				blockedMsg.textContent = `Bạn đã bị ${conversation?.peer?.username || 'người dùng này'} chặn.`;
+                // Người ta chặn mình
+				blockedMsg.textContent = `Bạn đã bị ${conversation?.peer?.username || 'người dùng này'} chặn. Không thể nhắn tin.`;
 			}
 			
 			blockedMsg.style.display = 'block';

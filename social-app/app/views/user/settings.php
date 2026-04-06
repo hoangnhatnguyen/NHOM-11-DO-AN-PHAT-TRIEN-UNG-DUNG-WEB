@@ -1,4 +1,7 @@
 <?php $activeMenu = 'settings'; ?>
+<script>
+const SETTINGS_CSRF = <?= json_encode((string) ($csrfToken ?? ''), JSON_UNESCAPED_UNICODE) ?>;
+</script>
 
 <div class="container-fluid feed-layout px-lg-4">
     <div class="row g-3 g-lg-4 feed-layout-row">
@@ -75,18 +78,28 @@
 </div>
 
 <script>
-const BASE = window.location.origin;
+const BASE = typeof window.__APP_BASE__ === "string" ? window.__APP_BASE__.replace(/\/$/, "") : "";
 
 // AUTO SAVE 
 ["privacy_follow", "privacy_comment"].forEach(id => {
     document.getElementById(id)?.addEventListener("change", () => {
         fetch(BASE + "/setting-api/update-privacy", {
             method: "POST",
+            credentials: "same-origin",
             body: new URLSearchParams({
+                _csrf: SETTINGS_CSRF,
                 privacy_follow: document.getElementById("privacy_follow").value,
                 privacy_comment: document.getElementById("privacy_comment").value
             })
-        });
+        })
+        .then(r => {
+            if (!r.ok) throw new Error("save_failed");
+            return r.json();
+        })
+        .then(data => {
+            if (!data.success) throw new Error("save_failed");
+        })
+        .catch(() => alert("Không thể lưu cài đặt quyền riêng tư."));
     });
 });
 
@@ -95,8 +108,22 @@ document.querySelectorAll(".unblock").forEach(btn => {
     btn.onclick = () => {
         fetch(BASE + "/setting-api/unblock", {
             method: "POST",
-            body: new URLSearchParams({ id: btn.dataset.id })
-        }).then(() => btn.parentElement.remove());
+            credentials: "same-origin",
+            body: new URLSearchParams({ id: btn.dataset.id, _csrf: SETTINGS_CSRF })
+        })
+        .then(r => {
+            if (!r.ok) throw new Error("unblock_failed");
+            return r.json();
+        })
+        .then(data => {
+            if (!data.success) throw new Error("unblock_failed");
+            btn.parentElement.remove();
+            const list = document.getElementById("blockedList");
+            if (list && !list.querySelector("li")) {
+                list.innerHTML = `<div class="text-muted text-center">Bạn chưa chặn người dùng nào 😌</div>`;
+            }
+        })
+        .catch(() => alert("Không thể hủy chặn người dùng."));
     };
 });
 </script>

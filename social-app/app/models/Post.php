@@ -6,6 +6,34 @@ require_once __DIR__ . '/PostHashtag.php';
 class Post extends BaseModel {
     protected string $table = 'posts';
 
+    /**
+     * Exclude authors who are in a block relationship with the viewer.
+     *
+     * @param array<string, mixed> $params
+     */
+    private function appendBlockVisibilityClause(string $authorColumn, int $viewerId, array &$params, string $prefix): string {
+        if ($viewerId <= 0) {
+            return '';
+        }
+
+        $params[$prefix . '_viewer_as_blocker'] = $viewerId;
+        $params[$prefix . '_viewer_as_blocked'] = $viewerId;
+
+        return "
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM blocks b
+                    WHERE (
+                        b.blocker_id = :" . $prefix . "_viewer_as_blocker
+                        AND b.blocked_id = {$authorColumn}
+                    ) OR (
+                        b.blocker_id = {$authorColumn}
+                        AND b.blocked_id = :" . $prefix . "_viewer_as_blocked
+                    )
+              )
+        ";
+    }
+
     public function countAllPosts(): int {
         $stmt = $this->db->query("SELECT COUNT(*) FROM {$this->table}");
         return (int) $stmt->fetchColumn();
@@ -113,6 +141,13 @@ class Post extends BaseModel {
 
     //GET 1 POST + USER + STATS + USER INTERACTION
     public function findDetailWithStats(int $id, int $viewerId): ?array {
+        $params = [
+            'id' => $id,
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+        ];
+        $blockClause = $this->appendBlockVisibilityClause('p.user_id', $viewerId, $params, 'detail');
+
         $stmt = $this->db->prepare("
             SELECT
                 p.*,
@@ -139,13 +174,10 @@ class Post extends BaseModel {
             FROM posts p
             JOIN users u ON u.id = p.user_id
             WHERE p.id = :id
+            {$blockClause}
             LIMIT 1
         ");
-        $stmt->execute([
-            'id' => $id,
-            'viewer_like' => $viewerId,
-            'viewer_save' => $viewerId,
-        ]);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row === false) {
             return null;
@@ -156,6 +188,12 @@ class Post extends BaseModel {
 
     //LOAD FEED (có user + media + stats theo viewer)
     public function getFeed(int $viewerId = 0): array {
+        $params = [
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+        ];
+        $blockClause = $this->appendBlockVisibilityClause('p.user_id', $viewerId, $params, 'feed');
+
         $stmt = $this->db->prepare("
             SELECT 
                 p.*,
@@ -183,12 +221,10 @@ class Post extends BaseModel {
             JOIN users u ON u.id = p.user_id
             WHERE p.status = 'active'
               AND p.visible = 'public'
+              {$blockClause}
             ORDER BY p.id DESC
         ");
-        $stmt->execute([
-            'viewer_like' => $viewerId,
-            'viewer_save' => $viewerId,
-        ]);
+        $stmt->execute($params);
 
         $posts = $stmt->fetchAll();
 
@@ -216,6 +252,13 @@ class Post extends BaseModel {
             return [];
         }
 
+        $params = [
+            'profile_uid' => $profileUserId,
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+        ];
+        $blockClause = $this->appendBlockVisibilityClause('p.user_id', $viewerId, $params, 'profile');
+
         $stmt = $this->db->prepare("
             SELECT
                 p.*,
@@ -242,13 +285,10 @@ class Post extends BaseModel {
             FROM posts p
             JOIN users u ON u.id = p.user_id
             WHERE p.user_id = :profile_uid AND p.status = 'active'
+              {$blockClause}
             ORDER BY p.created_at DESC
         ");
-        $stmt->execute([
-            'profile_uid' => $profileUserId,
-            'viewer_like' => $viewerId,
-            'viewer_save' => $viewerId,
-        ]);
+        $stmt->execute($params);
 
         $posts = $stmt->fetchAll();
 
@@ -276,6 +316,13 @@ class Post extends BaseModel {
             return [];
         }
 
+        $params = [
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+            'viewer_follow' => $viewerId,
+        ];
+        $blockClause = $this->appendBlockVisibilityClause('p.user_id', $viewerId, $params, 'following_feed');
+
         $stmt = $this->db->prepare("
             SELECT 
                 p.*,
@@ -306,13 +353,10 @@ class Post extends BaseModel {
                   SELECT following_id FROM follows WHERE follower_id = :viewer_follow
               )
               AND p.visible IN ('public', 'followers')
+              {$blockClause}
             ORDER BY p.id DESC
         ");
-        $stmt->execute([
-            'viewer_like' => $viewerId,
-            'viewer_save' => $viewerId,
-            'viewer_follow' => $viewerId,
-        ]);
+        $stmt->execute($params);
 
         $posts = $stmt->fetchAll();
 
@@ -336,6 +380,14 @@ class Post extends BaseModel {
      * Lấy feed với phân trang (limit số bài viết)
      */
     public function getFeedPaginated(int $viewerId = 0, int $limit = 5, int $offset = 0): array {
+        $params = [
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+            'limit' => (int) $limit,
+            'offset' => (int) $offset,
+        ];
+        $blockClause = $this->appendBlockVisibilityClause('p.user_id', $viewerId, $params, 'feed_page');
+
         $stmt = $this->db->prepare("
             SELECT 
                 p.*,
@@ -363,15 +415,11 @@ class Post extends BaseModel {
             JOIN users u ON u.id = p.user_id
             WHERE p.status = 'active'
               AND p.visible = 'public'
+              {$blockClause}
             ORDER BY p.id DESC
             LIMIT :limit OFFSET :offset
         ");
-        $stmt->execute([
-            'viewer_like' => $viewerId,
-            'viewer_save' => $viewerId,
-            'limit' => (int) $limit,
-            'offset' => (int) $offset,
-        ]);
+        $stmt->execute($params);
 
         $posts = $stmt->fetchAll();
 
@@ -398,6 +446,15 @@ class Post extends BaseModel {
         if ($viewerId <= 0) {
             return [];
         }
+
+        $params = [
+            'viewer_like' => $viewerId,
+            'viewer_save' => $viewerId,
+            'viewer_follow' => $viewerId,
+            'limit' => (int) $limit,
+            'offset' => (int) $offset,
+        ];
+        $blockClause = $this->appendBlockVisibilityClause('p.user_id', $viewerId, $params, 'following_page');
 
         $stmt = $this->db->prepare("
             SELECT 
@@ -429,16 +486,11 @@ class Post extends BaseModel {
                   SELECT following_id FROM follows WHERE follower_id = :viewer_follow
               )
               AND p.visible IN ('public', 'followers')
+              {$blockClause}
             ORDER BY p.id DESC
             LIMIT :limit OFFSET :offset
         ");
-        $stmt->execute([
-            'viewer_like' => $viewerId,
-            'viewer_save' => $viewerId,
-            'viewer_follow' => $viewerId,
-            'limit' => (int) $limit,
-            'offset' => (int) $offset,
-        ]);
+        $stmt->execute($params);
 
         $posts = $stmt->fetchAll();
 
@@ -918,6 +970,9 @@ class Post extends BaseModel {
      * @return array<int, array<string, mixed>>
      */
     public function getSavedPostsByUser(int $userId): array {
+        $params = ['user_id' => $userId];
+        $blockClause = $this->appendBlockVisibilityClause('p.user_id', $userId, $params, 'saved');
+
         $stmt = $this->db->prepare("
             SELECT
                 p.id,
@@ -936,9 +991,10 @@ class Post extends BaseModel {
                 LIMIT 1
             )
             WHERE sp.user_id = :user_id
+              {$blockClause}
             ORDER BY p.id DESC
         ");
-        $stmt->execute(['user_id' => $userId]);
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 

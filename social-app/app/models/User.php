@@ -54,6 +54,14 @@ class User extends BaseModel {
 		];
 
 		$where = 'id <> :exclude_id';
+		$where .= ' AND NOT EXISTS (
+			SELECT 1 FROM blocks b1
+			WHERE b1.blocker_id = :exclude_id AND b1.blocked_id = users.id
+		)';
+		$where .= ' AND NOT EXISTS (
+			SELECT 1 FROM blocks b2
+			WHERE b2.blocked_id = :exclude_id AND b2.blocker_id = users.id
+		)';
 		if ($query !== '') {
 			$where .= ' AND (username LIKE :query OR email LIKE :query)';
 			$params['query'] = '%' . $query . '%';

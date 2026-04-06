@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../models/Post.php';
 require_once __DIR__ . '/../models/PostHashtag.php';
 require_once __DIR__ . '/../models/PostMedia.php';
+require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Follow.php';
+require_once __DIR__ . '/../models/Block.php';
 require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
 require_once __DIR__ . '/../helpers/hashtag_helper.php';
@@ -198,9 +201,27 @@ class PostController extends BaseController {
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
         $content = trim((string) ($_POST['content'] ?? ''));
         $commentId = null;
+
+        $post = $postModel->findById($postId);
+        if ($post === null) {
+            http_response_code(404);
+            echo 'Không tìm thấy bài viết';
+            return;
+        }
+
+        $commentGuard = $this->guardCommentPermission($post, $userId);
+        if ($commentGuard !== null) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode($commentGuard);
+                exit;
+            }
+            http_response_code(403);
+            echo '403 Forbidden';
+            return;
+        }
         
         if ($content !== '') {
-            $postModel = new Post();
             $commentId = $postModel->addComment($postId, $userId, $content);
             notify_for_new_comment(notification_db(), $postId, $userId, $commentId, $content);
         }
@@ -234,6 +255,25 @@ class PostController extends BaseController {
         $postModel = new Post();
         $replyId = null;
         $error = null;
+
+        $post = $postModel->findById($postId);
+        if ($post === null) {
+            http_response_code(404);
+            echo 'Không tìm thấy bài viết';
+            return;
+        }
+
+        $commentGuard = $this->guardCommentPermission($post, $userId);
+        if ($commentGuard !== null) {
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode($commentGuard);
+                exit;
+            }
+            http_response_code(403);
+            echo '403 Forbidden';
+            return;
+        }
 
         if ($content !== '' && $postModel->isCommentBelongsToPost($parentCommentId, $postId)) {
             $replyId = $postModel->addReplyToComment($postId, $parentCommentId, $userId, $content);
@@ -481,5 +521,38 @@ class PostController extends BaseController {
             return $plainContent;
         }
         return trim($plainContent . "\n" . implode(' ', $tags));
+    }
+
+    private function guardCommentPermission(array $post, int $viewerId): ?array {
+        $ownerId = (int) ($post['user_id'] ?? 0);
+        if ($ownerId <= 0 || $viewerId <= 0 || $ownerId === $viewerId) {
+            return null;
+        }
+
+        $userModel = new User();
+        $followModel = new Follow();
+        $blockModel = new Block();
+
+        if ($blockModel->isBlocked($viewerId, $ownerId) || $blockModel->isBlocked($ownerId, $viewerId)) {
+            return [
+                'status' => 'error',
+                'ok' => false,
+                'error' => 'blocked_relationship',
+                'message' => 'Không thể bình luận do quan hệ chặn.',
+            ];
+        }
+
+        $owner = $userModel->findById($ownerId);
+        $privacyComment = (string) ($owner['privacy_comment'] ?? 'everyone');
+        if ($privacyComment === 'mutual' && !$followModel->isMutualFollow($viewerId, $ownerId)) {
+            return [
+                'status' => 'error',
+                'ok' => false,
+                'error' => 'comment_privacy_restricted',
+                'message' => 'Người dùng này chỉ cho phép bạn chung bình luận.',
+            ];
+        }
+
+        return null;
     }
 }

@@ -48,6 +48,14 @@ class Follow extends BaseModel {
 		}
 	}
 
+	public function isMutualFollow(int $userAId, int $userBId): bool {
+		if ($userAId <= 0 || $userBId <= 0 || $userAId === $userBId) {
+			return false;
+		}
+
+		return $this->isFollowing($userAId, $userBId) && $this->isFollowing($userBId, $userAId);
+	}
+
 	public function getFollowers(int $userId, int $limit = 10, int $offset = 0): array {
 		try {
 			$limit = max(1, min($limit, 100));

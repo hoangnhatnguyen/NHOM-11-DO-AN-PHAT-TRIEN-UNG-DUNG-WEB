@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Block.php';
 require_once __DIR__ . '/../services/FirebaseService.php';
 require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/media.php';
@@ -14,10 +15,12 @@ class MessageController extends BaseController {
 	];
 
 	private User $userModel;
+	private Block $blockModel;
 	private FirebaseService $firebaseService;
 
 	public function __construct() {
 		$this->userModel = new User();
+		$this->blockModel = new Block();
 		$this->firebaseService = new FirebaseService();
 	}
 
@@ -70,6 +73,10 @@ class MessageController extends BaseController {
 			'firebase' => $this->firebaseService->getWebConfig(),
 			'customToken' => $token,
 			'me' => $this->formatSessionUser(),
+			'blocks' => [
+				'blocked' => $this->blockModel->getBlockedIds($userId),
+				'blockedBy' => $this->blockModel->getBlockedByIds($userId),
+			],
 		]);
 	}
 
@@ -109,7 +116,15 @@ class MessageController extends BaseController {
 		$this->requireAuth();
 
 		try {
+			$sessionUser = $_SESSION['user'] ?? [];
+			$currentUserId = (int) ($sessionUser['id'] ?? 0);
 			$user = $this->userModel->findById($userId);
+			if (
+				$user !== null &&
+				($this->blockModel->isBlocked($currentUserId, $userId) || $this->blockModel->isBlocked($userId, $currentUserId))
+			) {
+				$user = null;
+			}
 		} catch (Throwable $e) {
 			Logger::error('Chat user detail error', [
 				'message' => $e->getMessage(),

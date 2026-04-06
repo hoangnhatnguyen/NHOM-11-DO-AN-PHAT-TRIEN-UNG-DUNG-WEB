@@ -3,16 +3,19 @@
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Follow.php';
 require_once __DIR__ . '/../models/Post.php';
+require_once __DIR__ . '/../models/Block.php';
 require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
 
 class UserController extends BaseController {
     private User $userModel;
     private Follow $followModel;
+    private Block $blockModel;
 
     public function __construct() {
         $this->userModel = new User();
         $this->followModel = new Follow();
+        $this->blockModel = new Block();
     }
 
     public function profileFromQuery(): void
@@ -47,6 +50,9 @@ class UserController extends BaseController {
         $isFollowing = !$isOwner && $viewerId > 0 && $targetId > 0
             ? $this->followModel->isFollowing($viewerId, $targetId)
             : false;
+        $isBlocked = !$isOwner && $viewerId > 0 && $targetId > 0
+            ? $this->blockModel->isBlocked($viewerId, $targetId)
+            : false;
 
         $profilePosts = (new Post())->getPostsByUserForProfile($targetId, $viewerId);
 
@@ -56,6 +62,7 @@ class UserController extends BaseController {
             'badges'=>$badges,
             'isOwner'=> $isOwner,
             'isFollowing'=>$isFollowing,
+            'isBlocked' => $isBlocked,
             'profilePosts' => $profilePosts,
             'currentUser'=>$_SESSION['user'],
             'csrfToken' => $this->csrfToken(),
@@ -233,11 +240,38 @@ class UserController extends BaseController {
             return;
         }
 
+        $targetUser = $this->userModel->findById($targetId);
+        if ($targetUser === null) {
+            http_response_code(404);
+            echo json_encode(['error' => 'user_not_found'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if (
+            $this->blockModel->isBlocked($uid, $targetId) ||
+            $this->blockModel->isBlocked($targetId, $uid)
+        ) {
+            http_response_code(403);
+            echo json_encode(['error' => 'blocked_relationship'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         if ($action === 'follow') {
             if ($this->followModel->isFollowing($uid, $targetId)) {
                 echo json_encode(['success' => true, 'already' => true], JSON_UNESCAPED_UNICODE);
                 return;
             }
+
+            $privacyFollow = (string) ($targetUser['privacy_follow'] ?? 'everyone');
+            if ($privacyFollow === 'mutual' && !$this->followModel->isFollowing($targetId, $uid)) {
+                http_response_code(403);
+                echo json_encode([
+                    'error' => 'follow_privacy_restricted',
+                    'message' => 'Người dùng này chỉ cho phép người họ đang theo dõi theo dõi lại.',
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
             $ok = $this->followModel->follow($uid, $targetId);
             if (!$ok) {
                 http_response_code(400);

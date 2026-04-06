@@ -2,6 +2,8 @@ import {
 	doc,
 	setDoc,
 	getDoc,
+	addDoc,
+	collection,
 	onSnapshot,
 	serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -26,6 +28,9 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			incomingData: null,
 			remoteCandidatesSeen: 0,
 			lastVideoCallStatus: '',
+			ringtoneInterval: null,
+			ringtoneAudioContext: null,
+			sentOutcomeKeys: new Set(),
 		};
 	}
 
@@ -38,7 +43,55 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 	}
 
 	function isCallTerminal(status) {
-		return ['ended', 'rejected', 'cancelled', 'busy'].includes(String(status || ''));
+		return ['ended', 'rejected', 'cancelled', 'busy', 'no_answer'].includes(String(status || ''));
+	}
+
+	function buildCallOutcomeText(status) {
+		const normalized = String(status || '');
+		const map = {
+			ended: 'Cuộc gọi đã kết thúc.',
+			rejected: 'Người nhận đã từ chối cuộc gọi.',
+			no_answer: 'Người nhận không trả lời.',
+			cancelled: 'Cuộc gọi đã bị hủy.',
+			busy: 'Người nhận đang bận.',
+		};
+		return map[normalized] || '';
+	}
+
+	async function pushCallOutcomeMessage(conversationId, status, callCreatedAt = null) {
+		if (!conversationId || !state.db) return;
+
+		const text = buildCallOutcomeText(status);
+		if (!text) return;
+
+		if (!state.call.sentOutcomeKeys) {
+			state.call.sentOutcomeKeys = new Set();
+		}
+
+		const key = `${String(conversationId)}:${String(callCreatedAt || 'na')}:${String(status)}`;
+		if (state.call.sentOutcomeKeys.has(key)) {
+			return;
+		}
+		state.call.sentOutcomeKeys.add(key);
+
+		if (state.call.sentOutcomeKeys.size > 120) {
+			state.call.sentOutcomeKeys.clear();
+			state.call.sentOutcomeKeys.add(key);
+		}
+
+		await addDoc(collection(state.db, 'conversations', String(conversationId), 'messages'), {
+			senderId: String(state.me.id),
+			type: 'text',
+			text,
+			createdAt: serverTimestamp(),
+		}).catch(() => {});
+
+		await setDoc(getConversationDocRef(conversationId), {
+			lastMessageText: text,
+			lastMessageType: 'text',
+			lastSenderId: Number(state.me.id),
+			updatedAt: serverTimestamp(),
+		}, { merge: true }).catch(() => {});
 	}
 
 	function clearCallTimeout() {
@@ -54,7 +107,7 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 		callTimeoutHandle = window.setTimeout(() => {
 			if (state.call.active && state.call.lastVideoCallState?.status === 'ringing') {
 				console.warn('Call ringing timeout - no answer after 60 seconds');
-				endActiveCall('ended').catch(() => {});
+				endActiveCall('no_answer').catch(() => {});
 			}
 		}, 60_000);
 	}
@@ -98,11 +151,75 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			ui.incomingCallText.textContent = `${callerName} đang gọi video cho bạn.`;
 		}
 		ui.incomingCallCard.classList.remove('d-none');
+		startIncomingRingtone();
 	}
 
 	function hideIncomingCallCard() {
+		stopIncomingRingtone();
 		if (!ui.incomingCallCard) return;
 		ui.incomingCallCard.classList.add('d-none');
+	}
+
+	function playRingtoneBurst() {
+		const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+		if (!AudioContextClass) return;
+
+		if (!state.call.ringtoneAudioContext) {
+			state.call.ringtoneAudioContext = new AudioContextClass();
+		}
+
+		const ctx = state.call.ringtoneAudioContext;
+		if (!ctx) return;
+
+		if (ctx.state === 'suspended') {
+			ctx.resume().catch(() => {});
+		}
+
+		const scheduleTone = (offset, duration = 0.16, frequency = 880) => {
+			const now = ctx.currentTime;
+			const startAt = now + offset;
+			const stopAt = startAt + duration;
+
+			const oscillator = ctx.createOscillator();
+			const gainNode = ctx.createGain();
+
+			oscillator.type = 'sine';
+			oscillator.frequency.setValueAtTime(frequency, startAt);
+
+			gainNode.gain.setValueAtTime(0.0001, startAt);
+			gainNode.gain.exponentialRampToValueAtTime(0.08, startAt + 0.025);
+			gainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+
+			oscillator.connect(gainNode);
+			gainNode.connect(ctx.destination);
+
+			oscillator.start(startAt);
+			oscillator.stop(stopAt + 0.03);
+		};
+
+		scheduleTone(0, 0.15, 880);
+		scheduleTone(0.24, 0.15, 988);
+	}
+
+	function startIncomingRingtone() {
+		if (state.call.ringtoneInterval) return;
+
+		playRingtoneBurst();
+		state.call.ringtoneInterval = window.setInterval(() => {
+			playRingtoneBurst();
+		}, 1500);
+	}
+
+	function stopIncomingRingtone() {
+		if (state.call.ringtoneInterval) {
+			window.clearInterval(state.call.ringtoneInterval);
+			state.call.ringtoneInterval = null;
+		}
+
+		const ctx = state.call.ringtoneAudioContext;
+		if (ctx && ctx.state === 'running') {
+			ctx.suspend().catch(() => {});
+		}
 	}
 
 	function setCallOverlayVisible(show) {
@@ -409,6 +526,7 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 					cancelled: 'Đã hủy cuộc gọi',
 					busy: 'Người dùng đang bận',
 					ended: 'Cuộc gọi đã kết thúc',
+					no_answer: 'Người nhận không trả lời',
 				};
 				updateCallStatusLabel(map[status] || 'Cuộc gọi đã kết thúc');
 				clearCallTimeout();
@@ -660,6 +778,8 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			},
 		}, { merge: true }).catch(() => {});
 
+		await pushCallOutcomeMessage(incoming.conversationId, 'rejected', incoming.videoCall?.createdAt || null);
+
 		hideIncomingCallCard();
 		state.call.incomingData = null;
 	}
@@ -685,6 +805,8 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 		}, { merge: true }).catch((err) => {
 			console.error('[VIDEO_CALL] Error updating call status in Firebase:', err);
 		});
+
+		await pushCallOutcomeMessage(callId, status, state.call.lastVideoCallState?.createdAt || null);
 
 		console.log('[VIDEO_CALL] Calling cleanupActiveCall');
 		cleanupActiveCall();

@@ -8,6 +8,7 @@ import {
 
 export function createVideoCallFeature({ state, ui, startConversationByUserId, toast }) {
 	let eventsBound = false;
+	let callTimeoutHandle = null;
 
 	if (!state.call) {
 		state.call = {
@@ -38,6 +39,24 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 
 	function isCallTerminal(status) {
 		return ['ended', 'rejected', 'cancelled', 'busy'].includes(String(status || ''));
+	}
+
+	function clearCallTimeout() {
+		if (callTimeoutHandle) {
+			window.clearTimeout(callTimeoutHandle);
+			callTimeoutHandle = null;
+		}
+	}
+
+	function setupCallTimeout() {
+		clearCallTimeout();
+		// 60 second timeout for ringing phase
+		callTimeoutHandle = window.setTimeout(() => {
+			if (state.call.active && state.call.lastVideoCallState?.status === 'ringing') {
+				console.warn('Call ringing timeout - no answer after 60 seconds');
+				endActiveCall('ended').catch(() => {});
+			}
+		}, 60_000);
 	}
 
 	function getVideoCallSupportIssue() {
@@ -88,7 +107,10 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 
 	function setCallOverlayVisible(show) {
 		if (!ui.callOverlay) return;
+		const isCurrentlyHidden = ui.callOverlay.classList.contains('d-none');
+		console.log('[VIDEO_CALL] setCallOverlayVisible:', show, '| currently hidden:', isCurrentlyHidden);
 		ui.callOverlay.classList.toggle('d-none', !show);
+		console.log('[VIDEO_CALL] After toggle, hidden:', ui.callOverlay.classList.contains('d-none'));
 	}
 
 	function updateCallStatusLabel(message) {
@@ -187,44 +209,78 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 	}
 
 	function createPeerConnection(conversationId, peerId) {
+		console.log('[VIDEO_CALL] createPeerConnection for conversationId:', conversationId, 'peerId:', peerId);
 		const pc = new RTCPeerConnection({ iceServers: state.rtcIceServers || [] });
 
 		const localStream = state.call.localStream;
 		if (localStream) {
+			console.log('[VIDEO_CALL] Adding local stream tracks:', localStream.getTracks().length);
 			localStream.getTracks().forEach((track) => {
 				pc.addTrack(track, localStream);
 			});
 		}
 
 		pc.ontrack = (event) => {
+			console.log('[VIDEO_CALL] ontrack event received');
 			const [stream] = event.streams;
 			if (!stream) return;
+			console.log('[VIDEO_CALL] Remote stream received, tracks:', stream.getTracks().length);
 			state.call.remoteStream = stream;
 			renderRemoteVideo();
 		};
 
 		pc.onicecandidate = (event) => {
-			if (!event.candidate) return;
+			if (!event.candidate) {
+				console.log('[VIDEO_CALL] ICE candidate gathering complete');
+				return;
+			}
+			console.log('[VIDEO_CALL] New ICE candidate');
 			pushIceCandidate(conversationId, peerId, event.candidate);
+		};
+
+		pc.oncandidateerror = (event) => {
+			console.warn('[VIDEO_CALL] ICE candidate error:', event.errorText);
 		};
 
 		pc.onconnectionstatechange = () => {
 			const status = pc.connectionState;
+			console.log('[VIDEO_CALL] onconnectionstatechange:', status, '| call.active:', state.call.active, '| lastStatus:', state.call.lastVideoCallState?.status);
 			if (status === 'connected') {
+				console.log('[VIDEO_CALL] Connection CONNECTED');
 				updateCallStatusLabel('Đã kết nối');
 				return;
 			}
 
 			if (status === 'disconnected') {
+				console.log('[VIDEO_CALL] Connection DISCONNECTED');
 				updateCallStatusLabel('Mất kết nối...');
 				return;
 			}
 
-			if (status === 'failed' || status === 'closed') {
-				endActiveCall('ended').catch(() => {});
+			if (status === 'failed') {
+				console.warn('[VIDEO_CALL] Connection FAILED');
+				// Only end call if we're already in 'active' status
+				// Don't end during 'ringing' phase as it may recover
+				if (state.call.lastVideoCallState?.status === 'active') {
+					console.warn('[VIDEO_CALL] Failed after being active - ending call');
+					endActiveCall('ended').catch(() => {});
+				} else {
+					console.warn('[VIDEO_CALL] Failed during setup, waiting for recovery');
+					updateCallStatusLabel('Kết nối thất bại, đang thử lại...');
+				}
+				return;
+			}
+
+			if (status === 'closed') {
+				console.log('[VIDEO_CALL] Connection CLOSED');
+				if (state.call.active) {
+					console.log('[VIDEO_CALL] Call active, ending call');
+					endActiveCall('ended').catch(() => {});
+				}
 			}
 		};
 
+		console.log('[VIDEO_CALL] PeerConnection created');
 		return pc;
 	}
 
@@ -235,6 +291,10 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			? (Array.isArray(videoCall.calleeCandidates) ? videoCall.calleeCandidates : [])
 			: (Array.isArray(videoCall.callerCandidates) ? videoCall.callerCandidates : []);
 
+		if (!state.call.processedCandidateIds) {
+			state.call.processedCandidateIds = new Set();
+		}
+
 		while (state.call.remoteCandidatesSeen < remoteList.length) {
 			const candidate = remoteList[state.call.remoteCandidatesSeen];
 			state.call.remoteCandidatesSeen += 1;
@@ -242,6 +302,13 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			if (!candidate?.candidate) {
 				continue;
 			}
+
+			// Use createdAt as unique identifier to prevent duplicate processing
+			const candidateId = `${candidate.createdAt}_${candidate.candidate}`;
+			if (state.call.processedCandidateIds.has(candidateId)) {
+				continue;
+			}
+			state.call.processedCandidateIds.add(candidateId);
 
 			state.call.pc.addIceCandidate(new RTCIceCandidate({
 				candidate: String(candidate.candidate || ''),
@@ -252,38 +319,91 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 	}
 
 	function subscribeCallDoc(conversationId) {
+		console.log('[VIDEO_CALL] subscribeCallDoc for:', conversationId);
 		if (state.call.callDocUnsub) {
 			state.call.callDocUnsub();
 			state.call.callDocUnsub = null;
 		}
 
 		state.call.remoteCandidatesSeen = 0;
+		state.call.processedCandidateIds = new Set();
+		let callCreatedAt = null; // Track when this call was initiated
+		
 		state.call.callDocUnsub = onSnapshot(getConversationDocRef(conversationId), async (snapshot) => {
-			if (!snapshot.exists()) return;
+			if (!snapshot.exists()) {
+				console.log('[VIDEO_CALL] Call doc does not exist');
+				return;
+			}
 
 			const data = snapshot.data() || {};
 			const videoCall = getVideoCallData(data);
-			if (!videoCall) return;
+			if (!videoCall) {
+				console.log('[VIDEO_CALL] No videoCall data in snapshot');
+				return;
+			}
+
+			// On first snapshot, record the call's createdAt timestamp
+			if (!callCreatedAt && videoCall.createdAt) {
+				callCreatedAt = videoCall.createdAt;
+				console.log('[VIDEO_CALL] Recording call createdAt:', callCreatedAt);
+			}
+
+			// Verify this is the same call by checking createdAt
+			// If createdAt is very different, it's a stale call, ignore it
+			if (callCreatedAt && videoCall.createdAt && Math.abs(videoCall.createdAt - callCreatedAt) > 5000) {
+				console.warn('[VIDEO_CALL] Ignoring stale call data (createdAt mismatch)');
+				return;
+			}
+
 			state.call.lastVideoCallState = videoCall;
 
 			const status = String(videoCall.status || '');
+			console.log('[VIDEO_CALL] Call status from Firestore:', status, '| call.active:', state.call.active, '| createdAt match:', !callCreatedAt || !videoCall.createdAt || Math.abs(videoCall.createdAt - callCreatedAt) <= 5000);
+
+			// IMPORTANT: For callers, verify the offer matches to avoid processing stale calls
+			if (state.call.role === 'caller' && !state.call.pc?.currentRemoteDescription) {
+				// First snapshot should contain the offer we just sent
+				const hasOffer = !!videoCall.offer?.sdp;
+				if (!hasOffer) {
+					console.warn('[VIDEO_CALL] No offer in Firestore yet, waiting...');
+					return;
+				}
+			}
+
+			// Setup timeout for ringing phase (for callers)
+			if (status === 'ringing' && state.call.role === 'caller') {
+				console.log('[VIDEO_CALL] Setting up call timeout for ringing');
+				setupCallTimeout();
+				updateCallStatusLabel('Đang đổ chuông...');
+			}
+
+			// Clear timeout when transitioning away from ringing
+			if (status !== 'ringing') {
+				console.log('[VIDEO_CALL] Clearing call timeout, status is now:', status);
+				clearCallTimeout();
+			}
 
 			if (state.call.role === 'caller' && videoCall.answer?.sdp && state.call.pc && !state.call.pc.currentRemoteDescription) {
-				await state.call.pc.setRemoteDescription(new RTCSessionDescription(videoCall.answer)).catch(() => {});
-				updateCallStatusLabel('Đã kết nối');
+				console.log('[VIDEO_CALL] Setting remote description from answer');
+				try {
+					await state.call.pc.setRemoteDescription(new RTCSessionDescription(videoCall.answer));
+					updateCallStatusLabel('Đã kết nối');
+				} catch (error) {
+					console.error('[VIDEO_CALL] Error setting remote description:', error);
+				}
 			}
 
 			applyRemoteCandidates(videoCall);
 
-			if (status === 'ringing' && state.call.role === 'caller') {
-				updateCallStatusLabel('Đang đổ chuông...');
-			}
-
 			if (status === 'active') {
+				console.log('[VIDEO_CALL] Call is now ACTIVE');
 				updateCallStatusLabel('Đã kết nối');
 			}
 
-			if (isCallTerminal(status) && state.call.active && state.call.currentCallId === conversationId) {
+			// IMPORTANT: Only process terminal status if the timestamps match to avoid stale data
+			const isStaleCall = callCreatedAt && videoCall.createdAt && Math.abs(videoCall.createdAt - callCreatedAt) > 5000;
+			if (isCallTerminal(status) && state.call.active && state.call.currentCallId === conversationId && !isStaleCall) {
+				console.log('[VIDEO_CALL] Call is TERMINAL with status:', status);
 				const map = {
 					rejected: 'Đã bị từ chối',
 					cancelled: 'Đã hủy cuộc gọi',
@@ -291,7 +411,9 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 					ended: 'Cuộc gọi đã kết thúc',
 				};
 				updateCallStatusLabel(map[status] || 'Cuộc gọi đã kết thúc');
+				clearCallTimeout();
 				window.setTimeout(() => {
+					console.log('[VIDEO_CALL] Cleaning up after call end');
 					cleanupActiveCall();
 				}, 900);
 			}
@@ -335,18 +457,22 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 	}
 
 	async function startVideoCall() {
+		console.log('[VIDEO_CALL] startVideoCall triggered');
 		const supportIssue = getVideoCallSupportIssue();
 		if (supportIssue) {
+			console.warn('[VIDEO_CALL] Support issue:', supportIssue);
 			toast?.(supportIssue);
 			return;
 		}
 
 		if (!state.activeConversationId || !state.activePeer?.id) {
+			console.warn('[VIDEO_CALL] No active conversation or peer');
 			toast?.('Hãy chọn cuộc trò chuyện trước khi gọi.');
 			return;
 		}
 
 		if (state.call.active) {
+			console.log('[VIDEO_CALL] Call already active, showing overlay');
 			setCallOverlayVisible(true);
 			return;
 		}
@@ -364,6 +490,9 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 				toast?.('Cuộc gọi đang diễn ra. Vui lòng thử lại sau.');
 				return;
 			}
+			// Clear old videoCall data BEFORE starting new call
+			console.log('[VIDEO_CALL] Clearing old videoCall data before new call');
+			await setDoc(callRef, { videoCall: {} }, { merge: true }).catch(() => {});
 		}
 
 		let localStream;
@@ -385,40 +514,51 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			localStream,
 		});
 
+		console.log('[VIDEO_CALL] Setting overlay visible');
 		setCallOverlayVisible(true);
 		updateCallStatusLabel('Đang đổ chuông...');
 		renderLocalVideo();
 
+		console.log('[VIDEO_CALL] Creating peer connection');
 		const pc = createPeerConnection(conversationId, peerId);
 		state.call.pc = pc;
-		subscribeCallDoc(conversationId);
 
-		const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-		await pc.setLocalDescription(offer);
+		try {
+			const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+			await pc.setLocalDescription(offer);
 
-		await setDoc(callRef, {
-			videoCall: {
-				conversationId,
-				callerId: Number(state.me.id),
-				callerName: String(state.me.username || 'Người dùng'),
-				calleeId: Number(peerId),
-				calleeName: String(state.activePeer.username || 'Người dùng'),
-				status: 'ringing',
-				offer: {
-					type: offer.type,
-					sdp: offer.sdp,
+			console.log('[VIDEO_CALL] Sending offer to Firebase');
+			await setDoc(callRef, {
+				videoCall: {
+					conversationId,
+					callerId: Number(state.me.id),
+					callerName: String(state.me.username || 'Người dùng'),
+					calleeId: Number(peerId),
+					calleeName: String(state.activePeer.username || 'Người dùng'),
+					status: 'ringing',
+					offer: {
+						type: offer.type,
+						sdp: offer.sdp,
+					},
+					answer: null,
+					callerCandidates: [],
+					calleeCandidates: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					endedAt: null,
+					endedBy: null,
 				},
-				answer: null,
-				callerCandidates: [],
-				calleeCandidates: [],
-				createdAt: Date.now(),
-				updatedAt: Date.now(),
-				endedAt: null,
-				endedBy: null,
-			},
-		}, { merge: true });
+			}, { merge: true });
 
-		state.call.currentCallId = conversationId;
+			console.log('[VIDEO_CALL] Subscribing to call doc AFTER setDoc');
+			subscribeCallDoc(conversationId);
+
+			console.log('[VIDEO_CALL] Call initiated successfully, currentCallId:', conversationId);
+			state.call.currentCallId = conversationId;
+		} catch (error) {
+			console.error('[VIDEO_CALL] Error starting video call:', error);
+			await endActiveCall('ended').catch(() => {});
+		}
 	}
 
 	async function acceptIncomingCall() {
@@ -462,7 +602,7 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 			role: 'callee',
 			conversationId: incoming.conversationId,
 			peerId,
-			peerName: incoming.callerName || state.activePeer?.username || 'Người dùng',
+			peerName: incoming.callerName || 'Người dùng',
 			localStream,
 		});
 
@@ -474,27 +614,32 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 		state.call.pc = pc;
 		subscribeCallDoc(incoming.conversationId);
 
-		await pc.setRemoteDescription(new RTCSessionDescription(incoming.offer));
-		const answer = await pc.createAnswer();
-		await pc.setLocalDescription(answer);
+		try {
+			await pc.setRemoteDescription(new RTCSessionDescription(incoming.offer));
+			const answer = await pc.createAnswer();
+			await pc.setLocalDescription(answer);
 
-		await setDoc(getConversationDocRef(incoming.conversationId), {
-			videoCall: {
-				...incoming.videoCall,
-				status: 'active',
-				answer: {
-					type: answer.type,
-					sdp: answer.sdp,
+			await setDoc(getConversationDocRef(incoming.conversationId), {
+				videoCall: {
+					...incoming.videoCall,
+					status: 'active',
+					answer: {
+						type: answer.type,
+						sdp: answer.sdp,
+					},
+					callerCandidates: incoming.videoCall?.callerCandidates || [],
+					calleeCandidates: incoming.videoCall?.calleeCandidates || [],
+					answeredAt: Date.now(),
+					updatedAt: Date.now(),
 				},
-				callerCandidates: incoming.videoCall?.callerCandidates || [],
-				calleeCandidates: incoming.videoCall?.calleeCandidates || [],
-				answeredAt: Date.now(),
-				updatedAt: Date.now(),
-			},
-		}, { merge: true });
+			}, { merge: true });
 
-		state.call.currentCallId = incoming.conversationId;
-		state.call.incomingData = null;
+			state.call.currentCallId = incoming.conversationId;
+			state.call.incomingData = null;
+		} catch (error) {
+			console.error('Error accepting call:', error);
+			await endActiveCall('ended').catch(() => {});
+		}
 	}
 
 	async function declineIncomingCall() {
@@ -520,12 +665,15 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 	}
 
 	async function endActiveCall(status = 'ended') {
+		console.log('[VIDEO_CALL] endActiveCall called with status:', status, '| call.active:', state.call.active, '| currentCallId:', state.call.currentCallId);
 		if (!state.call.active || !state.call.currentCallId) {
+			console.log('[VIDEO_CALL] Call not active or no currentCallId, cleaning up');
 			cleanupActiveCall();
 			return;
 		}
 
 		const callId = String(state.call.currentCallId);
+		console.log('[VIDEO_CALL] Updating Firebase with status:', status);
 		await setDoc(getConversationDocRef(callId), {
 			videoCall: {
 				...(state.call.lastVideoCallState || {}),
@@ -534,32 +682,43 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 				endedAt: Date.now(),
 				updatedAt: Date.now(),
 			},
-		}, { merge: true }).catch(() => {});
+		}, { merge: true }).catch((err) => {
+			console.error('[VIDEO_CALL] Error updating call status in Firebase:', err);
+		});
 
+		console.log('[VIDEO_CALL] Calling cleanupActiveCall');
 		cleanupActiveCall();
 	}
 
 	function cleanupActiveCall() {
+		console.log('[VIDEO_CALL] cleanupActiveCall started');
 		hideIncomingCallCard();
+		clearCallTimeout();
 
 		if (state.call.callDocUnsub) {
+			console.log('[VIDEO_CALL] Unsubscribing from callDoc');
 			state.call.callDocUnsub();
 			state.call.callDocUnsub = null;
 		}
 
 		if (state.call.candidateUnsub) {
+			console.log('[VIDEO_CALL] Unsubscribing from candidates');
 			state.call.candidateUnsub();
 			state.call.candidateUnsub = null;
 		}
 
 		if (state.call.pc) {
+			console.log('[VIDEO_CALL] Closing peer connection');
 			state.call.pc.onicecandidate = null;
 			state.call.pc.ontrack = null;
+			state.call.pc.onconnectionstatechange = null;
+			state.call.pc.oncandidateerror = null;
 			state.call.pc.close();
 			state.call.pc = null;
 		}
 
 		if (state.call.localStream) {
+			console.log('[VIDEO_CALL] Stopping local stream tracks');
 			state.call.localStream.getTracks().forEach((track) => track.stop());
 			state.call.localStream = null;
 		}
@@ -578,8 +737,10 @@ export function createVideoCallFeature({ state, ui, startConversationByUserId, t
 
 		if (ui.localVideo) ui.localVideo.srcObject = null;
 		if (ui.remoteVideo) ui.remoteVideo.srcObject = null;
+		console.log('[VIDEO_CALL] Hiding call overlay');
 		setCallOverlayVisible(false);
 		updateCallStatusLabel('');
+		console.log('[VIDEO_CALL] cleanupActiveCall completed');
 	}
 
 	function setupIncomingCallListener() {

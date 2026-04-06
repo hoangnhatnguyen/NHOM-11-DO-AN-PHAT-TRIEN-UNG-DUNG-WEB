@@ -389,17 +389,24 @@ const addBtn = document.getElementById("addBadgeBtn");
 const popup = document.getElementById("badgePopup");
 const searchInput = document.getElementById("badgeSearch");
 const resultBox = document.getElementById("badgeResult");
+let badgeSearchTimer = null;
+let badgeSearchController = null;
+let badgeSearchSeq = 0;
+let badgeSearchLastAppliedSeq = 0;
 
 addBtn?.addEventListener("click", () => {
     popup.classList.remove("d-none");
     searchInput.focus();
+    if (resultBox && resultBox.innerHTML.trim() === "") {
+        resultBox.innerHTML = `<div class="text-muted small p-2">Nhập để tìm hoặc tạo badge mới.</div>`;
+    }
 });
 
 function renderBadgeSearchResult(list, q) {
     let html = "";
     const safeQ = escHtml(q);
     const attrQ = escAttr(q);
-    const hasExact = list.some((b) => String(b.name || "").toLowerCase() === q.toLowerCase());
+    const hasExact = list.some((b) => String(b.name || "") === q);
 
     if (q !== "" && !hasExact) {
         html += `
@@ -433,18 +440,52 @@ function renderBadgeSearchResult(list, q) {
 searchInput?.addEventListener("input", () => {
     const q = searchInput.value.trim();
 
-    fetch(BASE + "/user-api/search-badge?q=" + encodeURIComponent(q), { credentials: "same-origin" })
-        .then((r) => {
-            if (!r.ok) throw new Error("search_failed");
-            return r.json();
+    if (badgeSearchTimer) {
+        clearTimeout(badgeSearchTimer);
+        badgeSearchTimer = null;
+    }
+    if (badgeSearchController) {
+        badgeSearchController.abort();
+        badgeSearchController = null;
+    }
+
+    if (q === "") {
+        if (resultBox) {
+            resultBox.innerHTML = `<div class="text-muted small p-2">Nhập để tìm hoặc tạo badge mới.</div>`;
+        }
+        return;
+    }
+
+    if (resultBox) {
+        resultBox.innerHTML = `<div class="text-muted small p-2">Đang tìm...</div>`;
+    }
+
+    badgeSearchTimer = setTimeout(() => {
+        const seq = ++badgeSearchSeq;
+        badgeSearchController = new AbortController();
+
+        fetch(BASE + "/user-api/search-badge?q=" + encodeURIComponent(q), {
+            credentials: "same-origin",
+            signal: badgeSearchController.signal,
         })
-        .then((res) => {
-            const list = Array.isArray(res.data) ? res.data : [];
-            renderBadgeSearchResult(list, q);
-        })
-        .catch(() => {
-            resultBox.innerHTML = `<div class="text-danger small p-2">Không tải được kết quả.</div>`;
-        });
+            .then((r) => {
+                if (!r.ok) throw new Error("search_failed");
+                return r.json();
+            })
+            .then((res) => {
+                if (seq < badgeSearchLastAppliedSeq) return;
+                badgeSearchLastAppliedSeq = seq;
+                const list = Array.isArray(res.data) ? res.data : [];
+                renderBadgeSearchResult(list, q);
+            })
+            .catch((err) => {
+                if (err?.name === "AbortError") return;
+                resultBox.innerHTML = `<div class="text-danger small p-2">Không tải được kết quả.</div>`;
+            })
+            .finally(() => {
+                badgeSearchController = null;
+            });
+    }, 180);
 });
 
 searchInput?.addEventListener("keydown", (e) => {
@@ -478,8 +519,8 @@ function addBadge(name) {
             const badgeName = String(res.badge?.name || name).trim();
 
             const duplicated = Array.from(badgeArea.querySelectorAll(".badge-item")).some((el) => {
-                const n = String(el.textContent || "").trim().toLowerCase();
-                return n === badgeName.toLowerCase();
+                const n = String(el.textContent || "").trim();
+                return n === badgeName;
             });
             if (duplicated) {
                 showProfileNotice("Badge đã tồn tại.", "info");
@@ -499,6 +540,14 @@ function addBadge(name) {
             if (popup) popup.classList.add("d-none");
             if (searchInput) searchInput.value = "";
             if (resultBox) resultBox.innerHTML = "";
+            if (badgeSearchTimer) {
+                clearTimeout(badgeSearchTimer);
+                badgeSearchTimer = null;
+            }
+            if (badgeSearchController) {
+                badgeSearchController.abort();
+                badgeSearchController = null;
+            }
             showProfileNotice("Đã thêm badge.");
         })
         .catch(() => showProfileNotice("Không thể thêm badge.", "danger"));
@@ -509,6 +558,14 @@ document.addEventListener("click", (e) => {
 
     if (!popup.contains(e.target) && e.target !== addBtn) {
         popup.classList.add("d-none");
+        if (badgeSearchTimer) {
+            clearTimeout(badgeSearchTimer);
+            badgeSearchTimer = null;
+        }
+        if (badgeSearchController) {
+            badgeSearchController.abort();
+            badgeSearchController = null;
+        }
     }
 });
 
@@ -618,6 +675,7 @@ function loadActivity() {
                 const data = await r.json();
                 if (r.ok && data && data.success) {
                     setFollowingUi(true);
+                    updateProfileCount("followersBtn", 1);
                 } else if (data?.message) {
                     showProfilePopup(data.message);
                 } else {
@@ -651,6 +709,7 @@ function loadActivity() {
             const data = await r.json();
             if (data && data.success) {
                 setFollowingUi(false);
+                updateProfileCount("followersBtn", -1);
                 if (modalEl && typeof bootstrap !== "undefined") {
                     bootstrap.Modal.getInstance(modalEl)?.hide();
                 }
@@ -687,6 +746,10 @@ function loadActivity() {
 
     async function submitBlockToggle() {
         const isBlocked = btn.getAttribute("data-blocked") === "true";
+        const followBtn = document.getElementById("profileFollowBtn");
+        const wasFollowing = followBtn
+            ? followBtn.getAttribute("data-following") === "true"
+            : false;
         const endpoint = isBlocked ? "/setting-api/unblock" : "/setting-api/block";
         btn.disabled = true;
         if (confirmBtn) confirmBtn.disabled = true;
@@ -706,12 +769,14 @@ function loadActivity() {
             setBlockedUi(!isBlocked);
             const messageLink = document.querySelector('a[href*="/messages?user="], a[aria-disabled="true"][title*="chặn"]');
             if (!isBlocked) {
-                const followBtn = document.getElementById("profileFollowBtn");
                 if (followBtn) {
                     followBtn.setAttribute("data-following", "false");
                     followBtn.textContent = "Theo dõi";
                     followBtn.classList.remove("btn-brand-follow-outline");
                     followBtn.classList.add("btn-brand-follow");
+                    if (wasFollowing) {
+                        updateProfileCount("followersBtn", -1);
+                    }
                 }
                 if (messageLink) {
                     messageLink.setAttribute("href", "#");

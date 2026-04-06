@@ -377,11 +377,11 @@ public function addBadge(): void {
     $badgeModel = new Badge();
     $userBadgeModel = new UserBadge();
 
-    $list = $badgeModel->search($name);
+    $exact = $badgeModel->findExactByName($name);
 
-    if (count($list) > 0) {
-        $badgeId = (int) ($list[0]['id'] ?? 0);
-        $badgeName = (string) ($list[0]['name'] ?? $name);
+    if ($exact !== null) {
+        $badgeId = (int) ($exact['id'] ?? 0);
+        $badgeName = (string) ($exact['name'] ?? $name);
     } else {
         $badgeId = (int) $badgeModel->create($name);
         $badgeName = $name;

@@ -59,6 +59,7 @@ if (!root) {
 		peerMetaCache: new Map(),
 		peerMetaPending: new Set(),
 		peerMetaNamePending: new Set(),
+		rtcIceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 	};
 
 	const ui = {
@@ -71,6 +72,7 @@ if (!root) {
 		headerAvatar: document.getElementById('chatHeaderAvatar'),
 		headerStatus: document.getElementById('chatHeaderStatus'),
 		detailPanel: document.getElementById('chatDetailPanel'),
+		closeDetailBtn: document.getElementById('chatCloseDetailBtn'),
 		detailName: document.getElementById('chatDetailName'),
 		detailHandle: document.getElementById('chatDetailHandle'),
 		detailStatus: document.getElementById('chatDetailStatus'),
@@ -89,9 +91,38 @@ if (!root) {
 		confirmDeleteBtn: document.getElementById('chatConfirmDeleteBtn'),
 		openDetailBtn: document.getElementById('chatOpenDetailBtn'),
 		newConversationBtn: document.getElementById('chatNewConversationBtn'),
+		videoCallBtn: document.getElementById('chatVideoCallBtn'),
+		incomingCallCard: document.getElementById('chatIncomingCallCard'),
+		incomingCallText: document.getElementById('chatIncomingCallText'),
+		acceptCallBtn: document.getElementById('chatAcceptCallBtn'),
+		declineCallBtn: document.getElementById('chatDeclineCallBtn'),
+		callOverlay: document.getElementById('chatCallOverlay'),
+		remoteVideo: document.getElementById('chatRemoteVideo'),
+		localVideo: document.getElementById('chatLocalVideo'),
+		callPeerName: document.getElementById('chatCallPeerName'),
+		callStatus: document.getElementById('chatCallStatus'),
+		toggleMicBtn: document.getElementById('chatToggleMicBtn'),
+		toggleCamBtn: document.getElementById('chatToggleCamBtn'),
+		endCallBtn: document.getElementById('chatEndCallBtn'),
+		minimizeCallBtn: document.getElementById('chatMinimizeCallBtn'),
+		mobileBackBtn: document.getElementById('chatMobileBackBtn'),
 	};
 
 	const deleteModal = new bootstrap.Modal('#chatDeleteModal');
+	const videoCallModulePromise = import(`./video-call.js?v=${encodeURIComponent(root.dataset.jsVersion || '')}`);
+	let videoCall = null;
+
+	const videoCallBridge = {
+		bindEvents: () => videoCall?.bindEvents(),
+		setupIncomingCallListener: () => videoCall?.setupIncomingCallListener(),
+		syncConversationSnapshots: (conversations) => videoCall?.syncConversationSnapshots(conversations),
+		syncConversationAvailability: (conversation) => videoCall?.syncConversationAvailability(conversation),
+		endOnUnload: () => videoCall?.endOnUnload(),
+	};
+
+	videoCallModulePromise.catch((error) => {
+		console.error(error);
+	});
 
 	init().catch((error) => {
 		console.error(error);
@@ -148,6 +179,15 @@ if (!root) {
 	}
 
 	async function init() {
+		const { createVideoCallFeature } = await videoCallModulePromise;
+		videoCall = createVideoCallFeature({
+			state,
+			ui,
+			startConversationByUserId,
+			toast,
+		});
+		videoCallBridge.bindEvents();
+
 		bindStaticEvents();
 		setDetailPanelOpen(false);
 		toggleEmptyState(true);
@@ -164,10 +204,12 @@ if (!root) {
 		state.firebase = initializeApp(bootstrapData.firebase);
 		state.auth = getAuth(state.firebase);
 		state.db = getFirestore(state.firebase);
+		state.rtcIceServers = normalizeIceServers(bootstrapData?.rtc?.iceServers);
 
 		await signInWithCustomToken(state.auth, bootstrapData.customToken);
 		setupPresence();
 		await subscribeConversations();
+		videoCallBridge.setupIncomingCallListener();
 
 		const urlParams = new URLSearchParams(window.location.search);
 		const peerId = Number(urlParams.get('user') || 0);
@@ -193,6 +235,7 @@ if (!root) {
 
 		window.addEventListener('beforeunload', () => {
 			setOwnPresence(false);
+			videoCallBridge.endOnUnload();
 		});
 	}
 
@@ -373,6 +416,27 @@ if (!root) {
 	ui.openDetailBtn.addEventListener('click', () => {
 		setDetailPanelOpen(!ui.root.classList.contains('chat-detail-open'));
 	});
+
+	if (ui.closeDetailBtn) {
+		ui.closeDetailBtn.addEventListener('click', () => {
+			setDetailPanelOpen(false);
+		});
+	}
+
+	videoCallBridge.bindEvents();
+
+	if (ui.mobileBackBtn) {
+		ui.mobileBackBtn.addEventListener('click', () => {
+			ui.root.classList.remove('chat-mobile-thread-open');
+			setDetailPanelOpen(false);
+		});
+	}
+
+	window.addEventListener('resize', debounce(() => {
+		if (window.innerWidth > 767.98) {
+			ui.root.classList.remove('chat-mobile-thread-open');
+		}
+	}, 120));
 
 	const openActivePeerProfile = () => {
 		const username = String(state.activePeer?.username || '').trim();
@@ -604,6 +668,7 @@ if (!root) {
 
 			state.conversations = rows;
 			state.conversationsMap = new Map(rows.map((entry) => [entry.id, entry]));
+			videoCallBridge.syncConversationSnapshots(rows);
 
 			rows.forEach((entry) => {
 				const peerId = Number(entry?.peer?.id || 0);
@@ -889,6 +954,9 @@ if (!root) {
 
 	function selectConversation(conversationId) {
 		state.activeConversationId = conversationId;
+		if (window.matchMedia('(max-width: 767.98px)').matches) {
+			ui.root.classList.add('chat-mobile-thread-open');
+		}
 		const conversation = state.conversationsMap.get(conversationId);
 		syncHeaderAndDetails(conversation);
 		subscribeMessages(conversationId);
@@ -932,6 +1000,9 @@ if (!root) {
 				ui.detailAvatar.removeAttribute('title');
 			}
 			state.activePeer = null;
+			ui.root.classList.remove('chat-mobile-thread-open');
+			setDetailPanelOpen(false);
+			videoCallBridge.syncConversationAvailability(null);
 			subscribePeerPresence(0);
 			updateComposerBlockedState(null);
 			return;
@@ -974,6 +1045,8 @@ if (!root) {
 			ui.blockBtn.style.display = 'block';
 			ui.blockBtn.textContent = iBlockedThem ? 'Bỏ chặn người dùng' : 'Chặn người dùng';
 		}
+
+		videoCallBridge.syncConversationAvailability(conversation);
 		
 		updateComposerBlockedState(conversation);
 	}
@@ -1528,6 +1601,7 @@ if (!root) {
 			participants: data.participants || [],
 			blockedBy: data.blockedBy || [],
 			deletedFor: data.deletedFor || {},
+			videoCall: data.videoCall || null,
 			isRead: data.isRead || {},
 			readAt: data.readAt || {},
 			lastSenderId: data.lastSenderId,
@@ -1788,6 +1862,29 @@ if (!root) {
 	function buildConversationId(a, b) {
 		const [x, y] = [Number(a), Number(b)].sort((m, n) => m - n);
 		return `conv_${x}_${y}`;
+	}
+
+	function normalizeIceServers(raw) {
+		if (!Array.isArray(raw) || raw.length === 0) {
+			return [{ urls: 'stun:stun.l.google.com:19302' }];
+		}
+
+		const sanitized = raw
+			.map((entry) => {
+				const urls = Array.isArray(entry?.urls)
+					? entry.urls.filter(Boolean)
+					: (entry?.urls ? [entry.urls] : []);
+
+				if (urls.length === 0) return null;
+
+				const out = { urls: urls.length === 1 ? urls[0] : urls };
+				if (entry?.username) out.username = String(entry.username);
+				if (entry?.credential) out.credential = String(entry.credential);
+				return out;
+			})
+			.filter(Boolean);
+
+		return sanitized.length > 0 ? sanitized : [{ urls: 'stun:stun.l.google.com:19302' }];
 	}
 
 	async function apiGet(path) {

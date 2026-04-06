@@ -12,6 +12,7 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 	id="chatApp"
 	data-base-url="<?= htmlspecialchars(BASE_URL) ?>"
 	data-csrf-token="<?= htmlspecialchars((string) ($csrfToken ?? '')) ?>"
+	data-js-version="<?= htmlspecialchars((string) ($jsVersion ?? '')) ?>"
 	data-current-user-id="<?= $meId ?>"
 	data-current-user-name="<?= htmlspecialchars($meName) ?>"
 	data-current-user-initial="<?= htmlspecialchars($meInitial) ?>"
@@ -106,15 +107,23 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 		<section class="chat-thread-panel" id="chatThreadPanel">
 			<div class="chat-thread-header" id="chatThreadHeader">
 				<div class="chat-user-info">
+					<button type="button" class="chat-mobile-back" id="chatMobileBackBtn" aria-label="Quay lại danh sách">
+						<i class="bi bi-arrow-left"></i>
+					</button>
 					<div class="chat-user-avatar" id="chatHeaderAvatar">?</div>
 					<div>
 						<div class="chat-user-name" id="chatHeaderName">Chọn cuộc trò chuyện</div>
 						<div class="chat-user-handle" id="chatHeaderStatus">Ngoại tuyến</div>
 					</div>
 				</div>
-				<button type="button" class="chat-icon-btn" id="chatOpenDetailBtn" aria-label="Chi tiết">
-					<i class="bi bi-info-circle-fill"></i>
-				</button>
+				<div class="chat-header-actions">
+					<button type="button" class="chat-icon-btn" id="chatVideoCallBtn" aria-label="Gọi video" title="Gọi video" disabled>
+						<i class="bi bi-camera-video-fill"></i>
+					</button>
+					<button type="button" class="chat-icon-btn" id="chatOpenDetailBtn" aria-label="Chi tiết">
+						<i class="bi bi-info-circle-fill"></i>
+					</button>
+				</div>
 			</div>
 
 			<div class="chat-message-scroll" id="chatMessageList"></div>
@@ -139,7 +148,12 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 		</section>
 
 		<aside class="chat-detail-panel" id="chatDetailPanel">
-			<div class="chat-detail-title">Chi tiết</div>
+			<div class="chat-detail-title">
+				<span>Chi tiết</span>
+				<button type="button" id="chatCloseDetailBtn" class="chat-icon-btn chat-detail-close" aria-label="Đóng chi tiết">
+					<i class="bi bi-x-lg"></i>
+				</button>
+			</div>
 			<div class="chat-detail-user" id="chatDetailUser">
 				<div id="chatDetailAvatar"
 					 class="chat-user-avatar d-flex align-items-center justify-content-center rounded-circle"
@@ -197,5 +211,44 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 <div id="chatImageViewer" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; align-items: center; justify-content: center;">
 	<button type="button" id="chatImageViewerClose" style="position: absolute; top: 16px; right: 16px; background: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10000;">✕</button>
 	<img id="chatImageViewerImg" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+</div>
+
+<div id="chatIncomingCallCard" class="chat-call-incoming d-none" role="dialog" aria-live="polite" aria-label="Cuộc gọi đến">
+	<div class="chat-call-incoming-title">Cuộc gọi video đến</div>
+	<div id="chatIncomingCallText" class="chat-call-incoming-text">Ai đó đang gọi cho bạn</div>
+	<div class="chat-call-incoming-actions">
+		<button type="button" id="chatAcceptCallBtn" class="chat-call-btn accept">Nhận</button>
+		<button type="button" id="chatDeclineCallBtn" class="chat-call-btn decline">Từ chối</button>
+	</div>
+</div>
+
+<div id="chatCallOverlay" class="chat-call-overlay d-none" role="dialog" aria-label="Cuộc gọi video">
+	<div class="chat-call-stage">
+		<div class="chat-call-topbar">
+			<div>
+				<div id="chatCallPeerName" class="chat-call-peer">Đang gọi...</div>
+				<div id="chatCallStatus" class="chat-call-status">Đang chuẩn bị kết nối...</div>
+			</div>
+			<button type="button" id="chatMinimizeCallBtn" class="chat-call-chip">Thu nhỏ</button>
+		</div>
+
+		<video id="chatRemoteVideo" class="chat-remote-video" autoplay playsinline></video>
+		<video id="chatLocalVideo" class="chat-local-video" autoplay muted playsinline></video>
+
+		<div class="chat-call-actions">
+			<button type="button" id="chatToggleMicBtn" class="chat-call-chip" aria-pressed="false">
+				<i class="bi bi-mic-fill"></i>
+				<span>Mic</span>
+			</button>
+			<button type="button" id="chatToggleCamBtn" class="chat-call-chip" aria-pressed="false">
+				<i class="bi bi-camera-video-fill"></i>
+				<span>Cam</span>
+			</button>
+			<button type="button" id="chatEndCallBtn" class="chat-call-chip danger">
+				<i class="bi bi-telephone-x-fill"></i>
+				<span>Kết thúc</span>
+			</button>
+		</div>
+	</div>
 </div>
 

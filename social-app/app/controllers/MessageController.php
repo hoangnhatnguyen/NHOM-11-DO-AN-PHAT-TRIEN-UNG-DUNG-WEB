@@ -30,6 +30,7 @@ class MessageController extends BaseController {
 			'title' => 'Tin nhắn',
 			'currentUser' => $_SESSION['user'] ?? null,
 			'csrfToken' => $this->csrfToken(),
+			'jsVersion' => $jsVersion,
 			'activeMenu' => 'messages',
 			'pageScripts' => [
 				[
@@ -70,6 +71,9 @@ class MessageController extends BaseController {
 			'firebase' => $this->firebaseService->getWebConfig(),
 			'customToken' => $token,
 			'me' => $this->formatSessionUser(),
+			'rtc' => [
+				'iceServers' => $this->buildIceServers(),
+			],
 		]);
 	}
 
@@ -273,6 +277,33 @@ class MessageController extends BaseController {
 			'avatarSrc' => $rawAvatar !== '' ? media_public_src($rawAvatar) : '',
 			'firebaseUid' => 'app_' . (int) ($sessionUser['id'] ?? 0),
 		];
+	}
+
+	private function buildIceServers(): array {
+		$servers = [];
+
+		$stunUrlsRaw = trim((string) env('WEBRTC_STUN_URLS', 'stun:stun.l.google.com:19302'));
+		$stunUrls = array_values(array_filter(array_map('trim', explode(',', $stunUrlsRaw))));
+		if (!empty($stunUrls)) {
+			$servers[] = [
+				'urls' => count($stunUrls) === 1 ? $stunUrls[0] : $stunUrls,
+			];
+		}
+
+		$turnUrlsRaw = trim((string) env('WEBRTC_TURN_URLS', ''));
+		$turnUsername = trim((string) env('WEBRTC_TURN_USERNAME', ''));
+		$turnCredential = trim((string) env('WEBRTC_TURN_CREDENTIAL', ''));
+		$turnUrls = array_values(array_filter(array_map('trim', explode(',', $turnUrlsRaw))));
+
+		if (!empty($turnUrls) && $turnUsername !== '' && $turnCredential !== '') {
+			$servers[] = [
+				'urls' => count($turnUrls) === 1 ? $turnUrls[0] : $turnUrls,
+				'username' => $turnUsername,
+				'credential' => $turnCredential,
+			];
+		}
+
+		return $servers;
 	}
 
 	private function formatUser(array $user): array {

@@ -49,9 +49,29 @@ service cloud.firestore {
     match /user_presence/{uid} {
       allow read, write: if request.auth != null;
     }
+
+    match /calls/{conversationId} {
+      allow read, write: if request.auth != null;
+
+      match /candidates/{candidateId} {
+        allow read, write: if request.auth != null;
+      }
+    }
   }
 }
 ```
+
+## 6) WebRTC ICE servers (optional nhưng khuyến nghị)
+Thêm vào `.env` để gọi video ổn định hơn:
+
+```env
+WEBRTC_STUN_URLS="stun:stun.l.google.com:19302"
+WEBRTC_TURN_URLS="turn:your-turn-host:3478?transport=udp,turn:your-turn-host:3478?transport=tcp"
+WEBRTC_TURN_USERNAME="your-turn-username"
+WEBRTC_TURN_CREDENTIAL="your-turn-password"
+```
+
+> Không có TURN thì vẫn gọi được ở một số mạng, nhưng tỷ lệ fail NAT sẽ cao.
 
 ## 5) Firestore indexes
 Create composite index:

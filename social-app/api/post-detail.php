@@ -33,8 +33,10 @@ try {
     require_once __DIR__ . '/../app/models/Post.php';
     require_once __DIR__ . '/../app/models/PostMedia.php';
     require_once __DIR__ . '/../app/models/PostHashtag.php';
+    require_once __DIR__ . '/../app/models/Block.php';
 
     $postModel = new Post();
+    $blockModel = new Block();
     
     // Try to get post detail
     $post = $postModel->findDetailWithStats($postId, $viewerId);
@@ -43,7 +45,7 @@ try {
         // Fallback: get basic post info
         $pdo = Database::getInstance()->getConnection();
         $stmt = $pdo->prepare('
-            SELECT p.*, u.name as user_name, u.avatar_url
+            SELECT p.*, u.name as user_name, u.avatar_url, p.user_id
             FROM posts p
             LEFT JOIN users u ON u.id = p.user_id
             WHERE p.id = ? LIMIT 1
@@ -52,6 +54,19 @@ try {
         $post = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$post) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'msg' => 'Post not found']);
+            exit;
+        }
+
+        $authorId = (int) ($post['user_id'] ?? 0);
+        if (
+            $authorId > 0 &&
+            (
+                $blockModel->isBlocked($viewerId, $authorId) ||
+                $blockModel->isBlocked($authorId, $viewerId)
+            )
+        ) {
             http_response_code(404);
             echo json_encode(['success' => false, 'msg' => 'Post not found']);
             exit;

@@ -52,10 +52,29 @@ try {
                 SELECT id, username, avatar_url
                 FROM users
                 WHERE id != :uid
+                  AND id NOT IN (
+                      SELECT following_id
+                      FROM follows
+                      WHERE follower_id = :uid_following
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM blocks b
+                      WHERE (
+                          b.blocker_id = :uid_blocker AND b.blocked_id = users.id
+                      ) OR (
+                          b.blocker_id = users.id AND b.blocked_id = :uid_blocked
+                      )
+                  )
                 ORDER BY RAND()
                 LIMIT 5
             ');
-            $stmt->execute(['uid' => $currentUserId]);
+            $stmt->execute([
+                'uid' => $currentUserId,
+                'uid_following' => $currentUserId,
+                'uid_blocker' => $currentUserId,
+                'uid_blocked' => $currentUserId,
+            ]);
         } else {
             $stmt = $conn->query('
                 SELECT id, username, avatar_url

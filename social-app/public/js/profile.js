@@ -53,6 +53,45 @@ function showProfileNotice(message, type = "success") {
     setTimeout(() => el.remove(), 2200);
 }
 
+function showProfilePopup(message, title = "Thông báo") {
+    if (typeof bootstrap === "undefined") {
+        alert(message);
+        return;
+    }
+
+    let modalEl = document.getElementById("profileInfoModal");
+    if (!modalEl) {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = `
+            <div class="modal fade" id="profileInfoModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header border-0 pb-0">
+                            <h5 class="modal-title fw-semibold" id="profileInfoModalTitle"></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                        </div>
+                        <div class="modal-body pt-2">
+                            <p class="mb-0" id="profileInfoModalText"></p>
+                        </div>
+                        <div class="modal-footer border-0 pt-0">
+                            <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal">OK</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(wrapper.firstElementChild);
+        modalEl = document.getElementById("profileInfoModal");
+    }
+
+    const titleEl = document.getElementById("profileInfoModalTitle");
+    const textEl = document.getElementById("profileInfoModalText");
+    if (titleEl) titleEl.textContent = title;
+    if (textEl) textEl.textContent = message;
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+}
+
 // ===== EDIT MODE FULL =====
 const editBtn = document.getElementById("editBtn");
 
@@ -141,7 +180,7 @@ document.getElementById("followersBtn")?.addEventListener("click", () => {
     fetch(BASE + "/user-api/followers?user_id=" + USER_ID, { credentials: "same-origin" })
         .then((r) => r.json())
         .then((data) => {
-            renderList(data.followers, "Chưa có follower nào 😢");
+            renderList(data.followers, "Chưa có follower nào 😢", "followers");
             new bootstrap.Modal(document.getElementById("followModal")).show();
         });
 });
@@ -150,7 +189,7 @@ document.getElementById("followingBtn")?.addEventListener("click", () => {
     fetch(BASE + "/user-api/following?user_id=" + USER_ID, { credentials: "same-origin" })
         .then((r) => r.json())
         .then((data) => {
-            renderList(data.following, "Bạn chưa follow ai cả 😆");
+            renderList(data.following, "Bạn chưa follow ai cả 😆", "following");
             new bootstrap.Modal(document.getElementById("followModal")).show();
         });
 });
@@ -176,49 +215,127 @@ function initialOf(name) {
     return value ? value.charAt(0).toUpperCase() : "?";
 }
 
-function renderList(list, emptyMsg) {
+function updateProfileCount(id, delta) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const strong = el.querySelector("b");
+    if (!strong) return;
+    const current = parseInt(strong.textContent || "0", 10);
+    strong.textContent = String(Math.max(0, current + delta));
+}
+
+function renderList(list, emptyMsg, mode = "followers") {
     let html = "";
+    const titleMap = {
+        followers: "Followers",
+        following: "Following",
+    };
+    const modalTitle = document.getElementById("modalTitle");
+    if (modalTitle) {
+        modalTitle.textContent = titleMap[mode] || "Danh sách";
+    }
 
     if (!list || list.length === 0) {
         html = `<p class="text-center text-muted">${emptyMsg}</p>`;
     } else {
         list.forEach((u) => {
             const uname = String(u.username || "");
+            const uid = Number(u.id || 0);
             const href = BASE + "/profile?u=" + encodeURIComponent(uname);
             const rawAv = u.avatar_src
                 ? String(u.avatar_src)
                 : (u.avatar_url ? String(u.avatar_url) : "");
             const av = rawAv ? mediaViewUrl(rawAv) : "";
             const initial = initialOf(uname);
+            const canRemove = Boolean(IS_OWNER && uid > 0);
+            const removeLabel = mode === "followers" ? "Xóa" : "Bỏ theo dõi";
+            const removeAction = mode === "followers" ? "remove-follower" : "unfollow";
             html += `
-                <a href="${escHtml(href)}" class="d-flex align-items-center gap-2 mb-2 text-decoration-none text-body">
+                <div class="d-flex align-items-center justify-content-between gap-3 mb-2 follow-user-row" data-user-id="${uid}" data-mode="${escAttr(mode)}">
+                    <a href="${escHtml(href)}" class="d-flex align-items-center gap-2 text-decoration-none text-body flex-grow-1 min-w-0">
+                        ${
+                            av
+                                ? `<img
+                                        src="${escHtml(av)}"
+                                        width="40"
+                                        height="40"
+                                        class="rounded-circle object-fit-cover flex-shrink-0"
+                                        alt="${escHtml(uname)}"
+                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+                                   >
+                                   <span
+                                        class="rounded-circle align-items-center justify-content-center flex-shrink-0"
+                                        style="width:40px; height:40px; background:#8adfd7; color:#0a3d3a; font-weight:700; display:none;"
+                                   >${escHtml(initial)}</span>`
+                                : `<span
+                                        class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                                        style="width:40px; height:40px; background:#8adfd7; color:#0a3d3a; font-weight:700;"
+                                   >${escHtml(initial)}</span>`
+                        }
+                        <span class="text-truncate">${escHtml(uname)}</span>
+                    </a>
                     ${
-                        av
-                            ? `<img
-                                    src="${escHtml(av)}"
-                                    width="40"
-                                    height="40"
-                                    class="rounded-circle object-fit-cover flex-shrink-0"
-                                    alt="${escHtml(uname)}"
-                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
-                               >
-                               <span
-                                    class="rounded-circle align-items-center justify-content-center flex-shrink-0"
-                                    style="width:40px; height:40px; background:#8adfd7; color:#0a3d3a; font-weight:700; display:none;"
-                               >${escHtml(initial)}</span>`
-                            : `<span
-                                    class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0"
-                                    style="width:40px; height:40px; background:#8adfd7; color:#0a3d3a; font-weight:700;"
-                               >${escHtml(initial)}</span>`
+                        canRemove
+                            ? `<button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger rounded-pill js-follow-remove"
+                                    data-action="${escAttr(removeAction)}"
+                                    data-target-id="${uid}"
+                                    data-username="${escAttr(uname)}"
+                               >${removeLabel}</button>`
+                            : ""
                     }
-                    <span>${escHtml(uname)}</span>
-                </a>
+                </div>
             `;
         });
     }
 
     document.getElementById("followList").innerHTML = html;
 }
+
+document.getElementById("followList")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".js-follow-remove");
+    if (!btn) return;
+
+    e.preventDefault();
+    const targetId = Number(btn.getAttribute("data-target-id") || 0);
+    const action = String(btn.getAttribute("data-action") || "");
+    if (!targetId || !action) return;
+
+    btn.disabled = true;
+
+    try {
+        const endpoint = action === "remove-follower" ? "/user-api/remove-follower" : "/user-api/unfollow";
+        const res = await fetch(BASE + endpoint, {
+            method: "POST",
+            credentials: "same-origin",
+            body: new URLSearchParams({ target_id: String(targetId) }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data || !data.success) {
+            throw new Error("request_failed");
+        }
+
+        btn.closest(".follow-user-row")?.remove();
+        if (action === "remove-follower") {
+            updateProfileCount("followersBtn", -1);
+        } else {
+            updateProfileCount("followingBtn", -1);
+        }
+
+        const listEl = document.getElementById("followList");
+        if (listEl && !listEl.querySelector(".follow-user-row")) {
+            listEl.innerHTML = `<p class="text-center text-muted mb-0">${
+                action === "remove-follower" ? "Chưa có follower nào 😢" : "Bạn chưa follow ai cả 😆"
+            }</p>`;
+        }
+    } catch (err) {
+        btn.disabled = false;
+        alert("Không thể thực hiện thao tác này.");
+        return;
+    }
+});
 
 // ===== BADGE REMOVE =====
 function bindBadgeItemClick(badge) {
@@ -272,17 +389,24 @@ const addBtn = document.getElementById("addBadgeBtn");
 const popup = document.getElementById("badgePopup");
 const searchInput = document.getElementById("badgeSearch");
 const resultBox = document.getElementById("badgeResult");
+let badgeSearchTimer = null;
+let badgeSearchController = null;
+let badgeSearchSeq = 0;
+let badgeSearchLastAppliedSeq = 0;
 
 addBtn?.addEventListener("click", () => {
     popup.classList.remove("d-none");
     searchInput.focus();
+    if (resultBox && resultBox.innerHTML.trim() === "") {
+        resultBox.innerHTML = `<div class="text-muted small p-2">Nhập để tìm hoặc tạo badge mới.</div>`;
+    }
 });
 
 function renderBadgeSearchResult(list, q) {
     let html = "";
     const safeQ = escHtml(q);
     const attrQ = escAttr(q);
-    const hasExact = list.some((b) => String(b.name || "").toLowerCase() === q.toLowerCase());
+    const hasExact = list.some((b) => String(b.name || "") === q);
 
     if (q !== "" && !hasExact) {
         html += `
@@ -316,18 +440,52 @@ function renderBadgeSearchResult(list, q) {
 searchInput?.addEventListener("input", () => {
     const q = searchInput.value.trim();
 
-    fetch(BASE + "/user-api/search-badge?q=" + encodeURIComponent(q), { credentials: "same-origin" })
-        .then((r) => {
-            if (!r.ok) throw new Error("search_failed");
-            return r.json();
+    if (badgeSearchTimer) {
+        clearTimeout(badgeSearchTimer);
+        badgeSearchTimer = null;
+    }
+    if (badgeSearchController) {
+        badgeSearchController.abort();
+        badgeSearchController = null;
+    }
+
+    if (q === "") {
+        if (resultBox) {
+            resultBox.innerHTML = `<div class="text-muted small p-2">Nhập để tìm hoặc tạo badge mới.</div>`;
+        }
+        return;
+    }
+
+    if (resultBox) {
+        resultBox.innerHTML = `<div class="text-muted small p-2">Đang tìm...</div>`;
+    }
+
+    badgeSearchTimer = setTimeout(() => {
+        const seq = ++badgeSearchSeq;
+        badgeSearchController = new AbortController();
+
+        fetch(BASE + "/user-api/search-badge?q=" + encodeURIComponent(q), {
+            credentials: "same-origin",
+            signal: badgeSearchController.signal,
         })
-        .then((res) => {
-            const list = Array.isArray(res.data) ? res.data : [];
-            renderBadgeSearchResult(list, q);
-        })
-        .catch(() => {
-            resultBox.innerHTML = `<div class="text-danger small p-2">Không tải được kết quả.</div>`;
-        });
+            .then((r) => {
+                if (!r.ok) throw new Error("search_failed");
+                return r.json();
+            })
+            .then((res) => {
+                if (seq < badgeSearchLastAppliedSeq) return;
+                badgeSearchLastAppliedSeq = seq;
+                const list = Array.isArray(res.data) ? res.data : [];
+                renderBadgeSearchResult(list, q);
+            })
+            .catch((err) => {
+                if (err?.name === "AbortError") return;
+                resultBox.innerHTML = `<div class="text-danger small p-2">Không tải được kết quả.</div>`;
+            })
+            .finally(() => {
+                badgeSearchController = null;
+            });
+    }, 180);
 });
 
 searchInput?.addEventListener("keydown", (e) => {
@@ -361,8 +519,8 @@ function addBadge(name) {
             const badgeName = String(res.badge?.name || name).trim();
 
             const duplicated = Array.from(badgeArea.querySelectorAll(".badge-item")).some((el) => {
-                const n = String(el.textContent || "").trim().toLowerCase();
-                return n === badgeName.toLowerCase();
+                const n = String(el.textContent || "").trim();
+                return n === badgeName;
             });
             if (duplicated) {
                 showProfileNotice("Badge đã tồn tại.", "info");
@@ -382,6 +540,14 @@ function addBadge(name) {
             if (popup) popup.classList.add("d-none");
             if (searchInput) searchInput.value = "";
             if (resultBox) resultBox.innerHTML = "";
+            if (badgeSearchTimer) {
+                clearTimeout(badgeSearchTimer);
+                badgeSearchTimer = null;
+            }
+            if (badgeSearchController) {
+                badgeSearchController.abort();
+                badgeSearchController = null;
+            }
             showProfileNotice("Đã thêm badge.");
         })
         .catch(() => showProfileNotice("Không thể thêm badge.", "danger"));
@@ -392,6 +558,14 @@ document.addEventListener("click", (e) => {
 
     if (!popup.contains(e.target) && e.target !== addBtn) {
         popup.classList.add("d-none");
+        if (badgeSearchTimer) {
+            clearTimeout(badgeSearchTimer);
+            badgeSearchTimer = null;
+        }
+        if (badgeSearchController) {
+            badgeSearchController.abort();
+            badgeSearchController = null;
+        }
     }
 });
 
@@ -499,10 +673,17 @@ function loadActivity() {
                     credentials: "same-origin",
                 });
                 const data = await r.json();
-                if (data && data.success) {
+                if (r.ok && data && data.success) {
                     setFollowingUi(true);
+                    updateProfileCount("followersBtn", 1);
+                } else if (data?.message) {
+                    showProfilePopup(data.message);
+                } else {
+                    showProfilePopup("Không thể theo dõi người dùng này.");
                 }
-            } catch (e) {}
+            } catch (e) {
+                showProfilePopup("Không thể theo dõi người dùng này.");
+            }
             btn.disabled = false;
             return;
         }
@@ -528,6 +709,7 @@ function loadActivity() {
             const data = await r.json();
             if (data && data.success) {
                 setFollowingUi(false);
+                updateProfileCount("followersBtn", -1);
                 if (modalEl && typeof bootstrap !== "undefined") {
                     bootstrap.Modal.getInstance(modalEl)?.hide();
                 }
@@ -535,4 +717,109 @@ function loadActivity() {
         } catch (e) {}
         confirmBtn.disabled = false;
     });
+})();
+
+(function () {
+    const btn = document.getElementById("profileBlockBtn");
+    if (!btn) return;
+
+    const targetId = parseInt(btn.getAttribute("data-user-id") || "0", 10);
+    const username = btn.getAttribute("data-username") || "";
+    const modalEl = document.getElementById("blockConfirmModal");
+    const modalText = document.getElementById("blockConfirmText");
+    const confirmBtn = document.getElementById("blockConfirmBtn");
+
+    function setBlockedUi(blocked) {
+        btn.setAttribute("data-blocked", blocked ? "true" : "false");
+        if (blocked) {
+            btn.textContent = "Đã chặn";
+            btn.classList.remove("btn-outline-danger");
+            btn.classList.add("btn-outline-secondary");
+        } else {
+            btn.textContent = "Chặn";
+            btn.classList.remove("btn-outline-secondary");
+            btn.classList.add("btn-outline-danger");
+        }
+    }
+
+    setBlockedUi(btn.getAttribute("data-blocked") === "true");
+
+    async function submitBlockToggle() {
+        const isBlocked = btn.getAttribute("data-blocked") === "true";
+        const followBtn = document.getElementById("profileFollowBtn");
+        const wasFollowing = followBtn
+            ? followBtn.getAttribute("data-following") === "true"
+            : false;
+        const endpoint = isBlocked ? "/setting-api/unblock" : "/setting-api/block";
+        btn.disabled = true;
+        if (confirmBtn) confirmBtn.disabled = true;
+        try {
+            const res = await fetch(BASE + endpoint, {
+                method: "POST",
+                credentials: "same-origin",
+                body: new URLSearchParams({
+                    id: String(targetId),
+                    _csrf: typeof PROFILE_CSRF === "string" ? PROFILE_CSRF : "",
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data || !data.success) {
+                throw new Error("request_failed");
+            }
+            setBlockedUi(!isBlocked);
+            const messageLink = document.querySelector('a[href*="/messages?user="], a[aria-disabled="true"][title*="chặn"]');
+            if (!isBlocked) {
+                if (followBtn) {
+                    followBtn.setAttribute("data-following", "false");
+                    followBtn.textContent = "Theo dõi";
+                    followBtn.classList.remove("btn-brand-follow-outline");
+                    followBtn.classList.add("btn-brand-follow");
+                    if (wasFollowing) {
+                        updateProfileCount("followersBtn", -1);
+                    }
+                }
+                if (messageLink) {
+                    messageLink.setAttribute("href", "#");
+                    messageLink.classList.remove("btn-brand-follow");
+                    messageLink.classList.add("btn-outline-secondary", "disabled", "pe-none");
+                    messageLink.setAttribute("aria-disabled", "true");
+                    messageLink.setAttribute("tabindex", "-1");
+                    messageLink.setAttribute("title", "Bạn đã chặn người dùng này");
+                }
+            } else if (messageLink) {
+                const targetId = btn.getAttribute("data-user-id") || "";
+                messageLink.setAttribute("href", `${BASE}/messages?user=${targetId}`);
+                messageLink.classList.remove("btn-outline-secondary", "disabled", "pe-none");
+                messageLink.classList.add("btn-brand-follow");
+                messageLink.removeAttribute("aria-disabled");
+                messageLink.removeAttribute("tabindex");
+                messageLink.removeAttribute("title");
+            }
+            if (modalEl && typeof bootstrap !== "undefined") {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+            }
+        } catch (e) {
+            showProfilePopup("Không thể cập nhật trạng thái chặn.");
+        }
+        btn.disabled = false;
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
+
+    btn.addEventListener("click", async function () {
+        const isBlocked = btn.getAttribute("data-blocked") === "true";
+
+        if (isBlocked) {
+            await submitBlockToggle();
+            return;
+        }
+
+        if (modalText) {
+            modalText.textContent = `Bạn có chắc muốn chặn @${username}?`;
+        }
+        if (modalEl && typeof bootstrap !== "undefined") {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    });
+
+    confirmBtn?.addEventListener("click", submitBlockToggle);
 })();

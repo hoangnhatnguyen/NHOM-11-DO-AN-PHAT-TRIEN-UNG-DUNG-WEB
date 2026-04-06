@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/Post.php';
+require_once __DIR__ . '/../models/Block.php';
 
 class SearchController extends BaseController
 {
@@ -29,6 +30,38 @@ class SearchController extends BaseController
             $isHashtag = isset($qTrim[0]) && $qTrim[0] === '#';
 
             $params = [];
+            $paramsUsers = [];
+            $postBlockClause = '';
+            $userBlockClause = '';
+
+            if ($currentUserId > 0) {
+                $postBlockClause = "
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM blocks b
+                        WHERE (
+                            b.blocker_id = :viewerBlockerPost AND b.blocked_id = p.user_id
+                        ) OR (
+                            b.blocker_id = p.user_id AND b.blocked_id = :viewerBlockedPost
+                        )
+                    )
+                ";
+                $userBlockClause = "
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM blocks b
+                        WHERE (
+                            b.blocker_id = :viewerBlockerUser AND b.blocked_id = u.id
+                        ) OR (
+                            b.blocker_id = u.id AND b.blocked_id = :viewerBlockedUser
+                        )
+                    )
+                ";
+                $params['viewerBlockerPost'] = $currentUserId;
+                $params['viewerBlockedPost'] = $currentUserId;
+                $paramsUsers['viewerBlockerUser'] = $currentUserId;
+                $paramsUsers['viewerBlockedUser'] = $currentUserId;
+            }
 
             if ($isHashtag) {
                 $tag = ltrim($qTrim, '#');
@@ -40,6 +73,7 @@ class SearchController extends BaseController
                     JOIN posts p ON p.id = ph.post_id
                     JOIN users u ON p.user_id = u.id
                     WHERE LOWER(h.name) = LOWER(:tag)
+                    {$postBlockClause}
                 ";
 
                 $params['tag'] = $tag;
@@ -49,6 +83,7 @@ class SearchController extends BaseController
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
                     WHERE p.content LIKE :q
+                    {$postBlockClause}
                 ";
 
                 $params['q'] = '%' . $qTrim . '%';
@@ -99,9 +134,10 @@ class SearchController extends BaseController
                     FROM users u
                     LEFT JOIN follows f ON f.following_id = u.id
                     WHERE u.username LIKE :q
+                    {$userBlockClause}
                 ";
 
-                $paramsUsers = ['q' => '%' . $qTrim . '%'];
+                $paramsUsers['q'] = '%' . $qTrim . '%';
 
                 if ($filterUser === 'following') {
                     if ($currentUserId <= 0) {
@@ -136,9 +172,10 @@ class SearchController extends BaseController
                     SELECT u.id, u.username, u.avatar_url
                     FROM users u
                     WHERE u.username LIKE :q
+                    {$userBlockClause}
                 ";
 
-                $paramsUsers = ['q' => '%' . $qTrim . '%'];
+                $paramsUsers['q'] = '%' . $qTrim . '%';
 
                 if ($filterUser === 'following') {
                     $sql .= ' AND u.id IN (

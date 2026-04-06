@@ -137,6 +137,57 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;");
 }
 
+function followErrorMessage(err) {
+  if (err === "blocked_relationship") {
+    return "Không thể theo dõi người dùng này vì hai bên đang có trạng thái chặn.";
+  }
+  if (err === "follow_requires_mutual") {
+    return "Người dùng này chỉ cho phép bạn chung theo dõi.";
+  }
+  if (err === "user_not_found") {
+    return "Không tìm thấy người dùng.";
+  }
+  return "Không thể theo dõi lúc này.";
+}
+
+function showFollowErrorPopup(message) {
+  if (typeof bootstrap === "undefined") {
+    window.alert(message);
+    return;
+  }
+
+  let modalEl = document.getElementById("followErrorModal");
+  if (!modalEl) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = `
+      <div class="modal fade" id="followErrorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+              <h5 class="modal-title fw-semibold">Thông báo</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body pt-2">
+              <p class="mb-0" id="followErrorModalText"></p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal">OK</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrapper.firstElementChild);
+    modalEl = document.getElementById("followErrorModal");
+  }
+
+  const textEl = document.getElementById("followErrorModalText");
+  if (textEl) {
+    textEl.textContent = message;
+  }
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
+}
+
 function loadSuggestUsers() {
   const base = appBaseUrl();
   const box = document.getElementById("suggestBox");
@@ -198,14 +249,20 @@ function loadSuggestUsers() {
             body: fd,
             credentials: "same-origin",
           })
-            .then((r) => r.json())
-            .then((data) => {
-              if (data && data.success) {
-                var li = self.closest("li");
-                if (li) li.remove();
+            .then(async (r) => {
+              const data = await r.json().catch(() => ({}));
+              if (!r.ok || !data || !data.success) {
+                throw new Error((data && data.error) || "follow_failed");
               }
+              return data;
             })
-            .catch(() => {})
+            .then(() => {
+              var li = self.closest("li");
+              if (li) li.remove();
+            })
+            .catch((err) => {
+              showFollowErrorPopup(followErrorMessage(err && err.message));
+            })
             .finally(() => {
               self.disabled = false;
             });

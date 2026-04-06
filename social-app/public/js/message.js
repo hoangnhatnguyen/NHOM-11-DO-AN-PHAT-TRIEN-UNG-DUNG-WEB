@@ -59,6 +59,8 @@ if (!root) {
 		peerMetaCache: new Map(),
 		peerMetaPending: new Set(),
 		peerMetaNamePending: new Set(),
+		blockedUserIds: new Set(),
+		blockedByUserIds: new Set(),
 	};
 
 	const ui = {
@@ -160,6 +162,8 @@ if (!root) {
 			...state.me,
 			...bootstrapData.me,
 		};
+		state.blockedUserIds = new Set((bootstrapData?.blocks?.blocked || []).map((id) => Number(id || 0)).filter((id) => id > 0));
+		state.blockedByUserIds = new Set((bootstrapData?.blocks?.blockedBy || []).map((id) => Number(id || 0)).filter((id) => id > 0));
 
 		state.firebase = initializeApp(bootstrapData.firebase);
 		state.auth = getAuth(state.firebase);
@@ -721,6 +725,8 @@ if (!root) {
 				return haystack.includes(keyword);
 			});
 
+		rows = rows.filter((item) => !isUserBlockedRelation(Number(item?.peer?.id || 0)));
+
 		// Filter hidden conversations by deletion, but ALWAYS show active conversation
 		rows = rows.filter((item) => {
 			if (item.id === state.activeConversationId) {
@@ -797,14 +803,15 @@ if (!root) {
 	}
 
 	function renderUserSuggestions() {
-		if (state.searchUsers.length === 0) {
+		const visibleUsers = state.searchUsers.filter((item) => !isUserBlockedRelation(Number(item?.id || 0)));
+		if (visibleUsers.length === 0) {
 			ui.searchSuggestions.classList.add('d-none');
 			ui.searchSuggestions.innerHTML = '';
 			return;
 		}
 
 		ui.searchSuggestions.classList.remove('d-none');
-		ui.searchSuggestions.innerHTML = state.searchUsers.map((item) => `
+		ui.searchSuggestions.innerHTML = visibleUsers.map((item) => `
 			<button type="button" class="chat-suggestion-item" data-user-id="${item.id}">
 					${resolveAvatarUrl(item.avatarSrc || item.avatarUrl || '')
 						? `<span style="position:relative; width:30px; height:30px; display:inline-flex; flex-shrink:0;">
@@ -835,9 +842,15 @@ if (!root) {
 			return;
 		}
 
+		if (isUserBlockedRelation(Number(userId))) {
+			toast('Không thể nhắn tin với người dùng này.');
+			return;
+		}
+
 		const data = await apiGet(`/chat-api/users/${userId}`);
 		const user = data?.item;
 		if (!user) {
+			toast('Không thể nhắn tin với người dùng này.');
 			return;
 		}
 
@@ -982,11 +995,12 @@ if (!root) {
 		const myId = String(state.me.id);
 		const peerId = conversation ? String(conversation.peer?.id || '') : '';
 		const blockedBy = conversation?.blockedBy || [];
+		const isBlockedInDb = isUserBlockedRelation(Number(peerId || 0));
 		
 		// Check if I blocked them or if they blocked me
 		const iBlockedThem = blockedBy.includes(myId);
 		const theyBlockedMe = blockedBy.includes(peerId);
-		const isBlocked = iBlockedThem || theyBlockedMe;
+		const isBlocked = iBlockedThem || theyBlockedMe || isBlockedInDb;
 		
 		// Get parent of composer form to insert blocked message outside the form
 		const composerParent = ui.composerForm.parentElement;
@@ -1016,6 +1030,8 @@ if (!root) {
 			// Update message text
 			if (iBlockedThem) {
 				blockedMsg.textContent = 'Bạn đã chặn người dùng này. Không thể nhắn tin.';
+			} else if (isBlockedInDb) {
+				blockedMsg.textContent = 'Không thể nhắn tin do quan hệ chặn.';
 			} else {
 				blockedMsg.textContent = `Bạn đã bị ${conversation?.peer?.username || 'người dùng này'} chặn.`;
 			}
@@ -1726,7 +1742,13 @@ if (!root) {
 		const myId = String(state.me.id);
 		const peerId = String(conversation.peer?.id || '');
 
-		return blockedBy.includes(myId) || blockedBy.includes(peerId);
+		return blockedBy.includes(myId) || blockedBy.includes(peerId) || isUserBlockedRelation(Number(peerId || 0));
+	}
+
+	function isUserBlockedRelation(userId) {
+		const n = Number(userId || 0);
+		if (!n) return false;
+		return state.blockedUserIds.has(n) || state.blockedByUserIds.has(n);
 	}
 
 	function toggleEmptyState(show) {

@@ -9,6 +9,7 @@
 	<link href="<?= BASE_URL ?>/public/css/style.css" rel="stylesheet">
 	<link href="<?= BASE_URL ?>/public/css/saved.css" rel="stylesheet">
 	<link href="<?= BASE_URL ?>/public/css/post-media.css" rel="stylesheet">
+	<link href="<?= BASE_URL ?>/public/css/mobile-ui.css" rel="stylesheet">
 	<?php foreach (($pageStyles ?? []) as $style): ?>
 		<?php $href = (string) ($style['href'] ?? ''); ?>
 		<?php if ($href === '') { continue; } ?>
@@ -17,6 +18,7 @@
 </head>
 <body class="app-bg">
 	<?php include VIEW_PATH . 'partials/navbar.php'; ?>
+	<?php include VIEW_PATH . 'partials/mobile_shell_nav.php'; ?>
 	<main class="container-fluid py-4">
 		<div class="container-fluid feed-layout px-lg-4">
 			<div class="row g-3 g-lg-4 feed-layout-row">

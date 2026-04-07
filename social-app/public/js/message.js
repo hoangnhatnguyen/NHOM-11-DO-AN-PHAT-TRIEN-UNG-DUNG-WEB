@@ -90,6 +90,7 @@ if (!root) {
 		blockBtn: document.getElementById('chatBlockBtn'),
 		confirmDeleteBtn: document.getElementById('chatConfirmDeleteBtn'),
 		openDetailBtn: document.getElementById('chatOpenDetailBtn'),
+		detailBackBtn: document.getElementById('chatDetailBackBtn'),
 		newConversationBtn: document.getElementById('chatNewConversationBtn'),
 	};
 
@@ -377,6 +378,12 @@ if (!root) {
 	ui.openDetailBtn.addEventListener('click', () => {
 		setDetailPanelOpen(!ui.root.classList.contains('chat-detail-open'));
 	});
+
+	if (ui.detailBackBtn) {
+		ui.detailBackBtn.addEventListener('click', () => {
+			setDetailPanelOpen(false);
+		});
+	}
 
 	const openActivePeerProfile = () => {
 		const username = String(state.activePeer?.username || '').trim();

@@ -13,6 +13,12 @@
 	display: none;
 }
 
+/* Always hide mobile-only profile menu outside mobile breakpoint */
+.mobile-profile-backdrop,
+.mobile-profile-menu {
+	display: none;
+}
+
 @media (max-width: 520px) {
 	#privacy_follow,
 	#privacy_comment {
@@ -68,6 +74,20 @@
 		color: #1a6291;
 		text-decoration: none;
 		font-size: 1.4rem;
+		position: relative;
+	}
+
+	.mobile-notif-dot {
+		position: absolute;
+		top: 3px;
+		right: 3px;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: #ef4444;
+		box-shadow: 0 0 0 2px #fff;
+		display: block;
+		z-index: 2;
 	}
 
 	.mobile-topbar-icon.active {
@@ -133,6 +153,12 @@
 		position: relative;
 	}
 
+	.mobile-bottom-nav-avatar {
+		border: 0;
+		background: transparent;
+		padding: 0;
+	}
+
 	.mobile-bottom-nav-item.active {
 		color: #0f5179;
 	}
@@ -170,7 +196,71 @@
 
 	.mobile-bottom-nav-avatar.active img,
 	.mobile-bottom-nav-avatar.active span {
-		box-shadow: 0 0 0 3px #e9f5ff;
+		box-shadow: none;
+	}
+
+	/* Profile tab on mobile: remove active highlight ring/background */
+	.mobile-bottom-nav-avatar.active::before {
+		content: none;
+	}
+
+	.mobile-profile-backdrop {
+		position: fixed;
+		inset: 0;
+		border: 0;
+		background: rgba(15, 23, 42, 0.16);
+		z-index: 3290;
+		display: none;
+	}
+
+	.mobile-profile-backdrop.show {
+		display: block;
+	}
+
+	.mobile-profile-menu {
+		position: fixed;
+		right: 12px;
+		bottom: calc(68px + env(safe-area-inset-bottom) + 10px);
+		min-width: 190px;
+		background: #fff;
+		border: 1px solid #e7edf4;
+		border-radius: 14px;
+		box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+		z-index: 3300;
+		overflow: hidden;
+		display: none;
+	}
+
+	.mobile-profile-menu.show {
+		display: block;
+	}
+
+	.mobile-profile-menu-form {
+		margin: 0;
+	}
+
+	.mobile-profile-menu-item {
+		width: 100%;
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 14px;
+		border: 0;
+		background: #fff;
+		color: #0f172a;
+		text-decoration: none;
+		font-size: 0.95rem;
+		line-height: 1.2;
+	}
+
+	.mobile-profile-menu-item + .mobile-profile-menu-item,
+	.mobile-profile-menu-form .mobile-profile-menu-item {
+		border-top: 1px solid #eef2f7;
+	}
+
+	.mobile-profile-menu-item--danger {
+		color: #b91c1c;
+		text-align: left;
 	}
 
 	main.container-fluid.py-4 {
@@ -375,6 +465,7 @@
 
 	#chatApp .chat-conversations-panel {
 		padding: 10px 10px 12px !important;
+		max-height: none !important;
 	}
 
 	#chatApp .chat-card-title {
@@ -579,5 +670,38 @@
 	#chatApp.chat-detail-open .chat-conversations-panel,
 	#chatApp.chat-detail-open .chat-thread-panel {
 		display: none !important;
+	}
+
+	/* Keep Bootstrap modal above mobile chat detail overlay */
+	#chatDeleteModal {
+		z-index: 4200 !important;
+	}
+
+	/* Default modal layering on mobile (for post/detail popups) */
+	.modal-backdrop.show {
+		z-index: 1050 !important;
+	}
+
+	#postDetailModal {
+		z-index: 3200 !important;
+	}
+
+	/* Only lift backdrop when delete-chat modal is open */
+	body:has(#chatDeleteModal.show) .modal-backdrop.show {
+		z-index: 4190 !important;
+	}
+
+	/* Keep post detail modal above bottom nav but still normal sized */
+	body:has(#postDetailModal.show) .modal-backdrop.show {
+		z-index: 3190 !important;
+	}
+
+	/* Share modal must stay above post detail modal */
+	#shareLinkModal {
+		z-index: 4300 !important;
+	}
+
+	body:has(#shareLinkModal.show) .modal-backdrop.show {
+		z-index: 4290 !important;
 	}
 }

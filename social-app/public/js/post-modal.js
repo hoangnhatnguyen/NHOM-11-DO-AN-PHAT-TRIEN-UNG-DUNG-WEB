@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	if (!modal) return;
 
 	const bsModal = new bootstrap.Modal(modal);
+	let lastFocusedElement = null;
 
 	/**
 	 * Open post detail in modal

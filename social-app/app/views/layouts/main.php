@@ -13,9 +13,11 @@
 	<!-- Main CSS -->
 	<link href="<?= BASE_URL ?>/public/css/style.css" rel="stylesheet">
 	<link href="<?= BASE_URL ?>/public/css/saved.css" rel="stylesheet">
+	<link href="<?= BASE_URL ?>/public/css/mobile-ui.css" rel="stylesheet">
 </head>
 <body class="app-bg">
 	<?php include VIEW_PATH . 'partials/navbar.php'; ?>
+	<?php include VIEW_PATH . 'partials/mobile_shell_nav.php'; ?>
 	<main class="container-fluid py-4">
 		<?php include $contentView; ?>
 	</main>

@@ -201,6 +201,7 @@ class PostController extends BaseController {
         $userId = (int) ($_SESSION['user']['id'] ?? 0);
         $content = trim((string) ($_POST['content'] ?? ''));
         $commentId = null;
+        $postModel = new Post();
 
         $post = $postModel->findById($postId);
         if ($post === null) {

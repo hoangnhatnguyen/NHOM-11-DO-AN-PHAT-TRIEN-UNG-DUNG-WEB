@@ -69,7 +69,7 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 			<?php if (empty($suggestedFollows)): ?>
 				<p class="text-muted small mb-0">Không còn gợi ý.</p>
 			<?php else: ?>
-				<ul class="list-unstyled mb-0 small">
+				<ul id="suggestBox" class="list-unstyled mb-0 small">
 					<?php foreach ($suggestedFollows as $u): ?>
 						<?php
 							$sid = (int) ($u['id'] ?? 0);
@@ -140,6 +140,54 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 <script>
 (function () {
 	var base = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;
+	function followErrorMessage(err) {
+		if (err === 'blocked_relationship') {
+			return 'Không thể theo dõi người dùng này vì hai bên đang có trạng thái chặn.';
+		}
+		if (err === 'follow_requires_mutual') {
+			return 'Người dùng này chỉ cho phép bạn chung theo dõi.';
+		}
+		if (err === 'user_not_found') {
+			return 'Không tìm thấy người dùng.';
+		}
+		return 'Không thể theo dõi lúc này.';
+	}
+	function showFollowErrorPopup(message) {
+		if (typeof bootstrap === 'undefined') {
+			window.alert(message);
+			return;
+		}
+
+		var modalEl = document.getElementById('followErrorModal');
+		if (!modalEl) {
+			var wrapper = document.createElement('div');
+			wrapper.innerHTML = '' +
+				'<div class="modal fade" id="followErrorModal" tabindex="-1" aria-hidden="true">' +
+				'  <div class="modal-dialog modal-dialog-centered">' +
+				'    <div class="modal-content border-0 shadow">' +
+				'      <div class="modal-header border-0 pb-0">' +
+				'        <h5 class="modal-title fw-semibold">Thông báo</h5>' +
+				'        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>' +
+				'      </div>' +
+				'      <div class="modal-body pt-2">' +
+				'        <p class="mb-0" id="followErrorModalText"></p>' +
+				'      </div>' +
+				'      <div class="modal-footer border-0 pt-0">' +
+				'        <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal">OK</button>' +
+				'      </div>' +
+				'    </div>' +
+				'  </div>' +
+				'</div>';
+			document.body.appendChild(wrapper.firstElementChild);
+			modalEl = document.getElementById('followErrorModal');
+		}
+
+		var textEl = document.getElementById('followErrorModalText');
+		if (textEl) {
+			textEl.textContent = message;
+		}
+		bootstrap.Modal.getOrCreateInstance(modalEl).show();
+	}
 	document.querySelectorAll('.js-suggest-follow').forEach(function (btn) {
 		btn.addEventListener('click', function () {
 			var id = parseInt(this.getAttribute('data-user-id'), 10);
@@ -149,13 +197,17 @@ require_once dirname(__DIR__, 3) . '/helpers/media.php';
 			var fd = new FormData();
 			fd.append('target_id', String(id));
 			fetch(base + '/user-api/follow?action=follow', { method: 'POST', body: fd, credentials: 'same-origin' })
-				.then(function (r) { return r.json(); })
-				.then(function (data) {
-					if (data && data.success) {
-						self.closest('li').remove();
+				.then(async function (r) {
+					var data = await r.json().catch(function () { return {}; });
+					if (!r.ok || !data || !data.success) {
+						throw new Error((data && data.error) || 'follow_failed');
 					}
+					return data;
 				})
-				.catch(function () {})
+				.then(function () {
+					self.closest('li').remove();
+				})
+				.catch(function (err) { showFollowErrorPopup(followErrorMessage(err && err.message)); })
 				.finally(function () { self.disabled = false; });
 		});
 	});

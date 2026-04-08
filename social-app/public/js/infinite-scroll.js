@@ -8,7 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	const loadingIndicator = document.querySelector('.feed-loading');
 	const noMoreIndicator = document.querySelector('.feed-no-more');
-	const scrollContainer = document.querySelector('.feed-main-column') || window; // Main scroll container
+	const mainColumn = document.querySelector('.feed-main-column');
+	const useInternalFeedScroll = window.matchMedia('(min-width: 992px)').matches && !!mainColumn;
+	const scrollContainer = useInternalFeedScroll ? mainColumn : window;
 	const baseUrl = window.__APP_BASE__ || '/';
 	const apiUrl = baseUrl + 'api/load_more_posts.php';
 
@@ -312,11 +314,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	// Force check if content is too short to trigger natural scroll
 	setTimeout(() => {
-		const scrollHeight = document.documentElement.scrollHeight;
-		const windowHeight = window.innerHeight;
+		let currentHeight;
+		let visibleHeight;
+
+		if (scrollContainer === window) {
+			currentHeight = document.documentElement.scrollHeight;
+			visibleHeight = window.innerHeight;
+		} else {
+			currentHeight = scrollContainer.scrollHeight;
+			visibleHeight = scrollContainer.clientHeight;
+		}
 		
-		// If content is shorter than viewport and hasMore, load more to fill
-		if (scrollHeight <= windowHeight && hasMore && !isLoading) {
+		// If content is shorter than viewport/container and hasMore, load more to fill
+		if (currentHeight <= visibleHeight && hasMore && !isLoading) {
 			loadMorePosts();
 		}
 	}, 1000);

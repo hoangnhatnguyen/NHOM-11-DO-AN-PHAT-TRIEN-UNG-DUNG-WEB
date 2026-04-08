@@ -100,15 +100,15 @@ $searchViewerId = (int) ($currentUser['id'] ?? 0);
 </style>
 
 
-<div class="row g-3 g-lg-4 feed-layout px-lg-4">
+<div class="row g-3 g-lg-4 feed-layout px-lg-4 search-page-layout">
 
   <!-- LEFT -->
-  <div class="col-12 col-md-2 col-lg-3">
+  <div class="col-12 col-md-2 col-lg-3 search-left-column">
     <?php include VIEW_PATH . 'partials/feed/left_sidebar.php'; ?>
   </div>
 
   <!-- CENTER -->
-  <div class="col-12 col-md-7 col-lg-6">
+  <div class="col-12 col-md-7 col-lg-6 search-main-column">
 
     <!-- ===== SEARCH + TAB (CARD NHỎ) ===== -->
     <div class="card border-0 shadow-sm rounded-4 mb-3">
@@ -122,6 +122,11 @@ $searchViewerId = (int) ($currentUser['id'] ?? 0);
                     placeholder="Tìm kiếm..."
                     value="<?= htmlspecialchars($_GET['q'] ?? '') ?>"
                 >
+                <?php if (!empty($q)): ?>
+                  <button type="button" class="mobile-search-filter-btn" id="mobileSearchFilterOpen" aria-label="Mở bộ lọc tìm kiếm">
+                    <i class="bi bi-sliders"></i>
+                  </button>
+                <?php endif; ?>
             </div>
         </form>
 
@@ -253,8 +258,74 @@ $searchViewerId = (int) ($currentUser['id'] ?? 0);
   </div>
 
   <!-- RIGHT -->
-  <div class="col-12 col-md-3 col-lg-3">
+  <div class="col-12 col-md-3 col-lg-3 search-right-column">
     <?php include __DIR__ . '/right_widgets_search.php'; ?>
   </div>
 
 </div>
+
+<?php if (!empty($q)): ?>
+  <div class="mobile-search-filter-modal" id="mobileSearchFilterModal" aria-hidden="true">
+    <button type="button" class="mobile-search-filter-backdrop" id="mobileSearchFilterCloseBackdrop" aria-label="Đóng bộ lọc"></button>
+    <section class="mobile-search-filter-panel" role="dialog" aria-modal="true" aria-label="Bộ lọc tìm kiếm">
+      <div class="mobile-search-filter-head">
+        <button type="button" class="btn-close" id="mobileSearchFilterCloseBtn" aria-label="Đóng"></button>
+      </div>
+      <div class="mobile-search-filter-body" id="mobileSearchFilterBody"></div>
+    </section>
+  </div>
+
+  <script>
+  (function () {
+    const openBtn = document.getElementById('mobileSearchFilterOpen');
+    const modal = document.getElementById('mobileSearchFilterModal');
+    const closeBtn = document.getElementById('mobileSearchFilterCloseBtn');
+    const closeBackdrop = document.getElementById('mobileSearchFilterCloseBackdrop');
+    const bodyHost = document.getElementById('mobileSearchFilterBody');
+    const rightCol = document.querySelector('.search-right-column');
+
+    if (!openBtn || !modal || !closeBtn || !closeBackdrop || !bodyHost || !rightCol) return;
+
+    let moved = false;
+    let movedNode = null;
+
+    const isMobile = () => window.matchMedia('(max-width: 767.98px)').matches;
+
+    const findFilterSection = () => {
+      const cards = rightCol.querySelectorAll('section.card');
+      for (const card of cards) {
+        const titleEl = card.querySelector('h6');
+        const title = (titleEl?.textContent || '').trim().toLowerCase();
+        if (title.includes('bộ lọc tìm kiếm')) return card;
+      }
+      return null;
+    };
+
+    const ensureMoved = () => {
+      if (!isMobile() || moved) return;
+      movedNode = findFilterSection();
+      if (!movedNode) return;
+      bodyHost.appendChild(movedNode);
+      moved = true;
+    };
+
+    const openModal = () => {
+      ensureMoved();
+      if (!isMobile()) return;
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    };
+
+    const closeModal = () => {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    };
+
+    openBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    closeBackdrop.addEventListener('click', closeModal);
+  })();
+  </script>
+<?php endif; ?>

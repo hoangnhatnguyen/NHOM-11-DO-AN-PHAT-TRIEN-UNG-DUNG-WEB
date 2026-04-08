@@ -5,6 +5,8 @@ if (!function_exists('format_comment_time_vi')) {
 		return notification_time_ago_vi($rawDateTime);
 	}
 }
+
+$rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 ?>
 
 <style>
@@ -21,7 +23,7 @@ if (!function_exists('format_comment_time_vi')) {
 </style>
 
 <div class="mb-3">
-	<a href="<?= BASE_URL ?>/" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3" id="back-to-post">
+	<a href="<?= $rootBaseUrl ?: '' ?>/" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3" id="back-to-post">
 		<i class="bi bi-arrow-left me-1"></i> Bài viết
 	</a>
 </div>
@@ -70,12 +72,12 @@ if (!function_exists('format_comment_time_vi')) {
                     </button>
 					<ul class="dropdown-menu dropdown-menu-end post-action-menu">
                         <li>
-                            <a class="dropdown-item" href="<?= BASE_URL ?>/post/edit/<?= (int) $post['id'] ?>">
+                            <a class="dropdown-item" href="<?= $rootBaseUrl ?>/post/edit/<?= (int) $post['id'] ?>">
                                 Chỉnh sửa
                             </a>
                         </li>
                         <li>
-							<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
+							<form method="POST" action="<?= $rootBaseUrl ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
 								<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 								<button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
 							</form>

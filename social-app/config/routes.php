@@ -82,6 +82,7 @@ return [
 
         // ============ SETTINGS ============
         '/setting-api/update-privacy' => 'SettingController@updatePrivacy',
+        '/setting-api/block' => 'SettingController@block',
         '/setting-api/unblock' => 'SettingController@unblock',
         '/saved/unsave' => 'SavedPostController@unsave',
         '/admin/users/toggle-status' => 'AdminUserController@toggleStatus',

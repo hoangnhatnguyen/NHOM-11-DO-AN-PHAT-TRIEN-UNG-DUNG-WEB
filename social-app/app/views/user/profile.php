@@ -6,6 +6,8 @@ $profilePosts = $profilePosts ?? [];
 
 <script>
 const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
+const IS_OWNER = <?= !empty($isOwner) ? 'true' : 'false' ?>;
+const PROFILE_CSRF = <?= json_encode((string) ($csrfToken ?? ''), JSON_UNESCAPED_UNICODE) ?>;
 </script>
 
 <?php if (!empty($isOwner)): ?>
@@ -159,8 +161,9 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
 
                     <?php if (!$isOwner): ?>
                         <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
-                            <a href="<?= BASE_URL ?>/messages?user=<?= (int) ($user['id'] ?? 0) ?>"
-                               class="btn btn-brand-follow rounded-pill px-3">
+                            <a href="<?= !empty($isBlocked) ? '#' : (BASE_URL . '/messages?user=' . (int) ($user['id'] ?? 0)) ?>"
+                               class="btn rounded-pill px-3 <?= !empty($isBlocked) ? 'btn-outline-secondary disabled pe-none' : 'btn-brand-follow' ?>"
+                               <?= !empty($isBlocked) ? 'aria-disabled="true" tabindex="-1" title="Bạn đã chặn người dùng này"' : '' ?>>
                                 <i class="bi bi-chat-dots me-1"></i>Nhắn tin
                             </a>
                             <button type="button"
@@ -170,6 +173,14 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
                                     data-username="<?= htmlspecialchars((string) ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-following="<?= !empty($isFollowing) ? 'true' : 'false' ?>">
                                 <?= !empty($isFollowing) ? 'Đã theo dõi' : 'Theo dõi' ?>
+                            </button>
+                            <button type="button"
+                                    id="profileBlockBtn"
+                                    class="btn rounded-pill px-3 <?= !empty($isBlocked) ? 'btn-outline-secondary' : 'btn-outline-danger' ?>"
+                                    data-user-id="<?= (int) ($user['id'] ?? 0) ?>"
+                                    data-username="<?= htmlspecialchars((string) ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-blocked="<?= !empty($isBlocked) ? 'true' : 'false' ?>">
+                                <?= !empty($isBlocked) ? 'Đã chặn' : 'Chặn' ?>
                             </button>
                         </div>
                     <?php endif; ?>
@@ -335,6 +346,24 @@ const USER_ID = <?= (int) ($user['id'] ?? 0) ?>;
             <div class="modal-footer border-0 pt-0">
                 <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Không</button>
                 <button type="button" class="btn btn-brand-follow rounded-pill" id="unfollowConfirmBtn">Hủy theo dõi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="blockConfirmModal" tabindex="-1" aria-labelledby="blockConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold" id="blockConfirmLabel">Chặn người dùng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-0 text-secondary" id="blockConfirmText"></p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-outline-danger rounded-pill" id="blockConfirmBtn">Chặn</button>
             </div>
         </div>
     </div>

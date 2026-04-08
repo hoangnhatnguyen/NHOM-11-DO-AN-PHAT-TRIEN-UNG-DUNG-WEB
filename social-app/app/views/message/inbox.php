@@ -95,7 +95,12 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 
 		<section class="chat-conversations-panel">
 			<div class="chat-card-title">Tin nhắn</div>
-			<div class="chat-section-title">Cuộc trò chuyện</div>
+			<div class="chat-mobile-list-head">
+				<a class="chat-mobile-back-btn" href="<?= BASE_URL ?>/" aria-label="Quay lại trang chủ">
+					<i class="bi bi-arrow-left"></i>
+				</a>
+				<div class="chat-section-title">Cuộc trò chuyện</div>
+			</div>
 			<div class="chat-search-wrap">
 				<i class="bi bi-search"></i>
 				<input type="text" id="chatSearchInput" class="chat-search-input" placeholder="Tìm kiếm">
@@ -106,6 +111,9 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 
 		<section class="chat-thread-panel" id="chatThreadPanel">
 			<div class="chat-thread-header" id="chatThreadHeader">
+				<a class="chat-mobile-back-btn" href="<?= BASE_URL ?>/messages" aria-label="Quay lại danh sách trò chuyện">
+					<i class="bi bi-arrow-left"></i>
+				</a>
 				<div class="chat-user-info">
 					<button type="button" class="chat-mobile-back" id="chatMobileBackBtn" aria-label="Quay lại danh sách">
 						<i class="bi bi-arrow-left"></i>
@@ -149,10 +157,10 @@ $meAvatarUrl = (string) ($me['avatar_url'] ?? '');
 
 		<aside class="chat-detail-panel" id="chatDetailPanel">
 			<div class="chat-detail-title">
-				<span>Chi tiết</span>
-				<button type="button" id="chatCloseDetailBtn" class="chat-icon-btn chat-detail-close" aria-label="Đóng chi tiết">
-					<i class="bi bi-x-lg"></i>
+				<button type="button" class="chat-mobile-back-btn mobile-only-back" id="chatDetailBackBtn" aria-label="Quay lại khung chat">
+					<i class="bi bi-arrow-left"></i>
 				</button>
+				<span>Chi tiết</span>
 			</div>
 			<div class="chat-detail-user" id="chatDetailUser">
 				<div id="chatDetailAvatar"

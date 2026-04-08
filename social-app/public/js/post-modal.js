@@ -16,7 +16,8 @@ function initializeModal() {
 	const modal = document.getElementById('postDetailModal');
 	if (!modal) return;
 
-	bsModal = new window.bootstrap.Modal(modal);
+	const bsModal = new bootstrap.Modal(modal);
+	let lastFocusedElement = null;
 
 	/**
 	 * Open post detail in modal
@@ -24,7 +25,7 @@ function initializeModal() {
 	function openPostDetail(postId) {
 		const baseUrl = window.__APP_BASE__ || '/';
 		const modalContent = document.getElementById('postDetailContent');
-		
+
 		// Show loading state
 		modalContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>';
 

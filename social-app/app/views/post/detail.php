@@ -138,17 +138,27 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 			</form>
 		</div>
 
-        <hr class="my-3">
-		<!-- Comment form -->
-		<form method="POST" action="/post/<?= (int) $post['id'] ?>/comment" class="mb-3 comment-form" id="comment-box">
-			<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-			<div class="input-group rounded-4 p-2 bg-light">
-				<input type="text" name="content" class="form-control border-0 bg-light" placeholder="Viết bình luận..." required>
-				<button type="submit" class="btn btn-primary opacity-80 rounded-pill">
-					<i class="me-2"></i> Bình luận
-				</button>
-			</div>
-		</form>
+       <hr class="my-3">
+		
+        <!-- Comment form -->
+        <?php if (isset($canComment) && $canComment): ?>
+            <!-- NẾU CÓ QUYỀN: HIỆN FORM -->
+            <form method="POST" action="/post/<?= (int) $post['id'] ?>/comment" class="mb-3 comment-form" id="comment-box">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+                <div class="input-group rounded-4 p-2 bg-light">
+                    <input type="text" name="content" class="form-control border-0 bg-light" placeholder="Viết bình luận..." required>
+                    <button type="submit" class="btn btn-primary opacity-80 rounded-pill">
+                        <i class="me-2"></i> Bình luận
+                    </button>
+                </div>
+            </form>
+        <?php else: ?>
+            <!-- NẾU KHÔNG CÓ QUYỀN: HIỆN THÔNG BÁO -->
+            <div class="alert alert-secondary text-center py-2 mb-3 rounded-4 border-0" role="alert" style="font-size: 14px; background-color: #f8f9fa;">
+                <i class="bi bi-lock-fill me-1 text-muted"></i> 
+                <span class="text-muted">Tác giả đã giới hạn người có thể bình luận bài viết này.</span>
+            </div>
+        <?php endif; ?>
 
 		<!-- Comment section -->
         <div class="mt-2">

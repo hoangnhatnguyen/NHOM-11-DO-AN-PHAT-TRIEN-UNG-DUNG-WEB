@@ -72,7 +72,12 @@ class PostController extends BaseController {
 
         $media = (new PostMedia())->getByPost($postId);
         $commentsTree = $postModel->getCommentTreeByPost($postId);
-
+  //KIỂM TRA QUYỀN COMMENT ---
+        $canComment = true;
+        $commentGuard = $this->guardCommentPermission($post, $viewerId);
+        if ($commentGuard !== null) {
+            $canComment = false; // Nếu bị chặn hoặc không phải bạn chung -> set false
+        }
         $this->render('post/detail', [
             'title' => 'Bài viết — ' . APP_NAME,
             'post' => $post,
@@ -80,6 +85,7 @@ class PostController extends BaseController {
             'commentsTree' => $commentsTree,
             'currentUser' => $_SESSION['user'] ?? null,
             'csrfToken' => $this->csrfToken(),
+                        'canComment' => $canComment,
         ], 'feed');
     }
 
@@ -524,7 +530,7 @@ class PostController extends BaseController {
         return trim($plainContent . "\n" . implode(' ', $tags));
     }
 
-    private function guardCommentPermission(array $post, int $viewerId): ?array {
+    public function guardCommentPermission(array $post, int $viewerId): ?array {
         $ownerId = (int) ($post['user_id'] ?? 0);
         if ($ownerId <= 0 || $viewerId <= 0 || $ownerId === $viewerId) {
             return null;

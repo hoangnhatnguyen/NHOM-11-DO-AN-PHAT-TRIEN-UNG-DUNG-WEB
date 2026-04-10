@@ -34,6 +34,8 @@ try {
     require_once __DIR__ . '/../app/models/PostMedia.php';
     require_once __DIR__ . '/../app/models/PostHashtag.php';
     require_once __DIR__ . '/../app/models/Block.php';
+     require_once __DIR__ . '/../app/models/User.php';
+    require_once __DIR__ . '/../app/models/Follow.php';
 
     $postModel = new Post();
     $blockModel = new Block();
@@ -95,6 +97,25 @@ try {
     $currentUser = $_SESSION['user'] ?? null;
     $baseUrl = BASE_URL;
     $profileBaseUrl = preg_replace('#/api$#', '', rtrim((string) BASE_URL, '/')) ?: '';
+// ---THÊM XỬ LÝ QUYỀN COMMENT CHO MODAL ---
+    $canComment = true;
+    $ownerId = (int) ($post['user_id'] ?? 0);
+
+    // Chỉ kiểm tra nếu không phải là bài viết của chính mình
+    if ($ownerId > 0 && $viewerId > 0 && $ownerId !== $viewerId) {
+        $userModelCheck = new User();
+        $followModelCheck = new Follow();
+        
+        $ownerData = $userModelCheck->findById($ownerId);
+        if ($ownerData) {
+            $privacyComment = (string) ($ownerData['privacy_comment'] ?? 'everyone');
+            // Nếu tác giả cài đặt 'mutual' nhưng cả 2 không phải bạn chung -> chặn
+            if ($privacyComment === 'mutual' && !$followModelCheck->isMutualFollow($viewerId, $ownerId)) {
+                $canComment = false;
+            }
+        }
+    }
+    // --- KẾT THÚC ĐOẠN THÊM ---
 
     // Render post detail template (reuse existing detail view)
     ob_start();

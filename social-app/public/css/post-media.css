@@ -1,3 +1,35 @@
+/* ============ Preview / compose (ảnh trước khi đăng) ============ */
+.preview-wrapper {
+	position: relative;
+	border-radius: 16px;
+	overflow: hidden;
+}
+
+.preview-remove {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	background: rgba(0, 0, 0, 0.6);
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+}
+
+#previewContainer {
+	width: 100%;
+}
+
+#previewImage {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+
+.feed-post {
+	width: 100%;
+}
+
+/* ============ Ảnh/video trên thẻ bài ============ */
 .post-media-tile {
 	width: 100%;
 	aspect-ratio: 1 / 1;
@@ -21,7 +53,41 @@
 	cursor: pointer;
 }
 
-/* Keep saved page visually same as chat, but remove forced empty space. */
+/* ============ Menu hành động bài (dropdown ⋮) ============ */
+.post-action-menu {
+	z-index: 2000;
+	min-width: 11rem;
+}
+
+.post-action-menu .dropdown-item:hover {
+	background-color: var(--bs-tertiary-bg, #e9ecef);
+}
+
+.post-action-menu button.dropdown-item.post-card-delete-btn {
+	cursor: pointer;
+	width: 100%;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.post-action-menu .dropdown-item.post-card-delete-btn:hover,
+.post-action-menu .dropdown-item.post-card-delete-btn:focus,
+.post-action-menu .dropdown-item.post-card-delete-btn:focus-visible {
+	background-color: #fde8e8 !important;
+	color: #b91c1c !important;
+}
+
+.post-action-menu .dropdown-item:not(.post-card-delete-btn):hover {
+	background-color: var(--bs-tertiary-bg, #e9ecef);
+}
+
+.modal.app-confirm-modal {
+	z-index: 1060;
+}
+
+#postDetailModal.modal.show {
+	z-index: 1055;
+}
+
 .chat-frame--saved {
 	min-height: auto;
 }

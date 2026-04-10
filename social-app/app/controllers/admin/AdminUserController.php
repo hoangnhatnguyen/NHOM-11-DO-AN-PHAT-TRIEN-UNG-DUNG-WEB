@@ -1,14 +1,21 @@
 <?php
 require_once __DIR__ . '/../../models/User.php';
-require_once __DIR__ . '/AdminFilterController.php';
 
 class AdminUserController extends BaseController {
 
     public function index(): void {
         $this->requireAdmin();
         $keyword = trim((string) ($_GET['q'] ?? ''));
-        $filter = new AdminFilterController();
-        $users = $filter->filterUsers($keyword);
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $perPage = min(50, max(5, (int) ($_GET['per_page'] ?? 15)));
+        $userModel = new User();
+        $total = $userModel->countSearchForAdmin($keyword);
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $users = $userModel->searchForAdminPaginated($keyword, $perPage, $offset);
         $this->render('admin/users/index', [
             'title' => 'Quản lý người dùng',
             'currentUser' => $_SESSION['user'] ?? null,
@@ -17,13 +24,17 @@ class AdminUserController extends BaseController {
             'adminTab' => 'users',
             'users' => $users,
             'keyword' => $keyword,
-        ], 'feed');
+            'paginationPage' => $page,
+            'paginationTotalPages' => $totalPages,
+            'paginationPerPage' => $perPage,
+            'paginationTotal' => $total,
+        ], 'admin');
     }
 
     public function edit(?string $id): void {
         $this->requireAdmin();
         $user = (new User())->findById((int)$id);
-        $this->render('admin/users/edit', compact('user'), 'feed');
+        $this->render('admin/users/edit', compact('user'), 'admin');
     }
 
     public function toggleStatus(): void {

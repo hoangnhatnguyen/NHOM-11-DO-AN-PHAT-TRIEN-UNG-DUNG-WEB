@@ -37,6 +37,8 @@
 		</div>
 	</main>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<?php include VIEW_PATH . 'partials/confirm_modal.php'; ?>
+	<script src="<?= BASE_URL ?>/public/js/confirm-modal.js"></script>
 	
 	<!-- Post Detail Modal -->
 	<div class="modal fade" id="postDetailModal" tabindex="-1" aria-hidden="true">

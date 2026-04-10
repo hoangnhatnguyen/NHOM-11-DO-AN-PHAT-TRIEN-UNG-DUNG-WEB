@@ -91,9 +91,6 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 	}, true);
 
-	/**
-	 * Handle post media image clicks to open modal
-	 */
 	document.addEventListener('click', function(e) {
 		const mediaTrigger = e.target.closest('.js-open-post-modal-media');
 		if (!mediaTrigger) return;

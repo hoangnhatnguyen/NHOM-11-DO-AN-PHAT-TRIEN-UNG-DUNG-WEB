@@ -82,7 +82,7 @@ function format_post_display_html(string $plainContent, array $hashtagNames): st
     foreach ($names as $name) {
         $esc = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
         $q = rawurlencode('#' . $name);
-        $links[] = '<a class="text-primary fw-semibold text-decoration-none position-relative" style="z-index:2" href="'
+        $links[] = '<a class="post-hashtag-link text-primary fw-semibold text-decoration-none position-relative" style="z-index:2" href="'
             . htmlspecialchars($base, ENT_QUOTES, 'UTF-8') . '/search?q=' . $q . '">#' . $esc . '</a>';
     }
     $inner = implode(' ', $links);

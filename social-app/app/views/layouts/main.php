@@ -13,6 +13,7 @@
 	<!-- Main CSS -->
 	<link href="<?= BASE_URL ?>/public/css/style.css" rel="stylesheet">
 	<link href="<?= BASE_URL ?>/public/css/saved.css" rel="stylesheet">
+	<link href="<?= BASE_URL ?>/public/css/post-media.css" rel="stylesheet">
 	<link href="<?= BASE_URL ?>/public/css/mobile-ui.css" rel="stylesheet">
 </head>
 <body class="app-bg">
@@ -35,6 +36,8 @@
 		</div>
 	</div>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<?php include VIEW_PATH . 'partials/confirm_modal.php'; ?>
+	<script src="<?= BASE_URL ?>/public/js/confirm-modal.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/comment.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/post-modal.js"></script>

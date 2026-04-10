@@ -66,8 +66,8 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
             </a>
 
             <?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
-                <div class="dropdown">
-					<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+                <div class="dropdown js-post-card-menu">
+					<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="outside">
                         <i class="bi bi-three-dots"></i>
                     </button>
 					<ul class="dropdown-menu dropdown-menu-end post-action-menu">
@@ -77,10 +77,18 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
                             </a>
                         </li>
                         <li>
-							<form method="POST" action="<?= $rootBaseUrl ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
-								<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-								<button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
-							</form>
+							<button
+								type="button"
+								class="dropdown-item text-danger post-card-delete-btn js-app-confirm-trigger w-100 text-start border-0"
+								data-delete-action="<?= htmlspecialchars($rootBaseUrl . '/post/' . (int) $post['id'] . '/delete', ENT_QUOTES, 'UTF-8') ?>"
+								data-delete-csrf="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+								data-confirm-title="Xóa bài viết"
+								data-confirm-message="Bạn có chắc muốn xóa bài viết này?"
+								data-confirm-danger="1"
+								data-confirm-ok="Xóa"
+							>
+								Xóa bài viết
+							</button>
                         </li>
                     </ul>
                 </div>

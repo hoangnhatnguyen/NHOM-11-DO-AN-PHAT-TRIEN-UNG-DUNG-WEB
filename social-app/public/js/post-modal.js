@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', function() {
 			.then(data => {
 				if (data.success && data.html) {
 					modalContent.innerHTML = data.html;
-					
+					modalContent.setAttribute('data-modal-post-id', String(postId));
+
 					// Fix form action URLs - remove /api prefix if present
 					const forms = modalContent.querySelectorAll('form');
 					forms.forEach(form => {
@@ -36,12 +37,6 @@ document.addEventListener('DOMContentLoaded', function() {
 							form.setAttribute('action', action);
 						}
 					});
-					
-					// Hide back button in modal
-					const backBtn = modalContent.querySelector('#back-to-post');
-					if (backBtn) {
-						backBtn.style.display = 'none';
-					}
 					
 					// Show modal
 					bsModal.show();
@@ -125,6 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	 */
 	modal.addEventListener('hidden.bs.modal', function() {
 		modalContent.innerHTML = '';
+		modalContent.removeAttribute('data-modal-post-id');
 	});
 
 	// Expose function globally for other scripts

@@ -69,6 +69,23 @@
 	-webkit-tap-highlight-color: transparent;
 }
 
+/* Nút "Chỉnh sửa": không dùng .bg-transparent (Bootstrap !important sẽ chặn nền hover) */
+.post-action-menu button.dropdown-item.js-open-post-edit {
+	cursor: pointer;
+	width: 100%;
+	text-align: start;
+	color: inherit;
+	background-color: transparent;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.post-action-menu button.dropdown-item.js-open-post-edit:hover,
+.post-action-menu button.dropdown-item.js-open-post-edit:focus,
+.post-action-menu button.dropdown-item.js-open-post-edit:focus-visible {
+	background-color: var(--bs-tertiary-bg, #e9ecef) !important;
+	color: var(--bs-body-color, #212529) !important;
+}
+
 .post-action-menu .dropdown-item.post-card-delete-btn:hover,
 .post-action-menu .dropdown-item.post-card-delete-btn:focus,
 .post-action-menu .dropdown-item.post-card-delete-btn:focus-visible {

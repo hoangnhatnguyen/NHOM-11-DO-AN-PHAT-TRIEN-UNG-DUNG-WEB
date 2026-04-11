@@ -71,9 +71,9 @@ $cardPostPath = (BASE_URL === '' ? '' : rtrim((string) BASE_URL, '/')) . '/post/
 						</button>
 						<ul class="dropdown-menu dropdown-menu-end post-action-menu">
 							<li>
-								<a class="dropdown-item" href="<?= BASE_URL ?>/post/edit/<?= (int) $post['id'] ?>">
+								<button type="button" class="dropdown-item js-open-post-edit text-start w-100 border-0" data-post-id="<?= (int) $post['id'] ?>">
 									Chỉnh sửa
-								</a>
+								</button>
 							</li>
 							<li>
 								<button

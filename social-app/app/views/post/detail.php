@@ -6,7 +6,7 @@ if (!function_exists('format_comment_time_vi')) {
 	}
 }
 
-$rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
+$profileBase = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 ?>
 
 <style>
@@ -22,13 +22,7 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 	}
 </style>
 
-<div class="mb-3">
-	<a href="<?= $rootBaseUrl ?: '' ?>/" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3" id="back-to-post">
-		<i class="bi bi-arrow-left me-1"></i> Bài viết
-	</a>
-</div>
-
-<article class="card border-0 shadow-sm rounded-4 mb-4">
+<article class="card border-0 shadow-sm rounded-4 mb-4 mt-3">
 	<div class="card-body p-3 p-md-4">
         <?php
         $detailAuthor = (string) ($post['author_name'] ?? '');
@@ -36,7 +30,6 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
         $detailAvRaw = (string) ($post['author_avatar_url'] ?? '');
         $detailAvSrc = $detailAvRaw !== '' ? media_public_src($detailAvRaw) : '';
 		$detailVisible = (string) ($post['visible'] ?? 'public');
-		$profileBase = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 		$detailVisibleIcon = 'bi-globe2';
 		$detailVisibleLabel = 'Công khai';
 		if ($detailVisible === 'followers') {
@@ -72,15 +65,15 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
                     </button>
 					<ul class="dropdown-menu dropdown-menu-end post-action-menu">
                         <li>
-                            <a class="dropdown-item" href="<?= $rootBaseUrl ?>/post/edit/<?= (int) $post['id'] ?>">
+                            <button type="button" class="dropdown-item js-open-post-edit text-start w-100 border-0" data-post-id="<?= (int) $post['id'] ?>">
                                 Chỉnh sửa
-                            </a>
+                            </button>
                         </li>
                         <li>
 							<button
 								type="button"
 								class="dropdown-item text-danger post-card-delete-btn js-app-confirm-trigger w-100 text-start border-0"
-								data-delete-action="<?= htmlspecialchars($rootBaseUrl . '/post/' . (int) $post['id'] . '/delete', ENT_QUOTES, 'UTF-8') ?>"
+								data-delete-action="<?= htmlspecialchars($profileBase . '/post/' . (int) $post['id'] . '/delete', ENT_QUOTES, 'UTF-8') ?>"
 								data-delete-csrf="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>"
 								data-confirm-title="Xóa bài viết"
 								data-confirm-message="Bạn có chắc muốn xóa bài viết này?"
@@ -185,4 +178,3 @@ $currentUserAvatarSrc = $currentUserAvatar ? media_public_src($currentUserAvatar
 	<img class="currentUserAvatar" data-avatar="<?= htmlspecialchars($currentUserAvatarSrc) ?>" alt="">
 </div>
 <script src="/public/js/comment.js"></script>
-<script src="/public/js/back-actions.js"></script>

@@ -54,12 +54,26 @@
 		</div>
 	</div>
 
+	<div class="modal fade" id="postEditModal" tabindex="-1" aria-labelledby="postEditModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header border-0 pb-0">
+					<h5 class="modal-title" id="postEditModalLabel">Chỉnh sửa bài viết</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+				</div>
+				<div class="modal-body" id="postEditModalContent" style="max-height: 80vh; overflow-y: auto;"></div>
+			</div>
+		</div>
+	</div>
+
 	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
 	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
 	<script src="<?= BASE_URL ?>/public/js/message-badge.js" type="module"></script>
 	<script src="<?= BASE_URL ?>/public/js/right_widgets.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/comment.js"></script>
+	<script src="<?= BASE_URL ?>/public/js/post-edit-form.js"></script>
+	<script src="<?= BASE_URL ?>/public/js/post-edit-modal.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/post-modal.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/infinite-scroll.js"></script>
 	<?php foreach (($pageScripts ?? []) as $script): ?>

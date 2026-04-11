@@ -55,6 +55,7 @@ return [
     'POST' => [
         // ============ AUTHENTICATION ============
         '/post/{postId}/comment/{commentId}/reply' => 'PostController@reply',
+        '/post/update/{id}' => 'PostController@update',
         '/post/{id}/like' => 'PostController@like',
         '/post/{id}/save' => 'PostController@save',
         '/post/{id}/share' => 'PostController@share',

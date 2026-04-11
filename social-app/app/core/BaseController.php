@@ -36,6 +36,12 @@ class BaseController {
 
 	protected function requireAuth(): void {
 		if (empty($_SESSION['user'])) {
+			if ($this->isAjaxRequest()) {
+				header('Content-Type: application/json; charset=utf-8');
+				http_response_code(401);
+				echo json_encode(['ok' => false, 'msg' => 'auth_required']);
+				exit;
+			}
 			$this->redirect('/login');
 		}
 	}

@@ -270,6 +270,47 @@ window.showCustomDeleteConfirm = function(event, formElement, postId) {
 			.catch(function () {});
 	});
 
-	// Intentionally disable click-to-open on post card background.
-	// Only explicit actions (comment button, media click, links/buttons/forms) should trigger behavior.
+	function eventTargetElement(e) {
+		var t = e.target;
+		if (!t) return null;
+		return t.nodeType === 1 ? t : t.parentElement;
+	}
+
+	document.addEventListener(
+		'pointerdown',
+		function (e) {
+			var el = eventTargetElement(e);
+			if (el && el.closest('.js-post-card-menu, .post-action-menu')) {
+				window.__suppressPostCardNavUntil = Date.now() + 550;
+			}
+		},
+		true
+	);
+
+	document.addEventListener('click', function (e) {
+		if (typeof window.__suppressPostCardNavUntil === 'number' && Date.now() < window.__suppressPostCardNavUntil) {
+			return;
+		}
+		var el = eventTargetElement(e);
+		if (!el) return;
+		var card = el.closest('.js-post-card');
+		if (!card) return;
+
+		if (el.closest('a.js-post-card-author, a.post-hashtag-link')) return;
+		if (el.closest('.feed-post-actions, .dropdown, .js-post-card-menu, .post-action-menu, .dropdown-menu, button, input, textarea, select, label, form, video, .js-open-post-modal-media, .js-comment-btn')) return;
+
+		var link = el.closest('a[href]');
+		if (link && !link.classList.contains('post-hashtag-link') && !link.classList.contains('js-post-card-author')) return;
+
+		var postId = card.getAttribute('data-post-id');
+		if (!postId) return;
+		e.preventDefault();
+		e.stopPropagation();
+		if (typeof window.openPostDetail === 'function') {
+			window.openPostDetail(postId);
+		} else {
+			var dest = card.getAttribute('data-post-url');
+			if (dest) window.location.href = dest;
+		}
+	});
 })();

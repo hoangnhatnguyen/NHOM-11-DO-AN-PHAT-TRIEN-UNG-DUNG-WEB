@@ -23,7 +23,10 @@ if ($visible === 'followers') {
 	$visibleLabel = 'Chỉ mình tôi';
 }
 ?>
-<article class="card border-0 shadow-sm rounded-4 mb-3 js-post-card" data-post-id="<?= $postId ?>" data-post-url="/post/<?= $postId ?>">
+<?php
+$cardPostPath = (BASE_URL === '' ? '' : rtrim((string) BASE_URL, '/')) . '/post/' . $postId;
+?>
+<article class="card border-0 shadow-sm rounded-4 mb-3 js-post-card" data-post-id="<?= $postId ?>" data-post-url="<?= htmlspecialchars($cardPostPath, ENT_QUOTES, 'UTF-8') ?>">
 	<div class="card-body p-3 p-md-4">
 		<div>
 			<div class="d-flex align-items-start justify-content-between mb-3 position-relative" style="z-index: 10;">
@@ -68,13 +71,13 @@ if ($visible === 'followers') {
 						</button>
 						<ul class="dropdown-menu dropdown-menu-end post-action-menu">
 							<li>
-								<a class="dropdown-item" href="<?= BASE_URL ?>/post/edit/<?= (int) $post['id'] ?>">
+								<button type="button" class="dropdown-item js-open-post-edit text-start w-100 border-0" data-post-id="<?= (int) $post['id'] ?>">
 									Chỉnh sửa
-								</a>
+								</button>
 							</li>
 							<li>
-<form method="POST" action="<?= $rootBaseUrl ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="showCustomDeleteConfirm(event, this, <?= (int) $post['id'] ?>)">
-							<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+								<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
+									<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 									<button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
 								</form>
 							</li>

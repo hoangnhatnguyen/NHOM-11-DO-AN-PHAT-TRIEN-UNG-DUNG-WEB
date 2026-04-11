@@ -2,12 +2,6 @@
 $adminTitle = $adminTitle ?? 'Quản trị';
 $adminTab = $adminTab ?? 'dashboard';
 ?>
-<style>
-	.admin-page {
-		--bs-primary: #1A6291;
-		--bs-primary-rgb: 26, 98, 145;
-	}
-</style>
 <div class="d-flex align-items-center justify-content-between mb-3">
 	<div>
 		<span class="badge rounded-pill bg-light text-dark px-3 py-2 fs-6 shadow-sm">

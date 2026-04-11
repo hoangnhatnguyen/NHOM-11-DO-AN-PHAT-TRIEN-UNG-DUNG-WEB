@@ -76,7 +76,7 @@ $composerColor = Avatar::colors($composerName);
         <div>
                 <label class="btn btn-light btn-sm rounded-pill">
                     <i class="bi bi-image"></i>
-                    <input type="file" name="media[]" id="feedFileInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden multiple>
+                    <input type="file" name="media[]" id="feedFileInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
                 </label>
             </div>
         <button id="feedComposerSubmit" class="btn btn-primary rounded-pill px-4">Đăng</button>
@@ -109,22 +109,32 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    function removeNewMediaAt(index) {
+    window.__feedComposerFiles = window.__feedComposerFiles || [];
+
+    function syncFeedComposerFilesToInput() {
         try {
             const dt = new DataTransfer();
-            Array.from(feedfileInput.files || []).forEach(function (file, i) {
-                if (i !== index) dt.items.add(file);
+            (window.__feedComposerFiles || []).forEach(function (file) {
+                dt.items.add(file);
             });
             feedfileInput.files = dt.files;
         } catch (e) {
             feedfileInput.value = "";
         }
+    }
+
+    function removeNewMediaAt(index) {
+        if (!Array.isArray(window.__feedComposerFiles)) return;
+        window.__feedComposerFiles = window.__feedComposerFiles.filter(function (_, i) {
+            return i !== index;
+        });
+        syncFeedComposerFilesToInput();
         renderPreview();
         checkEnableButton();
     }
 
     function renderPreview() {
-        const files = Array.from(feedfileInput.files || []);
+        const files = Array.isArray(window.__feedComposerFiles) ? window.__feedComposerFiles : [];
         feedpreviewGrid.innerHTML = "";
         if (!files.length) {
             feedpreviewContainer.classList.add("d-none");
@@ -155,7 +165,21 @@ document.addEventListener("DOMContentLoaded", function () {
     // check khi nhập text
     feedtextarea.addEventListener("input", checkEnableButton);
 
+    // Mỗi lần chỉ chọn 1 ảnh; có thể chọn nhiều lần để thêm dần (khác trang sửa: một lần chọn nhiều file)
     feedfileInput.addEventListener("change", function () {
+        const picked = this.files && this.files[0];
+        if (!picked) return;
+        if (!picked.type.startsWith("image/")) {
+            alert("Vui lòng chọn ảnh (JPEG, PNG, GIF, WebP).");
+            this.value = "";
+            return;
+        }
+        if (!Array.isArray(window.__feedComposerFiles)) {
+            window.__feedComposerFiles = [];
+        }
+        window.__feedComposerFiles.push(picked);
+        syncFeedComposerFilesToInput();
+        this.value = "";
         renderPreview();
         checkEnableButton();
     });

@@ -4,10 +4,10 @@ error_reporting(E_ALL);
 /**
  * Front Controller - Mọi request đều đi qua đây
  * Social App - MVC Architecture
+ *
+ * Không gọi session_start() ở đây — phải load env rồi config/session.php
+ * (session_name, cookie path, SameSite) trước khi mở phiên.
  */
-session_start();
-
-// Load Composer autoloader
 require_once __DIR__ . '/vendor/autoload.php';
 
 require_once 'config/env.php';
@@ -34,9 +34,21 @@ set_exception_handler(function (Throwable $e): void {
 		'trace' => $e->getTraceAsString(),
 	]);
 
+	$isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+		&& strtolower((string) $_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+	if ($isAjax) {
+		header('Content-Type: application/json; charset=utf-8');
+		http_response_code(500);
+		echo json_encode([
+			'ok' => false,
+			'msg' => 'server_error',
+			'error' => $e->getMessage(),
+		], JSON_UNESCAPED_UNICODE);
+		return;
+	}
+
 	http_response_code(500);
-	//echo 'Đã có lỗi hệ thống. Vui lòng thử lại sau.';
-	// 🔥 HIỆN LỖI THẬT
 	echo "<h1>ERROR DEBUG</h1>";
 	echo "<pre>";
 	echo $e;

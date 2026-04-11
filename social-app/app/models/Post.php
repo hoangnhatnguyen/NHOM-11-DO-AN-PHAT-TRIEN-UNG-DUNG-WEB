@@ -40,7 +40,7 @@ class Post extends BaseModel {
     }
 
     /**
-     * @param array{keyword?: string, field?: string} $filter
+     * @param array{keyword?: string, field?: string, limit?: int, offset?: int} $filter
      * @return array<int, array<string, mixed>>
      */
     public function getAdminPosts(array $filter = []): array {
@@ -50,10 +50,14 @@ class Post extends BaseModel {
             $field = 'content';
         }
 
+        $limit = isset($filter['limit']) ? (int) $filter['limit'] : null;
+        $offset = isset($filter['offset']) ? max(0, (int) $filter['offset']) : 0;
+
         $sql = "
             SELECT
                 p.id,
                 p.content,
+                p.visible,
                 p.created_at,
                 u.username AS author_name
             FROM posts p
@@ -79,10 +83,58 @@ class Post extends BaseModel {
             $params['kw'] = '%' . $keyword . '%';
         }
 
-        $sql .= ' GROUP BY p.id, p.content, p.created_at, u.username ORDER BY p.id DESC ';
+        $sql .= ' GROUP BY p.id, p.content, p.visible, p.created_at, u.username ORDER BY p.id DESC ';
+
+        if ($limit !== null) {
+            $sql .= ' LIMIT :admin_limit OFFSET :admin_offset ';
+        }
+
+        $stmt = $this->db->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, PDO::PARAM_STR);
+        }
+        if ($limit !== null) {
+            $stmt->bindValue(':admin_limit', max(1, min($limit, 100)), PDO::PARAM_INT);
+            $stmt->bindValue(':admin_offset', $offset, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @param array{keyword?: string, field?: string} $filter
+     */
+    public function countAdminPosts(array $filter = []): int {
+        $keyword = trim((string) ($filter['keyword'] ?? ''));
+        $field = (string) ($filter['field'] ?? 'content');
+        if (!in_array($field, ['content', 'user', 'hashtag'], true)) {
+            $field = 'content';
+        }
+
+        $sql = 'SELECT COUNT(DISTINCT p.id) FROM posts p JOIN users u ON u.id = p.user_id ';
+        $params = [];
+
+        if ($field === 'hashtag') {
+            $sql .= '
+                LEFT JOIN post_hashtags ph ON ph.post_id = p.id
+                LEFT JOIN hashtags h ON h.id = ph.hashtag_id
+            ';
+        }
+
+        if ($keyword !== '') {
+            if ($field === 'user') {
+                $sql .= ' WHERE u.username LIKE :kw ';
+            } elseif ($field === 'hashtag') {
+                $sql .= ' WHERE h.name LIKE :kw ';
+            } else {
+                $sql .= ' WHERE p.content LIKE :kw ';
+            }
+            $params['kw'] = '%' . $keyword . '%';
+        }
+
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (int) $stmt->fetchColumn();
     }
 
     //CREATE POST
@@ -388,8 +440,32 @@ class Post extends BaseModel {
         ];
         $blockClause = $this->appendBlockVisibilityClause('p.user_id', $viewerId, $params, 'feed_page');
 
+        if ($viewerId <= 0) {
+            $visibilitySql = " AND p.visible = 'public' ";
+        } else {
+            $params['feed_vid_own'] = $viewerId;
+            $params['feed_vid_own2'] = $viewerId;
+            $params['feed_vid_follower'] = $viewerId;
+            $visibilitySql = "
+              AND (
+                p.visible = 'public'
+                OR (p.visible = 'private' AND p.user_id = :feed_vid_own)
+                OR (
+                  p.visible = 'followers'
+                  AND (
+                    p.user_id = :feed_vid_own2
+                    OR EXISTS (
+                      SELECT 1 FROM follows f
+                      WHERE f.follower_id = :feed_vid_follower AND f.following_id = p.user_id
+                    )
+                  )
+                )
+              )
+            ";
+        }
+
         $stmt = $this->db->prepare("
-            SELECT 
+            SELECT
                 p.*,
                 u.username AS author_name,
                 u.avatar_url AS author_avatar_url,
@@ -414,7 +490,7 @@ class Post extends BaseModel {
             FROM posts p
             JOIN users u ON u.id = p.user_id
             WHERE p.status = 'active'
-              AND p.visible = 'public'
+              {$visibilitySql}
               {$blockClause}
             ORDER BY p.id DESC
             LIMIT :limit OFFSET :offset

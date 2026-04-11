@@ -5,9 +5,9 @@ require_once __DIR__ . '/../models/PostMedia.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Follow.php';
 require_once __DIR__ . '/../models/Block.php';
-require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
 require_once __DIR__ . '/../helpers/hashtag_helper.php';
+require_once __DIR__ . '/../helpers/post_media_upload.php';
 
 class PostController extends BaseController {
 
@@ -29,7 +29,7 @@ class PostController extends BaseController {
         $parsed = parse_post_content_hashtags($rawInput);
         $content = $parsed['plain'];
         $visible = $_POST['privacy'] ?? 'public';
-        $hasUpload = !empty($_FILES['media']['name'][0]);
+        $hasUpload = has_post_media_upload();
         if ($content === '' && !$hasUpload) {
             $this->redirect('/?composer_error=empty');
             return;
@@ -44,7 +44,7 @@ class PostController extends BaseController {
 
         (new PostHashtag())->replaceForPost($postId, $parsed['tags']);
 
-        $this->processUploadedPostMedia($postId, new PostMedia());
+        process_post_uploaded_media_files($postId, new PostMedia());
 
         $authorId = (int) ($_SESSION['user']['id'] ?? 0);
         if ($authorId > 0 && $content !== '') {
@@ -334,7 +334,7 @@ class PostController extends BaseController {
 
         $media = (new PostMedia())->getByPost($postId);
         $hashtags = (new PostHashtag())->getTagNamesByPostId($postId);
-        $editContent = $this->composeContentForEditor((string) ($post['content'] ?? ''), $hashtags);
+        $editContent = compose_post_content_for_editor((string) ($post['content'] ?? ''), $hashtags);
 
         $this->render('post/edit', [
             'title' => 'Chỉnh sửa bài viết — ' . APP_NAME,
@@ -389,8 +389,6 @@ class PostController extends BaseController {
         }
         $rawUpdate = trim((string) ($_POST['content'] ?? ''));
         $parsedUpdate = parse_post_content_hashtags($rawUpdate);
-        $postModel->updatePost($postId, $parsedUpdate['plain'], $visible);
-        (new PostHashtag())->replaceForPost($postId, $parsedUpdate['tags']);
 
         $mediaModel = new PostMedia();
         $removeMediaIds = $_POST['remove_media_ids'] ?? [];
@@ -399,18 +397,17 @@ class PostController extends BaseController {
         }
         $removeMediaIds = array_values(array_unique(array_map('intval', $removeMediaIds)));
 
-        if (!empty($removeMediaIds)) {
-            $mediaRows = $mediaModel->getByIdsForPost($postId, $removeMediaIds);
-            $mediaModel->deleteByIdsForPost($postId, $removeMediaIds);
-
-            require_once __DIR__ . '/../helpers/media.php';
-            foreach ($mediaRows as $mediaRow) {
-                delete_stored_media((string) ($mediaRow['media_url'] ?? ''));
+        $existingMedia = $mediaModel->getByPost($postId);
+        $removeSet = array_flip($removeMediaIds);
+        $remainingAfterRemove = [];
+        foreach ($existingMedia as $m) {
+            $mid = (int) ($m['id'] ?? 0);
+            if ($mid > 0 && !isset($removeSet[$mid])) {
+                $remainingAfterRemove[] = $m;
             }
         }
-        $remainingMedia = $mediaModel->getByPost($postId);
-        $hasExistingMedia = !empty($remainingMedia);
-        $hasNewUpload = !empty($_FILES['media']['name'][0]);
+        $hasExistingMedia = !empty($remainingAfterRemove);
+        $hasNewUpload = has_post_media_upload();
         if ($parsedUpdate['plain'] === '' && !$hasExistingMedia && !$hasNewUpload) {
             if ($this->isAjaxRequest()) {
                 header('Content-Type: application/json; charset=utf-8');
@@ -421,7 +418,20 @@ class PostController extends BaseController {
             return;
         }
 
-        $this->processUploadedPostMedia($postId, $mediaModel);
+        $postModel->updatePost($postId, $parsedUpdate['plain'], $visible);
+        (new PostHashtag())->replaceForPost($postId, $parsedUpdate['tags']);
+
+        if (!empty($removeMediaIds)) {
+            $mediaRows = $mediaModel->getByIdsForPost($postId, $removeMediaIds);
+            $mediaModel->deleteByIdsForPost($postId, $removeMediaIds);
+
+            require_once __DIR__ . '/../helpers/media.php';
+            foreach ($mediaRows as $mediaRow) {
+                delete_stored_media((string) ($mediaRow['media_url'] ?? ''));
+            }
+        }
+
+        process_post_uploaded_media_files($postId, $mediaModel);
 
         if ($this->isAjaxRequest()) {
             header('Content-Type: application/json; charset=utf-8');

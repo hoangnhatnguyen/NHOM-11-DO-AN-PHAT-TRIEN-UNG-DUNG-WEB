@@ -46,44 +46,13 @@ try {
     if ($type === 'suggest_users') {
         require_once __DIR__ . '/../app/helpers/media.php';
         require_once __DIR__ . '/../app/core/Avatar.php';
+        require_once __DIR__ . '/../app/core/BaseModel.php';
+        require_once __DIR__ . '/../app/models/Follow.php';
 
-        if ($currentUserId) {
-            $stmt = $conn->prepare('
-                SELECT id, username, avatar_url
-                FROM users
-                WHERE id != :uid
-                  AND id NOT IN (
-                      SELECT following_id
-                      FROM follows
-                      WHERE follower_id = :uid_following
-                  )
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM blocks b
-                      WHERE (
-                          b.blocker_id = :uid_blocker AND b.blocked_id = users.id
-                      ) OR (
-                          b.blocker_id = users.id AND b.blocked_id = :uid_blocked
-                      )
-                  )
-                ORDER BY RAND()
-                LIMIT 5
-            ');
-            $stmt->execute([
-                'uid' => $currentUserId,
-                'uid_following' => $currentUserId,
-                'uid_blocker' => $currentUserId,
-                'uid_blocked' => $currentUserId,
-            ]);
-        } else {
-            $stmt = $conn->query('
-                SELECT id, username, avatar_url
-                FROM users
-                ORDER BY RAND()
-                LIMIT 5
-            ');
+        $rows = [];
+        if ($currentUserId !== null && $currentUserId > 0) {
+            $rows = (new Follow())->suggestForViewer($currentUserId, 5);
         }
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $data = [];
         foreach ($rows as $row) {
             $uname = (string) ($row['username'] ?? '');
@@ -114,7 +83,7 @@ try {
             INNER JOIN posts p ON p.id = ph.post_id AND p.status = 'active'
             GROUP BY h.id, h.name
             ORDER BY total DESC
-            LIMIT 10
+            LIMIT 5
         ");
         echo json_encode([
             'status' => 'success',

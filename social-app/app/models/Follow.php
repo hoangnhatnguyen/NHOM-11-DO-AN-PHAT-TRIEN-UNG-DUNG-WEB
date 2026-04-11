@@ -152,12 +152,19 @@ class Follow extends BaseModel {
 					SELECT 1 FROM {$this->table} f
 					WHERE f.follower_id = :viewer2 AND f.following_id = u.id
 				)
+				AND NOT EXISTS (
+					SELECT 1 FROM blocks b
+					WHERE (b.blocker_id = :vb1 AND b.blocked_id = u.id)
+					   OR (b.blocker_id = u.id AND b.blocked_id = :vb2)
+				)
 				ORDER BY u.id DESC
 				LIMIT :lim
 			";
 			$stmt = $this->db->prepare($sql);
 			$stmt->bindValue(':viewer', $viewerId, PDO::PARAM_INT);
 			$stmt->bindValue(':viewer2', $viewerId, PDO::PARAM_INT);
+			$stmt->bindValue(':vb1', $viewerId, PDO::PARAM_INT);
+			$stmt->bindValue(':vb2', $viewerId, PDO::PARAM_INT);
 			$stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
 			$stmt->execute();
 			return $stmt->fetchAll(PDO::FETCH_ASSOC);

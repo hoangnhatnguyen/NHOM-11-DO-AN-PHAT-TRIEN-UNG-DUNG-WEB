@@ -32,3 +32,26 @@ function parse_post_content_hashtags(string $text): array
 
     return ['plain' => $plain, 'tags' => $tags];
 }
+
+/**
+ * Ghép nội dung plain trong DB với hashtag để hiển thị trong ô sửa (giống lúc user sửa bài).
+ *
+ * @param array<int, string> $hashtags
+ */
+function compose_post_content_for_editor(string $plainContent, array $hashtags): string
+{
+    $plainContent = trim($plainContent);
+    $tags = [];
+    foreach ($hashtags as $tag) {
+        $t = trim((string) $tag);
+        if ($t === '') {
+            continue;
+        }
+        $tags[] = '#' . ltrim($t, '#');
+    }
+    if (empty($tags)) {
+        return $plainContent;
+    }
+
+    return trim($plainContent . "\n" . implode(' ', $tags));
+}

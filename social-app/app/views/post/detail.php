@@ -1,12 +1,13 @@
 <?php
 require_once dirname(__DIR__, 2) . '/helpers/notification_helper.php';
+
 if (!function_exists('format_comment_time_vi')) {
 	function format_comment_time_vi(?string $rawDateTime): string {
 		return notification_time_ago_vi($rawDateTime);
 	}
 }
 
-$rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
+$profileBase = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 ?>
 
 <style>
@@ -22,23 +23,19 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 	}
 </style>
 
-<div class="mb-3">
-	<a href="<?= $rootBaseUrl ?: '' ?>/" class="btn btn-sm btn-light rounded-pill text-black mt-3 fs-5 fw-bold px-3" id="back-to-post">
-		<i class="bi bi-arrow-left me-1"></i> Bài viết
-	</a>
-</div>
-
-<article class="card border-0 shadow-sm rounded-4 mb-4">
+<article class="card border-0 shadow-sm rounded-4 mb-4 mt-3">
 	<div class="card-body p-3 p-md-4">
+
         <?php
         $detailAuthor = (string) ($post['author_name'] ?? '');
         $detailAuthorColor = Avatar::colors($detailAuthor);
         $detailAvRaw = (string) ($post['author_avatar_url'] ?? '');
         $detailAvSrc = $detailAvRaw !== '' ? media_public_src($detailAvRaw) : '';
+
 		$detailVisible = (string) ($post['visible'] ?? 'public');
-		$profileBase = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 		$detailVisibleIcon = 'bi-globe2';
 		$detailVisibleLabel = 'Công khai';
+
 		if ($detailVisible === 'followers') {
 			$detailVisibleIcon = 'bi-people';
 			$detailVisibleLabel = 'Người theo dõi';
@@ -47,245 +44,178 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
 			$detailVisibleLabel = 'Chỉ mình tôi';
 		}
         ?>
+
         <div class="d-flex align-items-start justify-content-between gap-2">
-			<a href="<?= htmlspecialchars($profileBase . '/profile?u=' . rawurlencode($detailAuthor), ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0">
+
+			<a href="<?= htmlspecialchars($profileBase . '/profile?u=' . rawurlencode($detailAuthor), ENT_QUOTES, 'UTF-8') ?>"
+			   class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0">
+
                 <?php if ($detailAvSrc !== ''): ?>
-                    <img src="<?= htmlspecialchars($detailAvSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" width="44" height="44" class="rounded-circle flex-shrink-0" style="object-fit:cover"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="avatar-sm flex-shrink-0" style="background: <?= htmlspecialchars($detailAuthorColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($detailAuthorColor['fg'], ENT_QUOTES, 'UTF-8') ?>; display:none;"><?= htmlspecialchars(strtoupper(substr($detailAuthor, 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+                    <img src="<?= htmlspecialchars($detailAvSrc) ?>" width="44" height="44"
+                         class="rounded-circle flex-shrink-0" style="object-fit:cover">
+
                 <?php else: ?>
-                    <div class="avatar-sm flex-shrink-0" style="background: <?= htmlspecialchars($detailAuthorColor['bg'], ENT_QUOTES, 'UTF-8') ?>; color: <?= htmlspecialchars($detailAuthorColor['fg'], ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars(strtoupper(substr($detailAuthor, 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="avatar-sm flex-shrink-0"
+                         style="background: <?= htmlspecialchars($detailAuthorColor['bg']) ?>;
+                                color: <?= htmlspecialchars($detailAuthorColor['fg']) ?>;">
+                        <?= htmlspecialchars(strtoupper(substr($detailAuthor, 0, 1))) ?>
+                    </div>
                 <?php endif; ?>
+
                 <div class="min-w-0">
-                    <h5 class="fw-semibold mb-0 text-truncate"><?= htmlspecialchars($detailAuthor, ENT_QUOTES, 'UTF-8') ?></h5>
+                    <h5 class="fw-semibold mb-0 text-truncate"><?= htmlspecialchars($detailAuthor) ?></h5>
                     <div class="small text-secondary d-flex align-items-center gap-1">
-						<span><?= htmlspecialchars((string) $post['created_at'], ENT_QUOTES, 'UTF-8') ?></span>
-						<i class="bi <?= $detailVisibleIcon ?>" title="<?= htmlspecialchars($detailVisibleLabel, ENT_QUOTES, 'UTF-8') ?>"></i>
-					</div>
+                        <span><?= htmlspecialchars((string) $post['created_at']) ?></span>
+                        <i class="bi <?= $detailVisibleIcon ?>" title="<?= $detailVisibleLabel ?>"></i>
+                    </div>
                 </div>
             </a>
 
-            <?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
-<div class="dropdown">
-    <button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-three-dots"></i>
-                    </button>
-					<ul class="dropdown-menu dropdown-menu-end post-action-menu">
-                        <li>
-                            <a class="dropdown-item" href="<?= $rootBaseUrl ?>/post/edit/<?= (int) $post['id'] ?>">
-                                Chỉnh sửa
-                            </a>
-                        </li>
-                        <li>
-							<form method="POST" action="<?= $rootBaseUrl ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="showCustomDeleteConfirm(event, this, <?= (int) $post['id'] ?>)">
-    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-    <button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
-</form>
-                        </li>
-                    </ul>
-                </div>
+            <?php if (isset($currentUser['id']) && (int)$currentUser['id'] === (int)($post['user_id'] ?? 0)): ?>
+
+            <!-- MENU FIX -->
+            <div class="dropdown js-post-card-menu position-relative" style="z-index: 50;">
+                <button class="btn btn-sm btn-light rounded-pill"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        data-bs-display="static"
+                        data-bs-auto-close="outside">
+                    <i class="bi bi-three-dots"></i>
+                </button>
+
+                <ul class="dropdown-menu dropdown-menu-end post-action-menu">
+
+                    <li>
+                        <button type="button"
+                                class="dropdown-item js-open-post-edit"
+                                data-post-id="<?= (int) $post['id'] ?>">
+                            Chỉnh sửa
+                        </button>
+                    </li>
+
+                    <li>
+                        <form method="POST"
+                              action="/post/<?= (int) $post['id'] ?>/delete"
+                              class="m-0"
+                              onsubmit="showCustomDeleteConfirm(event, this, <?= (int) $post['id'] ?>)">
+
+                            <input type="hidden" name="_csrf"
+                                   value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+
+                            <button type="submit"
+                                    class="dropdown-item text-danger border-0 bg-transparent w-100 text-start">
+                                Xóa bài viết
+                            </button>
+
+                        </form>
+                    </li>
+
+                </ul>
+            </div>
+
             <?php endif; ?>
         </div>
-		
-		<div class="mt-3 mb-3 ms-1 position-relative" style="z-index: 2;"><?= format_post_display_html((string) ($post['content'] ?? ''), $post['hashtag_names'] ?? []) ?></div>
 
-		<?php foreach ($media as $m): ?>
-			<?php
-			$src = media_public_src((string) ($m['media_url'] ?? ''));
-			if ($src === '') {
-				continue;
-			}
-			$isVideo = (($m['media_type'] ?? '') === 'video');
-			?>
-			<?php if ($isVideo): ?>
-			<video src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" controls class="w-100 rounded-4 mb-2 post-detail-media" playsinline></video>
-			<?php else: ?>
-			<img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" class="img-fluid rounded-4 mb-2 w-100 post-detail-media" alt="">
-			<?php endif; ?>
-		<?php endforeach; ?>
+        <!-- CONTENT -->
+        <div class="mt-3 mb-3 ms-1 position-relative">
+            <?= format_post_display_html((string)($post['content'] ?? ''), $post['hashtag_names'] ?? []) ?>
+        </div>
 
-		<hr class="my-3">
+        <!-- MEDIA -->
+        <?php foreach ($media as $m): ?>
+            <?php
+            $src = media_public_src((string) ($m['media_url'] ?? ''));
+            if ($src === '') continue;
+            $isVideo = ($m['media_type'] ?? '') === 'video';
+            ?>
 
-		<div class="d-flex align-items-center gap-4 flex-wrap mb-3 small">
-			<form method="POST" action="/post/<?= (int) $post['id'] ?>/like" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-like" data-post-id="<?= (int) $post['id'] ?>">
-				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button id="like-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>" aria-label="Yêu thích">
-					<i id="like-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_liked']) ? 'bi-heart-fill' : 'bi-heart' ?>"></i>
-				</button>
-				<span id="like-count-<?= (int) $post['id'] ?>" class="<?= !empty($post['is_liked']) ? 'text-danger' : 'text-secondary' ?>"><?= (int) ($post['like_count'] ?? 0) ?></span>
-			</form>
+            <?php if ($isVideo): ?>
+                <video src="<?= htmlspecialchars($src) ?>" controls class="w-100 rounded-4 mb-2 post-detail-media"></video>
+            <?php else: ?>
+                <img src="<?= htmlspecialchars($src) ?>" class="w-100 rounded-4 mb-2 post-detail-media">
+            <?php endif; ?>
+        <?php endforeach; ?>
 
-			<a href="#comment-box" class="text-decoration-none d-inline-flex align-items-center gap-1 text-secondary" aria-label="Bình luận">
-				<i class="bi bi-chat"></i>
-				<span id="comment-count-<?= (int) $post['id'] ?>"><?= (int) ($post['comment_count'] ?? 0) ?></span>
-			</a>
+        <hr class="my-3">
 
-			<form method="POST" action="/post/<?= (int) $post['id'] ?>/share" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-share js-share-form" data-post-id="<?= (int) $post['id'] ?>" data-post-url="/post/<?= (int) $post['id'] ?>">
-				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button type="submit" class="btn btn-link text-decoration-none p-0 border-0 text-secondary" aria-label="Chia sẻ">
-					<i class="bi bi-share"></i>
-				</button>
-				<span id="share-count-<?= (int) $post['id'] ?>" class="text-secondary"><?= (int) ($post['share_count'] ?? 0) ?></span>
-			</form>
+        <!-- ACTIONS -->
+        <div class="d-flex gap-3 small">
 
-			<!-- Save post -->
-            <form method="POST" action="/post/<?= (int) $post['id'] ?>/save" class="m-0 d-inline-flex align-items-center gap-1 ajax-post-save" data-post-id="<?= (int) $post['id'] ?>">
-				<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-				<button id="save-btn-<?= (int) $post['id'] ?>" type="submit" class="btn btn-link text-decoration-none p-0 border-0 <?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>" aria-label="Lưu bài viết">
-					<i id="save-icon-<?= (int) $post['id'] ?>" class="bi <?= !empty($post['is_saved']) ? 'bi-bookmark-fill' : 'bi-bookmark' ?>"></i>
-				</button>
-				<span id="save-count-<?= (int) $post['id'] ?>" class="<?= !empty($post['is_saved']) ? 'text-warning' : 'text-secondary' ?>"><?= (int) ($post['save_count'] ?? 0) ?></span>
-			</form>
-		</div>
-
-       <hr class="my-3">
-		
-        <!-- Comment form -->
-        <?php if (isset($canComment) && $canComment): ?>
-            <!-- NẾU CÓ QUYỀN: HIỆN FORM -->
-            <form method="POST" action="/post/<?= (int) $post['id'] ?>/comment" class="mb-3 comment-form" id="comment-box">
+            <form method="POST" action="/post/<?= (int)$post['id'] ?>/like" class="ajax-post-like m-0">
                 <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-                <div class="input-group rounded-4 p-2 bg-light">
-                    <input type="text" name="content" class="form-control border-0 bg-light" placeholder="Viết bình luận..." required>
-                    <button type="submit" class="btn btn-primary opacity-80 rounded-pill">
-                        <i class="me-2"></i> Bình luận
-                    </button>
-                </div>
+                <button class="btn btn-link p-0 border-0">
+                    <i class="bi <?= !empty($post['is_liked']) ? 'bi-heart-fill text-danger' : 'bi-heart' ?>"></i>
+                </button>
+                <span><?= (int) ($post['like_count'] ?? 0) ?></span>
+            </form>
+
+            <a href="#comment-box" class="text-secondary text-decoration-none">
+                <i class="bi bi-chat"></i>
+                <?= (int) ($post['comment_count'] ?? 0) ?>
+            </a>
+
+            <form method="POST" action="/post/<?= (int)$post['id'] ?>/share" class="ajax-post-share m-0">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+                <button class="btn btn-link p-0 border-0">
+                    <i class="bi bi-share"></i>
+                </button>
+            </form>
+
+            <form method="POST" action="/post/<?= (int)$post['id'] ?>/save" class="ajax-post-save m-0">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+                <button class="btn btn-link p-0 border-0">
+                    <i class="bi <?= !empty($post['is_saved']) ? 'bi-bookmark-fill text-warning' : 'bi-bookmark' ?>"></i>
+                </button>
+            </form>
+
+        </div>
+
+        <hr class="my-3">
+
+        <!-- COMMENT -->
+        <?php if (!empty($canComment)): ?>
+            <form method="POST" action="/post/<?= (int)$post['id'] ?>/comment" id="comment-box">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+                <input class="form-control" name="content" placeholder="Viết bình luận...">
             </form>
         <?php else: ?>
-            <!-- NẾU KHÔNG CÓ QUYỀN: HIỆN THÔNG BÁO -->
-            <div class="alert alert-secondary text-center py-2 mb-3 rounded-4 border-0" role="alert" style="font-size: 14px; background-color: #f8f9fa;">
-                <i class="bi bi-lock-fill me-1 text-muted"></i> 
-                <span class="text-muted">Tác giả đã giới hạn người có thể bình luận bài viết này.</span>
+            <div class="alert alert-secondary text-center small">
+                Bị giới hạn bình luận
             </div>
         <?php endif; ?>
 
-		<!-- Comment section -->
-        <div class="mt-2">
-			<h6 class="fw-semibold mb-2">Bình luận</h6>
-			<?php $postId = (int) ($post['id'] ?? 0); ?>
-			<?php if (empty($commentsTree ?? [])): ?>
-				<p class="text-secondary small mb-0">Chưa có bình luận nào.</p>
-			<?php else: ?>
-				<?php foreach ($commentsTree as $node): ?>
-					<?php
-					$depth = 0;
-					include VIEW_PATH . 'partials/comment_reply_branch.php';
-					?>
-				<?php endforeach; ?>
-			<?php endif; ?>
-		</div>
+        <div class="mt-3">
+            <?php if (!empty($commentsTree)): ?>
+                <?php foreach ($commentsTree as $node): ?>
+                    <?php $depth = 0; include VIEW_PATH . 'partials/comment_reply_branch.php'; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+
 	</div>
 </article>
-<!-- Hidden data for JS -->
-<?php
-$currentUserAvatar = (string) ($currentUser['avatar_url'] ?? '');
-$currentUserAvatarSrc = $currentUserAvatar ? media_public_src($currentUserAvatar) : '';
-?>
-<div class="d-none">
-	<span class="currentUserName"><?= htmlspecialchars($currentUser['username'] ?? 'Người dùng') ?></span>
-	<img class="currentUserAvatar" data-avatar="<?= htmlspecialchars($currentUserAvatarSrc) ?>" alt="">
-</div>
+
 <script src="/public/js/comment.js"></script>
-<script src="/public/js/back-actions.js"></script>
+
 <script>
 function showCustomDeleteConfirm(event, formElement, postId) {
-    event.preventDefault(); // Ngăn form tự reload trang
+    event.preventDefault();
 
-    // 1. Khởi tạo UI cho Modal nếu chưa có
-    let deleteModal = document.getElementById('customDeleteModal');
-    if (!deleteModal) {
-        const modalHtml = `
-        <div class="modal fade" id="customDeleteModal" tabindex="-1" style="z-index: 1060;">
-            <div class="modal-dialog modal-dialog-centered modal-sm">
-                <div class="modal-content rounded-4 border-0 shadow">
-                    <div class="modal-body text-center p-4">
-                        <div class="mb-3 text-danger">
-                            <i class="bi bi-exclamation-circle" style="font-size: 3rem;"></i>
-                        </div>
-                        <h5 class="mb-3 fw-bold">Xóa bài viết?</h5>
-                        <p class="text-muted mb-4 small">Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể khôi phục.</p>
-                        <div class="d-flex gap-2 justify-content-center">
-                            <button type="button" class="btn btn-light rounded-pill px-4 fw-medium" data-bs-dismiss="modal">Hủy</button>
-                            <button type="button" class="btn btn-danger rounded-pill px-4 fw-medium" id="confirmDeleteBtn">Xóa</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        deleteModal = document.getElementById('customDeleteModal');
-    }
+    const ok = confirm("Bạn có chắc muốn xóa bài viết?");
+    if (!ok) return;
 
-    // Hiển thị modal
-    const bsModal = new bootstrap.Modal(deleteModal);
-    bsModal.show();
-
-    // Reset lại sự kiện click nút "Xóa" để tránh lỗi bấm 1 lần xóa 2 bài
-    const confirmBtn = document.getElementById('confirmDeleteBtn');
-    const newConfirmBtn = confirmBtn.cloneNode(true);
-    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-
-    // 2. GỌI AJAX KHI BẤM XÁC NHẬN
-    newConfirmBtn.onclick = function() {
-        const originalText = this.innerHTML;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xóa...';
-        this.disabled = true;
-
-        const url = formElement.getAttribute('action');
-        const formData = new FormData(formElement);
-
-        fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest' // Báo cho server đây là AJAX
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok) {
-                // 1. Ẩn modal xác nhận xóa
-                bootstrap.Modal.getInstance(deleteModal).hide();
-
-                // 2. Nếu đang xem trong Popup Modal chi tiết bài viết (chứ không phải trang chi tiết)
-                // thì đóng luôn Popup chi tiết đó lại
-                const postDetailModal = document.getElementById('postDetailModal');
-                if (postDetailModal && postDetailModal.classList.contains('show')) {
-                    bootstrap.Modal.getInstance(postDetailModal).hide();
-                }
-
-                // 3. Xóa bài viết khỏi màn hình bảng tin (Trang chủ/Profile)
-                // Tìm bài viết có data-post-id tương ứng ngoài Feed và cho nó bay màu
-                const feedCard = document.querySelector(`[data-post-id="${postId}"]`);
-                if (feedCard) {
-                    feedCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                    feedCard.style.opacity = '0';
-                    feedCard.style.transform = 'scale(0.9)';
-                    setTimeout(() => feedCard.remove(), 300);
-                }
-
-                // 4. Dành riêng cho trang chi tiết (/post/xxx): Ẩn article đi
-                const articleElement = formElement.closest('article');
-                if (articleElement) {
-                    articleElement.innerHTML = `<div class="alert alert-success text-center border-0 rounded-4 m-3"><i class="bi bi-check-circle-fill me-2"></i> Bài viết đã được xóa thành công.</div>`;
-                    setTimeout(() => {
-                        window.location.href = '/'; // Ở trang chi tiết thì xóa xong 2s tự về trang chủ
-                    }, 1500);
-                }
-
-            } else {
-                alert('Lỗi: ' + (data.msg || 'Không thể xóa bài viết'));
-                this.innerHTML = originalText;
-                this.disabled = false;
-            }
-        })
-        .catch(err => {
-            console.error('AJAX Error:', err);
-            alert('Lỗi mạng. Vui lòng thử lại!');
-            this.innerHTML = originalText;
-            this.disabled = false;
-        });
-    };
+    fetch(formElement.action, {
+        method: "POST",
+        body: new FormData(formElement),
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            location.href = "/";
+        } else {
+            alert("Xóa thất bại");
+        }
+    });
 }
 </script>

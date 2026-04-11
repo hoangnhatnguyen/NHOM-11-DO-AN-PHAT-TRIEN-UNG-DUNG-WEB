@@ -6,7 +6,11 @@ define('VIEW_PATH', APP_PATH . 'views/');
 define('APP_NAME', (string) env('APP_NAME', 'Social App'));
 
 $detectBaseFromScript = function (): string {
-	$scriptName = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
+	$scriptName = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/')));
+	// Khi include view từ api/*.php, dirname là .../api — URL ứng dụng thật dưới .../public (index.php).
+	if (preg_match('#/api$#', $scriptName)) {
+		$scriptName = preg_replace('#/api$#', '/public', $scriptName);
+	}
 	return rtrim($scriptName, '/');
 };
 

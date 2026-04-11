@@ -19,24 +19,62 @@ class User extends BaseModel {
 	}
 
 	public function searchForAdmin(string $keyword = ''): array {
+		return $this->searchForAdminPaginated($keyword, 100000, 0);
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function searchForAdminPaginated(string $keyword = '', int $limit = 20, int $offset = 0): array {
 		$keyword = trim($keyword);
+		$limit = max(1, min($limit, 100));
+		$offset = max(0, $offset);
+
 		if ($keyword === '') {
-			$stmt = $this->db->query("
+			$stmt = $this->db->prepare("
 				SELECT id, username, email, role, is_active, created_at
 				FROM {$this->table}
 				ORDER BY id DESC
+				LIMIT :limit OFFSET :offset
 			");
+			$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+			$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+			$stmt->execute();
 			return $stmt->fetchAll(PDO::FETCH_ASSOC);
 		}
 
+		$like = '%' . $keyword . '%';
 		$stmt = $this->db->prepare("
 			SELECT id, username, email, role, is_active, created_at
 			FROM {$this->table}
-			WHERE username LIKE :kw OR email LIKE :kw
+			WHERE username LIKE :kw_user OR email LIKE :kw_email
 			ORDER BY id DESC
+			LIMIT :limit OFFSET :offset
 		");
-		$stmt->execute(['kw' => '%' . $keyword . '%']);
+		// Native prepares (EMULATE_PREPARES false): không được lặp cùng tên placeholder (:kw) hai lần trong SQL.
+		$stmt->bindValue(':kw_user', $like, PDO::PARAM_STR);
+		$stmt->bindValue(':kw_email', $like, PDO::PARAM_STR);
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+		$stmt->execute();
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function countSearchForAdmin(string $keyword = ''): int {
+		$keyword = trim($keyword);
+		if ($keyword === '') {
+			$stmt = $this->db->query("SELECT COUNT(*) FROM {$this->table}");
+			return (int) $stmt->fetchColumn();
+		}
+		$like = '%' . $keyword . '%';
+		$stmt = $this->db->prepare("
+			SELECT COUNT(*) FROM {$this->table}
+			WHERE username LIKE :kw_user OR email LIKE :kw_email
+		");
+		$stmt->bindValue(':kw_user', $like, PDO::PARAM_STR);
+		$stmt->bindValue(':kw_email', $like, PDO::PARAM_STR);
+		$stmt->execute();
+		return (int) $stmt->fetchColumn();
 	}
 
 	public function setActiveStatus(int $userId, int $active): bool {

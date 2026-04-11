@@ -34,18 +34,18 @@ $meColor = Avatar::colors($meName);
             </div>
 
             <div class="saved-message-scroll p-3">
-                <?php if (empty($savedPosts ?? [])): ?>
-                    <div class="text-center text-secondary py-5">
-                        <i class="bi bi-bookmark fs-1 d-block mb-2"></i>
-                        Bạn chưa lưu bài viết nào.
-                    </div>
-                <?php else: ?>
+                <div id="saved-empty-state" class="text-center text-secondary py-5 <?= !empty($savedPosts ?? []) ? 'd-none' : '' ?>">
+                    <i class="bi bi-bookmark fs-1 d-block mb-2"></i>
+                    Bạn chưa lưu bài viết nào.
+                </div>
+                <div id="saved-posts-list">
+                <?php if (!empty($savedPosts ?? [])): ?>
                     <?php foreach ($savedPosts as $post): ?>
                         <?php
                         $rawMedia = (string) ($post['media_url'] ?? '');
                         $src = $rawMedia !== '' ? media_public_src($rawMedia) : BASE_URL . '/public/images/default.jpg';
                         ?>
-                        <div class="card border-0 shadow-sm rounded-4 mb-1">
+                        <div class="card border-0 shadow-sm rounded-4 mb-1 js-saved-post-row" data-post-id="<?= (int) ($post['id'] ?? 0) ?>">
                             <div class="card-body d-flex justify-content-between align-items-center gap-2">
                                 <a href="<?= BASE_URL ?>/post/<?= (int) ($post['id'] ?? 0) ?>" class="js-open-post-modal d-flex align-items-center gap-3 text-decoration-none text-dark flex-grow-1" data-post-id="<?= (int) ($post['id'] ?? 0) ?>">
                                     <img
@@ -71,17 +71,14 @@ $meColor = Avatar::colors($meName);
                                     </div>
                                 </a>
 
-                                <form method="POST" action="<?= BASE_URL ?>/saved/unsave" class="m-0">
-                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) ($csrfToken ?? '')) ?>">
-                                    <input type="hidden" name="post_id" value="<?= (int) ($post['id'] ?? 0) ?>">
-                                    <button class="btn btn-light rounded-3 px-3" onclick="return confirm('Bỏ lưu bài viết này?')">
-                                        <i class="bi bi-trash me-1"></i> Bỏ lưu
-                                    </button>
-                                </form>
+                                <button type="button" class="btn btn-light rounded-3 px-3 js-saved-unsave-btn" data-post-id="<?= (int) ($post['id'] ?? 0) ?>" data-csrf="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                    <i class="bi bi-trash me-1"></i> Bỏ lưu
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
+                </div>
             </div>
         </section>
     </div>

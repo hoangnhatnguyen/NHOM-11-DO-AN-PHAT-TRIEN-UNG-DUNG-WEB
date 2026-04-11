@@ -435,16 +435,25 @@
 	}
 
 	/* Chat page: dedicated mobile layout */
+	/* main py-4 stacked below 100vh chat → thread taller than screen, composer off-screen */
+	main.container-fluid:has(#chatApp) {
+		padding-top: 0 !important;
+		padding-bottom: 0 !important;
+	}
+
 	#chatApp {
 		margin-bottom: 0;
 	}
 
 	#chatApp .chat-frame {
 		display: block !important;
-		min-height: calc(100vh - 16px) !important;
-		height: calc(100vh - 16px) !important;
+		min-height: 100vh !important;
+		min-height: 100dvh !important;
+		height: 100vh !important;
+		height: 100dvh !important;
 		background: #ffffff;
 		border: 0;
+		overflow: hidden;
 	}
 
 	#chatApp .chat-rail {
@@ -458,7 +467,10 @@
 		inset: auto !important;
 		width: 100% !important;
 		max-width: 100% !important;
-		height: calc(100vh - 16px) !important;
+		min-height: 100vh !important;
+		min-height: 100dvh !important;
+		height: 100vh !important;
+		height: 100dvh !important;
 		border: 0 !important;
 		background: #fff;
 	}
@@ -512,14 +524,20 @@
 		background: #fff;
 	}
 
-	/* Prevent avatar distortion in mobile chat list */
-	#chatApp .chat-conversation-item > div[style*="width:40px; height:40px"] {
+	/*
+	 * Avatar column: JS dùng cả "width:40px" và "width: 40px" — selector attribute cũ không khớp → cột co về 0 / mất ảnh.
+	 * Phần tử đầu trong .chat-conversation-item luôn là khung avatar.
+	 */
+	#chatApp .chat-conversation-item > div:first-child {
 		width: 40px !important;
 		height: 40px !important;
 		min-width: 40px !important;
 		min-height: 40px !important;
 		flex: 0 0 40px !important;
 		aspect-ratio: 1 / 1;
+		position: relative;
+		overflow: hidden;
+		border-radius: 50%;
 	}
 
 	#chatApp .chat-conversation-item img.rounded-circle,
@@ -567,6 +585,53 @@
 		align-items: center;
 		gap: 8px;
 		background: #eaf8ff;
+		flex-shrink: 0;
+	}
+
+	#chatApp .chat-thread-header .chat-user-info {
+		flex: 1;
+		min-width: 0;
+		align-items: center;
+	}
+
+	#chatApp .chat-thread-header .chat-user-avatar {
+		width: 40px !important;
+		height: 40px !important;
+		min-width: 40px !important;
+		min-height: 40px !important;
+		flex-shrink: 0 !important;
+		overflow: hidden;
+	}
+
+	#chatApp .chat-thread-header .chat-user-info > div:last-child {
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	#chatApp .chat-thread-header .chat-user-name,
+	#chatApp .chat-thread-header .chat-user-handle {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	#chatApp .chat-message-avatar {
+		width: 28px !important;
+		height: 28px !important;
+		min-width: 28px !important;
+		min-height: 28px !important;
+		flex-shrink: 0 !important;
+		display: grid !important;
+		place-items: center !important;
+		overflow: hidden !important;
+	}
+
+	#chatApp .chat-message-avatar img {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
+		object-fit: cover !important;
+		border-radius: 50%;
 	}
 
 	#chatApp .chat-detail-title {
@@ -614,10 +679,11 @@
 	}
 
 	#chatApp .chat-composer {
-		margin: 0 10px clamp(6px, 1.6vh, 12px);
+		margin: 0 10px max(clamp(6px, 1.6vh, 12px), env(safe-area-inset-bottom, 0px)) 10px;
 		background: #fff;
 		border-radius: 12px;
 		margin-top: auto;
+		flex-shrink: 0;
 	}
 
 	#chatApp .chat-detail-panel {

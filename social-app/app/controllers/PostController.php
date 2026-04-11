@@ -5,9 +5,9 @@ require_once __DIR__ . '/../models/PostMedia.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Follow.php';
 require_once __DIR__ . '/../models/Block.php';
-require_once __DIR__ . '/../services/S3Service.php';
 require_once __DIR__ . '/../helpers/notification_helper.php';
 require_once __DIR__ . '/../helpers/hashtag_helper.php';
+require_once __DIR__ . '/../helpers/post_media_upload.php';
 
 class PostController extends BaseController {
 
@@ -29,7 +29,7 @@ class PostController extends BaseController {
         $parsed = parse_post_content_hashtags($rawInput);
         $content = $parsed['plain'];
         $visible = $_POST['privacy'] ?? 'public';
-        $hasUpload = !empty($_FILES['media']['name'][0]);
+        $hasUpload = has_post_media_upload();
         if ($content === '' && !$hasUpload) {
             $this->redirect('/?composer_error=empty');
             return;
@@ -44,7 +44,7 @@ class PostController extends BaseController {
 
         (new PostHashtag())->replaceForPost($postId, $parsed['tags']);
 
-        $this->processUploadedPostMedia($postId, new PostMedia());
+        process_post_uploaded_media_files($postId, new PostMedia());
 
         $authorId = (int) ($_SESSION['user']['id'] ?? 0);
         if ($authorId > 0 && $content !== '') {
@@ -334,7 +334,7 @@ class PostController extends BaseController {
 
         $media = (new PostMedia())->getByPost($postId);
         $hashtags = (new PostHashtag())->getTagNamesByPostId($postId);
-        $editContent = $this->composeContentForEditor((string) ($post['content'] ?? ''), $hashtags);
+        $editContent = compose_post_content_for_editor((string) ($post['content'] ?? ''), $hashtags);
 
         $this->render('post/edit', [
             'title' => 'Chỉnh sửa bài viết — ' . APP_NAME,
@@ -389,8 +389,6 @@ class PostController extends BaseController {
         }
         $rawUpdate = trim((string) ($_POST['content'] ?? ''));
         $parsedUpdate = parse_post_content_hashtags($rawUpdate);
-        $postModel->updatePost($postId, $parsedUpdate['plain'], $visible);
-        (new PostHashtag())->replaceForPost($postId, $parsedUpdate['tags']);
 
         $mediaModel = new PostMedia();
         $removeMediaIds = $_POST['remove_media_ids'] ?? [];
@@ -399,18 +397,17 @@ class PostController extends BaseController {
         }
         $removeMediaIds = array_values(array_unique(array_map('intval', $removeMediaIds)));
 
-        if (!empty($removeMediaIds)) {
-            $mediaRows = $mediaModel->getByIdsForPost($postId, $removeMediaIds);
-            $mediaModel->deleteByIdsForPost($postId, $removeMediaIds);
-
-            require_once __DIR__ . '/../helpers/media.php';
-            foreach ($mediaRows as $mediaRow) {
-                delete_stored_media((string) ($mediaRow['media_url'] ?? ''));
+        $existingMedia = $mediaModel->getByPost($postId);
+        $removeSet = array_flip($removeMediaIds);
+        $remainingAfterRemove = [];
+        foreach ($existingMedia as $m) {
+            $mid = (int) ($m['id'] ?? 0);
+            if ($mid > 0 && !isset($removeSet[$mid])) {
+                $remainingAfterRemove[] = $m;
             }
         }
-        $remainingMedia = $mediaModel->getByPost($postId);
-        $hasExistingMedia = !empty($remainingMedia);
-        $hasNewUpload = !empty($_FILES['media']['name'][0]);
+        $hasExistingMedia = !empty($remainingAfterRemove);
+        $hasNewUpload = has_post_media_upload();
         if ($parsedUpdate['plain'] === '' && !$hasExistingMedia && !$hasNewUpload) {
             if ($this->isAjaxRequest()) {
                 header('Content-Type: application/json; charset=utf-8');
@@ -421,7 +418,20 @@ class PostController extends BaseController {
             return;
         }
 
-        $this->processUploadedPostMedia($postId, $mediaModel);
+        $postModel->updatePost($postId, $parsedUpdate['plain'], $visible);
+        (new PostHashtag())->replaceForPost($postId, $parsedUpdate['tags']);
+
+        if (!empty($removeMediaIds)) {
+            $mediaRows = $mediaModel->getByIdsForPost($postId, $removeMediaIds);
+            $mediaModel->deleteByIdsForPost($postId, $removeMediaIds);
+
+            require_once __DIR__ . '/../helpers/media.php';
+            foreach ($mediaRows as $mediaRow) {
+                delete_stored_media((string) ($mediaRow['media_url'] ?? ''));
+            }
+        }
+
+        process_post_uploaded_media_files($postId, $mediaModel);
 
         if ($this->isAjaxRequest()) {
             header('Content-Type: application/json; charset=utf-8');
@@ -476,99 +486,37 @@ class PostController extends BaseController {
         // Nếu người dùng tắt JS và submit bình thường thì mới redirect
         $this->redirect('/');
     }
-
-    /**
-     * Thử S3 trước; nếu SDK/credentials lỗi hoặc upload fail → lưu ảnh dưới public/media/posts/.
-     */
-    private function processUploadedPostMedia(int $postId, PostMedia $mediaModel): void {
-        if (empty($_FILES['media']['name'][0])) {
-            return;
-        }
-        require_once __DIR__ . '/../helpers/media.php';
-        $s3Service = new S3Service();
-        $s3SkipLogged = false;
-
-        foreach ($_FILES['media']['tmp_name'] as $i => $tmpFile) {
-            $err = (int) ($_FILES['media']['error'][$i] ?? UPLOAD_ERR_OK);
-            if ($err !== UPLOAD_ERR_OK) {
-                error_log("Post media upload PHP error #{$err} for post {$postId} index {$i}");
-                continue;
-            }
-            $name = (string) ($_FILES['media']['name'][$i] ?? '');
-            if ($name === '' || !is_uploaded_file($tmpFile)) {
-                continue;
-            }
-
-            $savedPath = null;
-            if ($s3Service->isReady()) {
-                $key = $s3Service->generatePostMediaKey($postId, $name);
-                if ($s3Service->uploadFile($tmpFile, $key)) {
-                    $savedPath = $key;
-                } elseif ($s3Service->getLastError() !== '') {
-                    error_log("Post {$postId} S3 upload failed: " . $s3Service->getLastError());
-                }
-            } elseif (!$s3SkipLogged) {
-                $s3SkipLogged = true;
-                error_log('Post media: bỏ qua S3 — ' . $s3Service->getNotReadyReason());
-            }
-            if ($savedPath === null) {
-                $savedPath = save_uploaded_post_image_local($postId, $tmpFile, $name);
-            }
-            if ($savedPath !== null) {
-                $mediaModel->addMedia($postId, $savedPath);
-            }
-        }
-    }
-
-    /**
-     * @param array<int, string> $hashtags
-     */
-    private function composeContentForEditor(string $plainContent, array $hashtags): string {
-        $plainContent = trim($plainContent);
-        $tags = [];
-        foreach ($hashtags as $tag) {
-            $t = trim((string) $tag);
-            if ($t === '') {
-                continue;
-            }
-            $tags[] = '#' . ltrim($t, '#');
-        }
-        if (empty($tags)) {
-            return $plainContent;
-        }
-        return trim($plainContent . "\n" . implode(' ', $tags));
-    }
-
-    public function guardCommentPermission(array $post, int $viewerId): ?array {
-        $ownerId = (int) ($post['user_id'] ?? 0);
-        if ($ownerId <= 0 || $viewerId <= 0 || $ownerId === $viewerId) {
-            return null;
-        }
-
-        $userModel = new User();
-        $followModel = new Follow();
-        $blockModel = new Block();
-
-        if ($blockModel->isBlocked($viewerId, $ownerId) || $blockModel->isBlocked($ownerId, $viewerId)) {
-            return [
-                'status' => 'error',
-                'ok' => false,
-                'error' => 'blocked_relationship',
-                'message' => 'Không thể bình luận do quan hệ chặn.',
-            ];
-        }
-
-        $owner = $userModel->findById($ownerId);
-        $privacyComment = (string) ($owner['privacy_comment'] ?? 'everyone');
-        if ($privacyComment === 'mutual' && !$followModel->isMutualFollow($viewerId, $ownerId)) {
-            return [
-                'status' => 'error',
-                'ok' => false,
-                'error' => 'comment_privacy_restricted',
-                'message' => 'Người dùng này chỉ cho phép bạn chung bình luận.',
-            ];
-        }
-
+public function guardCommentPermission(array $post, int $viewerId): ?array {
+    $ownerId = (int) ($post['user_id'] ?? 0);
+    if ($ownerId <= 0 || $viewerId <= 0 || $ownerId === $viewerId) {
         return null;
     }
+
+    $userModel = new User();
+    $followModel = new Follow();
+    $blockModel = new Block();
+
+    if ($blockModel->isBlocked($viewerId, $ownerId) || $blockModel->isBlocked($ownerId, $viewerId)) {
+        return [
+            'status' => 'error',
+            'ok' => false,
+            'error' => 'blocked_relationship',
+            'message' => 'Không thể bình luận do quan hệ chặn.',
+        ];
+    }
+
+    $owner = $userModel->findById($ownerId);
+    $privacyComment = (string) ($owner['privacy_comment'] ?? 'everyone');
+
+    if ($privacyComment === 'mutual' && !$followModel->isMutualFollow($viewerId, $ownerId)) {
+        return [
+            'status' => 'error',
+            'ok' => false,
+            'error' => 'comment_privacy_restricted',
+            'message' => 'Người dùng này chỉ cho phép bạn chung bình luận.',
+        ];
+    }
+
+    return null;
+}
 }

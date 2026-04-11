@@ -37,6 +37,8 @@
 		</div>
 	</main>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<?php include VIEW_PATH . 'partials/confirm_modal.php'; ?>
+	<script src="<?= BASE_URL ?>/public/js/confirm-modal.js"></script>
 	
 	<!-- Post Detail Modal -->
 	<div class="modal fade" id="postDetailModal" tabindex="-1" aria-hidden="true">
@@ -52,12 +54,26 @@
 		</div>
 	</div>
 
+	<div class="modal fade" id="postEditModal" tabindex="-1" aria-labelledby="postEditModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header border-0 pb-0">
+					<h5 class="modal-title" id="postEditModalLabel">Chỉnh sửa bài viết</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+				</div>
+				<div class="modal-body" id="postEditModalContent" style="max-height: 80vh; overflow-y: auto;"></div>
+			</div>
+		</div>
+	</div>
+
 	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
 	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
 	<script src="<?= BASE_URL ?>/public/js/message-badge.js" type="module"></script>
 	<script src="<?= BASE_URL ?>/public/js/right_widgets.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/comment.js"></script>
+	<script src="<?= BASE_URL ?>/public/js/post-edit-form.js"></script>
+	<script src="<?= BASE_URL ?>/public/js/post-edit-modal.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/post-modal.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/infinite-scroll.js"></script>
 	<?php foreach (($pageScripts ?? []) as $script): ?>

@@ -1,19 +1,4 @@
-/* Theme overrides (included from layouts after style.css). */
-.btn-primary,
-.btn-primary:hover,
-.btn-primary:focus,
-.btn-primary:active,
-.btn-primary.active,
-.btn-outline-primary.active,
-.btn-outline-primary:active {
-	background-color: #1A6291;
-	border-color: #1A6291;
-}
-
-.btn-outline-primary.active,
-.btn-outline-primary:active {
-	color: #fff;
-}
+/* Theme: nút primary / outline định nghĩa trong style.css (:root + .btn-primary). */
 
 .btn-warning,
 .btn-warning:hover,

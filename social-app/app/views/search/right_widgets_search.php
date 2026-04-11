@@ -60,13 +60,6 @@ if ($tab === 'users') {
 
 <aside class="d-flex flex-column gap-3 right-sticky">
 
-    <!-- SEARCH INPUT -->
-    <div class="position-relative">
-        <i class="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-secondary"></i>
-        <input class="form-control rounded-pill ps-5 border-0 shadow-sm" 
-               placeholder="Tìm kiếm..." disabled>
-    </div>
-
     <?php if ($q): ?>
 
         <!-- ===== FILTER ===== -->
@@ -154,15 +147,6 @@ if ($tab === 'users') {
 
     <?php endif; ?>
 
-
-    <!-- ===== SUGGEST ===== -->
-    <section class="card border-primary-subtle rounded-4 shadow-sm">
-    <div class="card-body p-3">
-        <h6 class="fw-bold text-primary mb-3">Gợi ý theo dõi</h6>
-
-        <ul id="suggestBox" class="list-unstyled mb-0 small"></ul>
-
-    </div>
-    </section>
+    <?php include __DIR__ . '/../partials/feed/suggest_follow_widget.php'; ?>
 
 </aside>

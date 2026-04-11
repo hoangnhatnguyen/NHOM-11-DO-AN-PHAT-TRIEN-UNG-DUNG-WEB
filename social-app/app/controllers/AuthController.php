@@ -183,16 +183,22 @@ class AuthController extends BaseController {
 	}
 
 	public function logout(): void {
-		$token = $_POST['_csrf'] ?? null;
-		if (!$this->verifyCsrf($token)) {
-			http_response_code(419);
-			echo 'CSRF token invalid';
+		$method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+		if ($method === 'POST') {
+			$token = $_POST['_csrf'] ?? null;
+			if (!$this->verifyCsrf($token)) {
+				$this->flash('error', 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng thử đăng xuất lại.');
+				$this->redirect(empty($_SESSION['user']) ? '/login' : '/');
+				return;
+			}
+		} elseif (empty($_SESSION['user'])) {
+			$this->redirect('/login');
 			return;
 		}
 
 		unset($_SESSION['user']);
 		session_regenerate_id(true);
-//		$this->flash('success', 'Bạn đã đăng xuất thành công.');
 		$this->redirect('/login');
 	}
 

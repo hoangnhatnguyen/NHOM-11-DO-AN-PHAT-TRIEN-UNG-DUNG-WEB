@@ -177,4 +177,3 @@ $currentUserAvatarSrc = $currentUserAvatar ? media_public_src($currentUserAvatar
 	<span class="currentUserName"><?= htmlspecialchars($currentUser['username'] ?? 'Người dùng') ?></span>
 	<img class="currentUserAvatar" data-avatar="<?= htmlspecialchars($currentUserAvatarSrc) ?>" alt="">
 </div>
-<script src="/public/js/comment.js"></script>

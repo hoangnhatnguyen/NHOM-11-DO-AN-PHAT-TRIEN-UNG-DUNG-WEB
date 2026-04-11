@@ -67,11 +67,34 @@
 	</div>
 
 	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
-	<script>window.__APP_BASE__ = <?= json_encode((string) BASE_URL, JSON_UNESCAPED_UNICODE) ?>;</script>
+	<?php
+	$__jsAppBase = trim((string) BASE_URL);
+	if ($__jsAppBase === '') {
+		$__jsAppBase = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+	}
+	$__mentionUsersUrl = ($__jsAppBase === '') ? '/api/mention_users.php' : rtrim($__jsAppBase, '/') . '/api/mention_users.php';
+	$__mentionUsernamesJson = '[]';
+	try {
+		$__pdo = Database::getInstance()->getConnection();
+		$__stmt = $__pdo->query('SELECT username FROM users ORDER BY CHAR_LENGTH(username) DESC');
+		$__mn = $__stmt->fetchAll(PDO::FETCH_COLUMN);
+		$__mentionUsernamesJson = json_encode(
+			array_values(array_filter(array_map('strval', $__mn ?: []))),
+			JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+		);
+	} catch (Throwable $e) {
+	}
+	?>
+	<script>
+	window.__APP_BASE__ = <?= json_encode($__jsAppBase, JSON_UNESCAPED_UNICODE) ?>;
+	window.__MENTION_USERS_URL__ = <?= json_encode($__mentionUsersUrl, JSON_UNESCAPED_UNICODE) ?>;
+	window.__MENTION_USERNAMES__ = <?= $__mentionUsernamesJson ?>;
+	</script>
 	<script src="<?= BASE_URL ?>/public/js/message-badge.js" type="module"></script>
 	<script src="<?= BASE_URL ?>/public/js/right_widgets.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/comment.js"></script>
+	<script src="<?= BASE_URL ?>/public/js/mention-autocomplete.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/post-edit-form.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/post-edit-modal.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/post-modal.js"></script>

@@ -81,13 +81,14 @@ final class NotificationService
     }
 
     /**
-     * Trích username sau @ (chữ, số, _, . — vd. @lee.d_113).
+     * Trích @token đơn (regex) — không hỗ trợ tên có dấu cách.
+     * Thông báo mention thực tế dùng parse_mentioned_usernames_from_text() trong notification_helper.
      *
      * @return list<string>
      */
     public static function parseMentionedUsernames(string $text): array
     {
-        if (preg_match_all('/@([a-zA-Z0-9_.]+)/u', $text, $m)) {
+        if (preg_match_all('/@([\p{L}\p{N}_.-]+)/u', $text, $m)) {
             return array_values(array_unique($m[1]));
         }
         return [];

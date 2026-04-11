@@ -87,22 +87,70 @@ class User extends BaseModel {
 
 	public function searchForChat(int $excludeUserId, string $query = '', int $limit = 20): array {
 		$limit = max(1, min($limit, 50));
+		// PDO MySQL + EMULATE_PREPARES false: không được lặp cùng tên placeholder.
 		$params = [
-			'exclude_id' => $excludeUserId,
+			'c_uid0' => $excludeUserId,
+			'c_uid1' => $excludeUserId,
+			'c_uid2' => $excludeUserId,
 		];
 
-		$where = 'id <> :exclude_id';
+		$where = 'id <> :c_uid0';
 		$where .= ' AND NOT EXISTS (
 			SELECT 1 FROM blocks b1
-			WHERE b1.blocker_id = :exclude_id AND b1.blocked_id = users.id
+			WHERE b1.blocker_id = :c_uid1 AND b1.blocked_id = users.id
 		)';
 		$where .= ' AND NOT EXISTS (
 			SELECT 1 FROM blocks b2
-			WHERE b2.blocked_id = :exclude_id AND b2.blocker_id = users.id
+			WHERE b2.blocked_id = :c_uid2 AND b2.blocker_id = users.id
 		)';
 		if ($query !== '') {
-			$where .= ' AND (username LIKE :query OR email LIKE :query)';
-			$params['query'] = '%' . $query . '%';
+			$like = '%' . $query . '%';
+			$where .= ' AND (username LIKE :c_like1 OR email LIKE :c_like2)';
+			$params['c_like1'] = $like;
+			$params['c_like2'] = $like;
+		}
+
+		$sql = "SELECT id, username, email, avatar_url FROM {$this->table} WHERE {$where} ORDER BY username ASC LIMIT :limit";
+		$stmt = $this->db->prepare($sql);
+
+		foreach ($params as $key => $value) {
+			$stmt->bindValue(':' . $key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+		}
+
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll();
+	}
+
+	/**
+	 * Gợi ý @mention: giống chat (trừ block), không hiển thị tài khoản admin, tìm theo username/email.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function searchForMention(int $viewerId, string $query = '', int $limit = 20): array {
+		$limit = max(1, min($limit, 50));
+		$params = [
+			'm_uid0' => $viewerId,
+			'm_uid1' => $viewerId,
+			'm_uid2' => $viewerId,
+		];
+
+		$where = 'id <> :m_uid0';
+		$where .= ' AND LOWER(COALESCE(role, \'user\')) <> \'admin\'';
+		$where .= ' AND NOT EXISTS (
+			SELECT 1 FROM blocks b1
+			WHERE b1.blocker_id = :m_uid1 AND b1.blocked_id = users.id
+		)';
+		$where .= ' AND NOT EXISTS (
+			SELECT 1 FROM blocks b2
+			WHERE b2.blocked_id = :m_uid2 AND b2.blocker_id = users.id
+		)';
+		if ($query !== '') {
+			$like = '%' . $query . '%';
+			$where .= ' AND (username LIKE :m_like1 OR email LIKE :m_like2)';
+			$params['m_like1'] = $like;
+			$params['m_like2'] = $like;
 		}
 
 		$sql = "SELECT id, username, email, avatar_url FROM {$this->table} WHERE {$where} ORDER BY username ASC LIMIT :limit";

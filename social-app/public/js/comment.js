@@ -17,16 +17,73 @@
 		return text.replace(/[&<>"']/g, m => map[m]);
 	}
 
-	// Helper to format content: escape HTML and convert @mention to links
+	/**
+	 * Khớp @mention với danh sách username từ server (tên có dấu cách), giống PHP format_notification_snippet.
+	 */
+	/** Khớp BASE_URL sau khi sửa constants: tránh tiền tố /public gây 404 với router */
+	function normalizedAppBase() {
+		let b = (typeof window.__APP_BASE__ !== 'undefined' && window.__APP_BASE__ !== null)
+			? String(window.__APP_BASE__).replace(/\/?$/, '')
+			: '';
+		if (b === '/public' || b.endsWith('/public')) {
+			b = b.replace(/\/public$/, '') || '';
+		}
+		return b;
+	}
+
 	function formatCommentContent(text) {
-		const escaped = escapeHtml(text);
-		// Convert @username to mention links
-		const baseUrl = window.location.origin;
-		const formatted = escaped.replace(
-			/@([a-zA-Z0-9_.]+)/g,
-			'<a class="text-primary fw-semibold text-decoration-none mention-profile-link position-relative" style="z-index:3" href="/profile?u=$1">@$1</a>'
-		);
-		return formatted;
+		const base = normalizedAppBase();
+		const names = Array.isArray(window.__MENTION_USERNAMES__) ? window.__MENTION_USERNAMES__ : [];
+		if (!text || names.length === 0) {
+			const escaped = escapeHtml(text || '');
+			return escaped.replace(
+				/@([\p{L}\p{N}_.-]+)/gu,
+				(_, u) => {
+					const enc = encodeURIComponent(u);
+					const href = base + '/profile?u=' + enc;
+					return '<a class="mention-profile-link text-primary fw-semibold text-decoration-none position-relative" style="z-index:3;line-height:1.45;display:inline-block;vertical-align:baseline;padding-bottom:0.12em" href="'
+						+ escapeHtml(href) + '">@' + escapeHtml(u) + '</a>';
+				}
+			);
+		}
+		let out = '';
+		let i = 0;
+		const len = text.length;
+		while (i < len) {
+			const at = text.indexOf('@', i);
+			if (at === -1) {
+				out += escapeHtml(text.slice(i));
+				break;
+			}
+			out += escapeHtml(text.slice(i, at));
+			const rest = text.slice(at + 1);
+			let best = '';
+			for (let ni = 0; ni < names.length; ni++) {
+				const uname = names[ni];
+				if (!uname || !rest.startsWith(uname)) {
+					continue;
+				}
+				const after = rest.charAt(uname.length);
+				if (
+					after === '' || after === ' ' || after === '\n' || after === '\t' || after === '\r'
+					|| '.,;:!?)]}'.indexOf(after) !== -1
+				) {
+					best = uname;
+					break;
+				}
+			}
+			if (best) {
+				const enc = encodeURIComponent(best);
+				const href = base + '/profile?u=' + enc;
+				out += '<a class="mention-profile-link text-primary fw-semibold text-decoration-none position-relative" style="z-index:3;line-height:1.45;display:inline-block;vertical-align:baseline;padding-bottom:0.12em" href="'
+					+ escapeHtml(href) + '">@' + escapeHtml(best) + '</a>';
+				i = at + 1 + best.length;
+			} else {
+				out += escapeHtml('@');
+				i = at + 1;
+			}
+		}
+		return out;
 	}
 
 	// Helper to generate avatar colors based on username
@@ -370,10 +427,11 @@
 
 		// Create form dynamically with @mention placeholder
 		const mentionText = commentAuthor ? `@${commentAuthor}` : '';
+		const base = normalizedAppBase();
 		const formHtml = `
 			<form
 				method="POST"
-				action="/post/${postId}/comment/${commentId}/reply"
+				action="${base}/post/${postId}/comment/${commentId}/reply"
 				class="mb-2 reply-form"
 				id="${formId}"
 			>
@@ -432,66 +490,6 @@
 		e.target.textContent = isHidden ? hideText : showText;
 	});
 
-	/**
-	 * Handle mention link clicks - auto-mention in reply form
-	 */
-	document.addEventListener('click', function (e) {
-		const mentionLink = e.target.closest('.mention-profile-link');
-		if (!mentionLink) {
-			return;
-		}
-
-		// Don't navigate to profile
-		e.preventDefault();
-
-		// Extract username from link text (format: @username)
-		const mentionText = mentionLink.textContent.trim();
-		if (!mentionText.startsWith('@')) {
-			return;
-		}
-		const username = mentionText.substring(1);
-
-		// Find parent comment node
-		const commentNode = mentionLink.closest('.comment-node');
-		if (!commentNode) {
-			console.warn('Could not find parent comment node');
-			return;
-		}
-
-		const commentId = commentNode.id.replace('comment-', '');
-		if (!commentId) {
-			return;
-		}
-
-		// Trigger reply button if it exists
-		const replyBtn = commentNode.querySelector('.toggle-reply-form-btn');
-		if (replyBtn) {
-			replyBtn.click();
-		}
-
-		// Get the reply form (should be created after click)
-		setTimeout(() => {
-			const formId = 'reply-form-' + commentId;
-			const form = document.getElementById(formId);
-			if (form) {
-				const inputField = form.querySelector('input[name="content"]');
-				if (inputField) {
-					// Preserve existing mention if present, or add new one
-					const currentValue = inputField.value.trim();
-					const mentionPrefix = '@' + username + ' ';
-					
-					if (!currentValue.includes('@' + username)) {
-						// Add mention to existing content
-						inputField.value = mentionPrefix + currentValue;
-					}
-					
-					inputField.focus();
-					inputField.setSelectionRange(inputField.value.length, inputField.value.length);
-				}
-			}
-		}, 50);
-	});
-	
 	// Expose function for modal context (event delegation handles all comment interactions)
 	window.reinitializeCommentHandlers = function() {
 		// No re-initialization needed - all handlers use event delegation on document

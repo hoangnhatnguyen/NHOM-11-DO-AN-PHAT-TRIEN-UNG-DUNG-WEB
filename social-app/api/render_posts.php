@@ -1,6 +1,7 @@
 <?php
-// Render post cards from JSON posts data
-session_start();
+// Render post cards from JSON posts data — cùng phiên với index.php
+require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/../config/session.php';
 header('Content-Type: text/html');
 
 // Check if user is logged in
@@ -12,7 +13,6 @@ if (!isset($_SESSION['user']['id'])) {
 
 try {
     // Load config & helpers
-    require_once __DIR__ . '/../config/env.php';
     require_once __DIR__ . '/../config/constants.php';
     require_once __DIR__ . '/../config/database.php';
     require_once __DIR__ . '/../app/core/Database.php';

@@ -1,6 +1,7 @@
 <?php
-// Load more posts with AJAX
-session_start();
+// Load more posts with AJAX — cùng phiên với index.php
+require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/../config/session.php';
 header('Content-Type: application/json');
 
 // Check if user is logged in
@@ -12,7 +13,6 @@ if (!isset($_SESSION['user']['id'])) {
 
 try {
     // Load config & models in correct order
-    require_once __DIR__ . '/../config/env.php';
     require_once __DIR__ . '/../config/constants.php';
     require_once __DIR__ . '/../config/database.php';
     require_once __DIR__ . '/../app/core/Database.php';

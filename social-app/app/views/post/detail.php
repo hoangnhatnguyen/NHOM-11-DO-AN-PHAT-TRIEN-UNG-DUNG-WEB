@@ -66,8 +66,8 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
             </a>
 
             <?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
-                <div class="dropdown">
-					<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+<div class="dropdown">
+    <button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-three-dots"></i>
                     </button>
 					<ul class="dropdown-menu dropdown-menu-end post-action-menu">
@@ -77,10 +77,10 @@ $rootBaseUrl = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
                             </a>
                         </li>
                         <li>
-							<form method="POST" action="<?= $rootBaseUrl ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
-								<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
-								<button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
-							</form>
+							<form method="POST" action="<?= $rootBaseUrl ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="showCustomDeleteConfirm(event, this, <?= (int) $post['id'] ?>)">
+    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+    <button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
+</form>
                         </li>
                     </ul>
                 </div>
@@ -188,3 +188,104 @@ $currentUserAvatarSrc = $currentUserAvatar ? media_public_src($currentUserAvatar
 </div>
 <script src="/public/js/comment.js"></script>
 <script src="/public/js/back-actions.js"></script>
+<script>
+function showCustomDeleteConfirm(event, formElement, postId) {
+    event.preventDefault(); // Ngăn form tự reload trang
+
+    // 1. Khởi tạo UI cho Modal nếu chưa có
+    let deleteModal = document.getElementById('customDeleteModal');
+    if (!deleteModal) {
+        const modalHtml = `
+        <div class="modal fade" id="customDeleteModal" tabindex="-1" style="z-index: 1060;">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content rounded-4 border-0 shadow">
+                    <div class="modal-body text-center p-4">
+                        <div class="mb-3 text-danger">
+                            <i class="bi bi-exclamation-circle" style="font-size: 3rem;"></i>
+                        </div>
+                        <h5 class="mb-3 fw-bold">Xóa bài viết?</h5>
+                        <p class="text-muted mb-4 small">Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể khôi phục.</p>
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="button" class="btn btn-light rounded-pill px-4 fw-medium" data-bs-dismiss="modal">Hủy</button>
+                            <button type="button" class="btn btn-danger rounded-pill px-4 fw-medium" id="confirmDeleteBtn">Xóa</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        deleteModal = document.getElementById('customDeleteModal');
+    }
+
+    // Hiển thị modal
+    const bsModal = new bootstrap.Modal(deleteModal);
+    bsModal.show();
+
+    // Reset lại sự kiện click nút "Xóa" để tránh lỗi bấm 1 lần xóa 2 bài
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    // 2. GỌI AJAX KHI BẤM XÁC NHẬN
+    newConfirmBtn.onclick = function() {
+        const originalText = this.innerHTML;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xóa...';
+        this.disabled = true;
+
+        const url = formElement.getAttribute('action');
+        const formData = new FormData(formElement);
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest' // Báo cho server đây là AJAX
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                // 1. Ẩn modal xác nhận xóa
+                bootstrap.Modal.getInstance(deleteModal).hide();
+
+                // 2. Nếu đang xem trong Popup Modal chi tiết bài viết (chứ không phải trang chi tiết)
+                // thì đóng luôn Popup chi tiết đó lại
+                const postDetailModal = document.getElementById('postDetailModal');
+                if (postDetailModal && postDetailModal.classList.contains('show')) {
+                    bootstrap.Modal.getInstance(postDetailModal).hide();
+                }
+
+                // 3. Xóa bài viết khỏi màn hình bảng tin (Trang chủ/Profile)
+                // Tìm bài viết có data-post-id tương ứng ngoài Feed và cho nó bay màu
+                const feedCard = document.querySelector(`[data-post-id="${postId}"]`);
+                if (feedCard) {
+                    feedCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    feedCard.style.opacity = '0';
+                    feedCard.style.transform = 'scale(0.9)';
+                    setTimeout(() => feedCard.remove(), 300);
+                }
+
+                // 4. Dành riêng cho trang chi tiết (/post/xxx): Ẩn article đi
+                const articleElement = formElement.closest('article');
+                if (articleElement) {
+                    articleElement.innerHTML = `<div class="alert alert-success text-center border-0 rounded-4 m-3"><i class="bi bi-check-circle-fill me-2"></i> Bài viết đã được xóa thành công.</div>`;
+                    setTimeout(() => {
+                        window.location.href = '/'; // Ở trang chi tiết thì xóa xong 2s tự về trang chủ
+                    }, 1500);
+                }
+
+            } else {
+                alert('Lỗi: ' + (data.msg || 'Không thể xóa bài viết'));
+                this.innerHTML = originalText;
+                this.disabled = false;
+            }
+        })
+        .catch(err => {
+            console.error('AJAX Error:', err);
+            alert('Lỗi mạng. Vui lòng thử lại!');
+            this.innerHTML = originalText;
+            this.disabled = false;
+        });
+    };
+}
+</script>

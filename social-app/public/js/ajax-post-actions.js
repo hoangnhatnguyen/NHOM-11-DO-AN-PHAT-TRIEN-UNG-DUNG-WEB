@@ -59,7 +59,125 @@
 			updater(el);
 		});
 	}
+window.showCustomDeleteConfirm = function(event, formElement, postId) {
+    event.preventDefault(); // Ngăn form tự reload trang
 
+    // 1. Khởi tạo UI cho Modal nếu chưa có
+    let deleteModal = document.getElementById('customDeleteModal');
+    if (!deleteModal) {
+        // Có thêm thẻ <div id="deleteModalError"> để chứa thông báo lỗi đẹp
+        const modalHtml = `
+        <div class="modal fade" id="customDeleteModal" tabindex="-1" style="z-index: 1060;">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content rounded-4 border-0 shadow">
+                    <div class="modal-body text-center p-4">
+                        <div class="mb-3 text-danger">
+                            <i class="bi bi-exclamation-circle" style="font-size: 3rem;"></i>
+                        </div>
+                        <h5 class="mb-3 fw-bold">Xóa bài viết?</h5>
+                        <p class="text-muted mb-3 small">Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể khôi phục.</p>
+                        
+                        <!-- Nơi hiển thị lỗi chuẩn Bootstrap thay vì dùng Alert xấu xí -->
+                        <div id="deleteModalError" class="alert alert-danger d-none small p-2 mb-3 text-start" role="alert"></div>
+
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="button" class="btn btn-light rounded-pill px-4 fw-medium" data-bs-dismiss="modal">Hủy</button>
+                            <button type="button" class="btn btn-danger rounded-pill px-4 fw-medium" id="confirmDeleteBtn">Xóa</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        deleteModal = document.getElementById('customDeleteModal');
+    }
+
+    // Hiển thị modal và ẩn thông báo lỗi cũ (nếu có)
+    const bsModal = new bootstrap.Modal(deleteModal);
+    const errorDiv = document.getElementById('deleteModalError');
+    if (errorDiv) errorDiv.classList.add('d-none');
+    bsModal.show();
+
+    // Reset lại sự kiện click nút "Xóa"
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+   // 2. GỌI AJAX KHI BẤM XÁC NHẬN
+    newConfirmBtn.onclick = function() {
+        const originalText = this.innerHTML;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xóa...';
+        this.disabled = true;
+
+        // VÁ LỖI NEWSFEED: KHÔNG LẤY URL TỪ FORM NỮA MÀ TỰ GHÉP LINK CHUẨN 100%
+        const url = '/post/' + postId + '/delete'; 
+        
+        const formData = new FormData(formElement);
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(async response => {
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error("Lỗi từ server:", text); // Dòng này in ra lỗi thật sự ở F12
+                throw new Error('Máy chủ phản hồi sai định dạng.');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.ok) {
+                // Thành công
+                bootstrap.Modal.getInstance(deleteModal).hide();
+
+                const postDetailModal = document.getElementById('postDetailModal');
+                if (postDetailModal && postDetailModal.classList.contains('show')) {
+                    bootstrap.Modal.getInstance(postDetailModal).hide();
+                }
+
+                const feedCard = document.querySelector(`[data-post-id="${postId}"]`) 
+                              || formElement.closest('.card') 
+                              || formElement.closest('article');
+                              
+                if (feedCard) {
+                    feedCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    feedCard.style.opacity = '0';
+                    feedCard.style.transform = 'scale(0.9)';
+                    setTimeout(() => feedCard.remove(), 300);
+                }
+
+                if (window.location.pathname.includes('/post/')) {
+                    setTimeout(() => { window.location.href = '/'; }, 500);
+                }
+            } else {
+                showError(data.msg || 'Không thể xóa bài viết, vui lòng thử lại.');
+            }
+        })
+        .catch(err => {
+            console.error('AJAX Error:', err);
+            showError('Lỗi kết nối máy chủ. Vui lòng thử lại!');
+        });
+
+        // Hàm hiện lỗi ngay trong popup
+        function showError(msg) {
+            newConfirmBtn.innerHTML = originalText;
+            newConfirmBtn.disabled = false;
+            const errorDiv = document.getElementById('deleteModalError');
+            if (errorDiv) {
+                errorDiv.innerHTML = `<i class="bi bi-info-circle-fill me-1"></i> ${msg}`;
+                errorDiv.classList.remove('d-none');
+            } else {
+                alert(msg); // Dự phòng nếu không có thẻ errorDiv
+            }
+        }
+    };
+};
 	document.addEventListener('submit', function (e) {
 		var form = e.target;
 		if (!form || !form.matches('form.ajax-post-like, form.ajax-post-save, form.ajax-post-share')) {

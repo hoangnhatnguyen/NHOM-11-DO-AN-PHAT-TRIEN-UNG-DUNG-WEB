@@ -464,7 +464,16 @@ class PostController extends BaseController {
             return;
         }
 
-        (new Post())->delete($postId);
+       (new Post())->delete($postId);
+
+        // NẾU LÀ REQUEST AJAX -> TRẢ VỀ JSON THÀNH CÔNG (KHÔNG LOAD LẠI TRANG)
+        if ($this->isAjaxRequest()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => true, 'msg' => 'deleted', 'post_id' => $postId]);
+            exit;
+        }
+
+        // Nếu người dùng tắt JS và submit bình thường thì mới redirect
         $this->redirect('/');
     }
 

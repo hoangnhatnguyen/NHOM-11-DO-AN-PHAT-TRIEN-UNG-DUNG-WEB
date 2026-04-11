@@ -26,10 +26,10 @@ if ($visible === 'followers') {
 <article class="card border-0 shadow-sm rounded-4 mb-3 js-post-card" data-post-id="<?= $postId ?>" data-post-url="/post/<?= $postId ?>">
 	<div class="card-body p-3 p-md-4">
 		<div>
-			<div class="d-flex align-items-start justify-content-between mb-3 position-relative" style="z-index: 2;">
+			<div class="d-flex align-items-start justify-content-between mb-3 position-relative" style="z-index: 10;">
 				<a href="<?= htmlspecialchars(profile_url((string) $author), ENT_QUOTES, 'UTF-8') ?>"
 				   class="d-flex align-items-center gap-2 text-decoration-none text-body min-w-0 position-relative"
-				   style="z-index: 3;">
+				   style="z-index: 10;">
 				<?php
 				$authorAvatarUrl = $post['author_avatar_url'] ?? '';
 				$displayAvatarUrl = $authorAvatarUrl ? media_public_src($authorAvatarUrl) : '';
@@ -62,8 +62,8 @@ if ($visible === 'followers') {
 					</div>
 				</a>
 				<?php if (isset($currentUser['id']) && (int) $currentUser['id'] === (int) ($post['user_id'] ?? 0)): ?>
-					<div class="dropdown position-relative" style="z-index: 3;">
-						<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+					<div class="dropdown position-relative" style="z-index: 50;">
+						<button class="btn btn-sm btn-light rounded-pill" type="button" data-bs-toggle="dropdown" aria-expanded="false">
 							<i class="bi bi-three-dots"></i>
 						</button>
 						<ul class="dropdown-menu dropdown-menu-end post-action-menu">
@@ -73,8 +73,8 @@ if ($visible === 'followers') {
 								</a>
 							</li>
 							<li>
-								<form method="POST" action="<?= BASE_URL ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
-									<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+<form method="POST" action="<?= $rootBaseUrl ?>/post/<?= (int) $post['id'] ?>/delete" class="m-0" onsubmit="showCustomDeleteConfirm(event, this, <?= (int) $post['id'] ?>)">
+							<input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
 									<button type="submit" class="dropdown-item text-danger">Xóa bài viết</button>
 								</form>
 							</li>
@@ -83,7 +83,7 @@ if ($visible === 'followers') {
 				<?php endif; ?>
 			</div>
 
-			<div class="mb-3 position-relative" style="z-index: 2;">
+			<div class="mb-3 position-relative" style="z-index: 1;">
 				<p class="mb-0"><?= format_post_display_html((string) $content, is_array($hashtagNames) ? $hashtagNames : []) ?></p>
 				<?php if (!empty($post['media'])): ?>
 					<?php

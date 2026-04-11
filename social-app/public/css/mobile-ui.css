@@ -434,23 +434,60 @@
 		width: 100%;
 	}
 
-	/* Chat page: dedicated mobile layout */
-	/* main py-4 stacked below 100vh chat → thread taller than screen, composer off-screen */
+	/* Chat page: dedicated mobile layout (Messenger-like: no full-page scroll; only message list scrolls) */
+	html:has(#chatApp) {
+		height: 100%;
+		height: -webkit-fill-available;
+		overflow: hidden;
+	}
+
+	body.app-bg:has(#chatApp) {
+		overflow: hidden !important;
+		position: fixed;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		max-height: 100dvh;
+		max-height: 100svh;
+		min-height: 0 !important;
+		touch-action: manipulation;
+		background: #eaf8ff !important;
+	}
+
 	main.container-fluid:has(#chatApp) {
 		padding-top: 0 !important;
 		padding-bottom: 0 !important;
+		margin: 0 !important;
+		max-width: none !important;
+		width: 100% !important;
+		height: 100% !important;
+		max-height: 100dvh !important;
+		max-height: 100svh !important;
+		min-height: 0 !important;
+		overflow: hidden !important;
+		display: flex !important;
+		flex-direction: column !important;
 	}
 
 	#chatApp {
-		margin-bottom: 0;
+		margin: 0 !important;
+		flex: 1 1 auto;
+		min-height: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		max-height: 100% !important;
+		display: flex !important;
+		flex-direction: column !important;
+		overflow: hidden !important;
 	}
 
 	#chatApp .chat-frame {
-		display: block !important;
-		min-height: 100vh !important;
-		min-height: 100dvh !important;
-		height: 100vh !important;
-		height: 100dvh !important;
+		display: flex !important;
+		flex-direction: column !important;
+		flex: 1 1 auto;
+		min-height: 0 !important;
+		height: 100% !important;
+		max-height: 100% !important;
 		background: #ffffff;
 		border: 0;
 		overflow: hidden;
@@ -467,10 +504,10 @@
 		inset: auto !important;
 		width: 100% !important;
 		max-width: 100% !important;
-		min-height: 100vh !important;
-		min-height: 100dvh !important;
-		height: 100vh !important;
-		height: 100dvh !important;
+		min-height: 0 !important;
+		height: 100% !important;
+		max-height: 100% !important;
+		flex: 1 1 auto;
 		border: 0 !important;
 		background: #fff;
 	}
@@ -478,6 +515,10 @@
 	#chatApp .chat-conversations-panel {
 		padding: 10px 10px 12px !important;
 		max-height: none !important;
+		display: flex !important;
+		flex-direction: column !important;
+		min-height: 0 !important;
+		overflow: hidden !important;
 	}
 
 	#chatApp .chat-card-title {
@@ -514,6 +555,12 @@
 	#chatApp .chat-conversation-list {
 		padding-right: 0;
 		gap: 8px;
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior-y: contain;
+		touch-action: pan-y;
 	}
 
 	#chatApp .chat-conversation-item {
@@ -574,6 +621,8 @@
 		background: #eaf8ff;
 		display: flex !important;
 		flex-direction: column;
+		min-height: 0 !important;
+		overflow: hidden !important;
 	}
 
 	#chatApp .chat-thread-header {
@@ -674,16 +723,27 @@
 	#chatApp .chat-message-scroll {
 		padding: 10px !important;
 		max-height: none !important;
-		flex: 1 1 auto;
-		min-height: 0;
+		flex: 1 1 auto !important;
+		min-height: 0 !important;
+		overflow-y: auto !important;
+		overflow-x: hidden !important;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior-y: contain;
+		overscroll-behavior-x: none;
+		touch-action: pan-y;
 	}
 
 	#chatApp .chat-composer {
-		margin: 0 10px max(clamp(6px, 1.6vh, 12px), env(safe-area-inset-bottom, 0px)) 10px;
+		margin: 0 clamp(12px, 4.2vw, 20px) max(16px, calc(10px + env(safe-area-inset-bottom, 0px))) clamp(12px, 4.2vw, 20px) !important;
+		padding: 6px 8px !important;
 		background: #fff;
-		border-radius: 12px;
-		margin-top: auto;
-		flex-shrink: 0;
+		border-radius: 14px;
+		margin-top: auto !important;
+		flex-shrink: 0 !important;
+		touch-action: manipulation;
+		position: relative;
+		z-index: 2;
+		box-sizing: border-box;
 	}
 
 	#chatApp .chat-detail-panel {
@@ -694,10 +754,6 @@
 	#chatApp .chat-detail-action,
 	#chatApp .chat-attachment-head {
 		border-bottom: 1px solid #edf2f7;
-	}
-
-	#chatApp .chat-message-scroll {
-		max-height: none !important;
 	}
 
 	/* When no active conversation: show list screen */

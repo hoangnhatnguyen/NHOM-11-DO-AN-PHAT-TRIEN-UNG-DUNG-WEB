@@ -72,7 +72,12 @@ class PostController extends BaseController {
 
         $media = (new PostMedia())->getByPost($postId);
         $commentsTree = $postModel->getCommentTreeByPost($postId);
-
+  //KIỂM TRA QUYỀN COMMENT ---
+        $canComment = true;
+        $commentGuard = $this->guardCommentPermission($post, $viewerId);
+        if ($commentGuard !== null) {
+            $canComment = false; // Nếu bị chặn hoặc không phải bạn chung -> set false
+        }
         $this->render('post/detail', [
             'title' => 'Bài viết — ' . APP_NAME,
             'post' => $post,
@@ -80,6 +85,7 @@ class PostController extends BaseController {
             'commentsTree' => $commentsTree,
             'currentUser' => $_SESSION['user'] ?? null,
             'csrfToken' => $this->csrfToken(),
+                        'canComment' => $canComment,
         ], 'feed');
     }
 
@@ -472,7 +478,69 @@ class PostController extends BaseController {
         $this->redirect('/');
     }
 
-    private function guardCommentPermission(array $post, int $viewerId): ?array {
+    /**
+     * Thử S3 trước; nếu SDK/credentials lỗi hoặc upload fail → lưu ảnh dưới public/media/posts/.
+     */
+    private function processUploadedPostMedia(int $postId, PostMedia $mediaModel): void {
+        if (empty($_FILES['media']['name'][0])) {
+            return;
+        }
+        require_once __DIR__ . '/../helpers/media.php';
+        $s3Service = new S3Service();
+        $s3SkipLogged = false;
+
+        foreach ($_FILES['media']['tmp_name'] as $i => $tmpFile) {
+            $err = (int) ($_FILES['media']['error'][$i] ?? UPLOAD_ERR_OK);
+            if ($err !== UPLOAD_ERR_OK) {
+                error_log("Post media upload PHP error #{$err} for post {$postId} index {$i}");
+                continue;
+            }
+            $name = (string) ($_FILES['media']['name'][$i] ?? '');
+            if ($name === '' || !is_uploaded_file($tmpFile)) {
+                continue;
+            }
+
+            $savedPath = null;
+            if ($s3Service->isReady()) {
+                $key = $s3Service->generatePostMediaKey($postId, $name);
+                if ($s3Service->uploadFile($tmpFile, $key)) {
+                    $savedPath = $key;
+                } elseif ($s3Service->getLastError() !== '') {
+                    error_log("Post {$postId} S3 upload failed: " . $s3Service->getLastError());
+                }
+            } elseif (!$s3SkipLogged) {
+                $s3SkipLogged = true;
+                error_log('Post media: bỏ qua S3 — ' . $s3Service->getNotReadyReason());
+            }
+            if ($savedPath === null) {
+                $savedPath = save_uploaded_post_image_local($postId, $tmpFile, $name);
+            }
+            if ($savedPath !== null) {
+                $mediaModel->addMedia($postId, $savedPath);
+            }
+        }
+    }
+
+    /**
+     * @param array<int, string> $hashtags
+     */
+    private function composeContentForEditor(string $plainContent, array $hashtags): string {
+        $plainContent = trim($plainContent);
+        $tags = [];
+        foreach ($hashtags as $tag) {
+            $t = trim((string) $tag);
+            if ($t === '') {
+                continue;
+            }
+            $tags[] = '#' . ltrim($t, '#');
+        }
+        if (empty($tags)) {
+            return $plainContent;
+        }
+        return trim($plainContent . "\n" . implode(' ', $tags));
+    }
+
+    public function guardCommentPermission(array $post, int $viewerId): ?array {
         $ownerId = (int) ($post['user_id'] ?? 0);
         if ($ownerId <= 0 || $viewerId <= 0 || $ownerId === $viewerId) {
             return null;

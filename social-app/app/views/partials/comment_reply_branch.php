@@ -81,8 +81,9 @@ $hasChildren = $childrenCount > 0;
 					</button>
 				<?php endif; ?>
 
-				<!-- All comments can be replied -->
-				<button
+				<!-- Chỉ hiện trả lời nếu có quyền -->
+				<?php if (isset($canComment) && $canComment): ?>
+					<button
 					type="button"
 					class="btn btn-link btn-sm p-0 text-decoration-none text-secondary toggle-reply-form-btn"
 					data-post-id="<?= (int) $postId ?>"
@@ -94,6 +95,7 @@ $hasChildren = $childrenCount > 0;
 				>
 					Trả lời
 				</button>
+				<?php endif; ?>
 				<span class="text-secondary" style="font-size: 12px;"><?= htmlspecialchars(format_comment_time_vi((string) $createdAt)) ?></span>
 			</div>
 		</div>

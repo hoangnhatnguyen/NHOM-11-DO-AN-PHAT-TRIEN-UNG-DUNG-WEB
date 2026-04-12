@@ -818,6 +818,14 @@
 		z-index: 3200 !important;
 	}
 
+	/*
+	 * @mention list (mention-autocomplete.js: position:fixed on body, inline z-index 1080).
+	 * Post modal is 3200 here — raise dropdown so it stacks above the post popup, not under it.
+	 */
+	.mention-autocomplete-dropdown {
+		z-index: 3400 !important;
+	}
+
 	/* Only lift backdrop when delete-chat modal is open */
 	body:has(#chatDeleteModal.show) .modal-backdrop.show {
 		z-index: 4190 !important;

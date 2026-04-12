@@ -17,7 +17,18 @@ function parse_post_content_hashtags(string $text): array
 
     $tags = [];
     if (preg_match_all('/#(\w+)/u', $text, $m)) {
-        $tags = array_values(array_unique($m[1]));
+        $seen = [];
+        foreach ($m[1] as $rawTag) {
+            $rawTag = (string) $rawTag;
+            if ($rawTag === '') {
+                continue;
+            }
+            $key = mb_strtolower($rawTag, 'UTF-8');
+            if (!isset($seen[$key])) {
+                $seen[$key] = $rawTag;
+            }
+        }
+        $tags = array_values($seen);
     }
 
     $lines = explode("\n", $text);

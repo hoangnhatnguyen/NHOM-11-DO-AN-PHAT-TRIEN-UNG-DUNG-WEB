@@ -7,7 +7,7 @@ class PostHashtag extends BaseModel {
 
     public function attach(int $postId, int $hashtagId): void {
         $stmt = $this->db->prepare("
-            INSERT INTO {$this->table} (post_id, hashtag_id)
+            INSERT IGNORE INTO {$this->table} (post_id, hashtag_id)
             VALUES (:post_id, :hashtag_id)
         ");
         $stmt->execute([
@@ -78,8 +78,13 @@ class PostHashtag extends BaseModel {
         $del = $this->db->prepare("DELETE FROM {$this->table} WHERE post_id = ?");
         $del->execute([$postId]);
         $hashtagModel = new Hashtag();
+        $attachedIds = [];
         foreach ($tagNames as $name) {
             $hid = $hashtagModel->findOrCreate((string) $name);
+            if (isset($attachedIds[$hid])) {
+                continue;
+            }
+            $attachedIds[$hid] = true;
             $this->attach($postId, $hid);
         }
     }

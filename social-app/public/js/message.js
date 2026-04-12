@@ -423,7 +423,6 @@ if (!root) {
 			ui.textInput.addEventListener('focus', () => {
 				window.setTimeout(() => {
 					applyViewportHeight();
-					ui.textInput.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 				}, 80);
 			});
 

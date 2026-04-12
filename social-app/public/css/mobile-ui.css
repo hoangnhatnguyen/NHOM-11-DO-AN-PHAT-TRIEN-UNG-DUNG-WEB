@@ -439,16 +439,25 @@
 		height: 100%;
 		height: -webkit-fill-available;
 		overflow: hidden;
+		overflow-x: hidden;
+		width: 100%;
+		max-width: 100%;
 	}
 
 	body.app-bg:has(#chatApp) {
 		overflow: hidden !important;
-		position: relative;
+		overflow-x: hidden !important;
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
 		width: 100%;
+		max-width: 100%;
 		height: var(--chat-visual-vh, 100dvh);
 		max-height: var(--chat-visual-vh, 100dvh);
 		min-height: 0 !important;
 		touch-action: manipulation;
+		overscroll-behavior: none;
 		background: #eaf8ff !important;
 	}
 
@@ -463,6 +472,7 @@
 		margin: 0 !important;
 		max-width: none !important;
 		width: 100% !important;
+		overflow-x: hidden !important;
 		height: var(--chat-visual-vh, 100dvh) !important;
 		max-height: var(--chat-visual-vh, 100dvh) !important;
 		min-height: 0 !important;
@@ -476,11 +486,13 @@
 		flex: 1 1 auto;
 		min-height: 0 !important;
 		width: 100% !important;
+		max-width: 100vw !important;
 		height: 100% !important;
 		max-height: 100% !important;
 		display: flex !important;
 		flex-direction: column !important;
 		overflow: hidden !important;
+		overflow-x: hidden !important;
 	}
 
 	#chatApp .chat-frame {
@@ -493,6 +505,7 @@
 		background: #ffffff;
 		border: 0;
 		overflow: hidden;
+		overflow-x: hidden;
 	}
 
 	#chatApp .chat-rail {
@@ -625,6 +638,7 @@
 		flex-direction: column;
 		min-height: 0 !important;
 		overflow: hidden !important;
+		overflow-x: hidden !important;
 	}
 
 	#chatApp .chat-thread-header {
@@ -735,6 +749,18 @@
 		touch-action: pan-y;
 	}
 
+	#chatApp .chat-message-row,
+	#chatApp .chat-message-body,
+	#chatApp .chat-bubble {
+		min-width: 0 !important;
+		max-width: 100% !important;
+	}
+
+	#chatApp .chat-bubble img,
+	#chatApp .chat-bubble video {
+		max-width: min(100%, 320px) !important;
+	}
+
 	#chatApp .chat-composer {
 		margin: 0 clamp(12px, 4.2vw, 20px) max(16px, calc(10px + env(safe-area-inset-bottom, 0px))) clamp(12px, 4.2vw, 20px) !important;
 		padding: 6px 8px !important;
@@ -746,6 +772,7 @@
 		position: relative;
 		z-index: 2;
 		box-sizing: border-box;
+		overflow: hidden;
 	}
 
 	#chatApp.chat-keyboard-open .chat-composer {

@@ -391,6 +391,14 @@ if (!root) {
 		if (!ui.root) return;
 		if (!window.matchMedia('(max-width: 767.98px)').matches) return;
 
+		const ua = String(window.navigator?.userAgent || '');
+		const platform = String(window.navigator?.platform || '');
+		const isIOS = /iP(hone|od|ad)/i.test(ua) || (platform === 'MacIntel' && Number(window.navigator?.maxTouchPoints || 0) > 1);
+		const isWebKit = /WebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+		const isIOSSafari = isIOS && isWebKit;
+
+		ui.root.classList.toggle('chat-ios-safari', isIOSSafari);
+
 		const vv = window.visualViewport;
 		const hasVisualViewport = !!vv;
 
@@ -398,11 +406,13 @@ if (!root) {
 			const nextHeight = hasVisualViewport
 				? Math.max(320, Math.round(vv.height))
 				: Math.max(320, window.innerHeight);
+			const vvOffsetTop = hasVisualViewport ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
 
 			document.documentElement.style.setProperty('--chat-visual-vh', `${nextHeight}px`);
+			document.documentElement.style.setProperty('--chat-vv-offset-top', `${vvOffsetTop}px`);
 
 			if (hasVisualViewport) {
-				const keyboardOpen = (window.innerHeight - vv.height) > 120;
+				const keyboardOpen = (window.innerHeight - vv.height - vvOffsetTop) > 100;
 				ui.root.classList.toggle('chat-keyboard-open', keyboardOpen);
 			} else {
 				ui.root.classList.remove('chat-keyboard-open');

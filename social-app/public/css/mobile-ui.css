@@ -808,6 +808,11 @@
 		z-index: 3200 !important;
 	}
 
+	/* @mention dropdown (fixed, appended to body): inline z-index 1080 is below post modal — lift on mobile only */
+	.mention-autocomplete-dropdown {
+		z-index: 3250 !important;
+	}
+
 	/* Only lift backdrop when delete-chat modal is open */
 	body:has(#chatDeleteModal.show) .modal-backdrop.show {
 		z-index: 4190 !important;

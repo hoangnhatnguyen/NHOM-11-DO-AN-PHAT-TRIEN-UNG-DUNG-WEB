@@ -469,6 +469,42 @@
 		flex-direction: column !important;
 	}
 
+	/*
+	 * iOS Safari: body { position: fixed } + full-viewport height fights the visual viewport when
+	 * the keyboard opens (layout “jumps”, address bar gap). WebKit-only: keep scroll lock with a
+	 * normal flow shell + -webkit-fill-available height chain instead of fixed body.
+	 */
+	@supports (-webkit-touch-callout: none) {
+		html:has(#chatApp) {
+			height: 100%;
+			min-height: -webkit-fill-available;
+			overflow: hidden;
+			overscroll-behavior: none;
+		}
+
+		body.app-bg:has(#chatApp) {
+			position: relative !important;
+			inset: auto !important;
+			width: 100%;
+			height: 100%;
+			min-height: 100%;
+			min-height: -webkit-fill-available;
+			max-height: none !important;
+			overscroll-behavior: none;
+		}
+
+		main.container-fluid:has(#chatApp) {
+			height: 100% !important;
+			max-height: none !important;
+			min-height: 0 !important;
+		}
+
+		#chatApp {
+			height: 100% !important;
+			max-height: none !important;
+		}
+	}
+
 	#chatApp {
 		margin: 0 !important;
 		flex: 1 1 auto;
@@ -744,6 +780,12 @@
 		position: relative;
 		z-index: 2;
 		box-sizing: border-box;
+	}
+
+	/* iOS Safari zooms focused inputs with font-size < 16px → viewport jump; keep mobile chat readable */
+	#chatApp .chat-text-input {
+		font-size: 16px !important;
+		line-height: 1.35;
 	}
 
 	#chatApp .chat-detail-panel {

@@ -151,7 +151,6 @@ if (!root) {
 	}
 
 	async function init() {
-		setupMobileViewportFix();
 		bindStaticEvents();
 		setDetailPanelOpen(false);
 		toggleEmptyState(true);
@@ -297,6 +296,8 @@ if (!root) {
 	}
 
 	function bindStaticEvents() {
+		setupMobileViewportFix();
+
 		ui.composerForm.addEventListener('submit', async (event) => {
 			event.preventDefault();
 			await sendTextMessage();

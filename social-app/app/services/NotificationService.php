@@ -81,16 +81,13 @@ final class NotificationService
     }
 
     /**
-     * Trích @token đơn (regex) — không hỗ trợ tên có dấu cách.
-     * Thông báo mention thực tế dùng parse_mentioned_usernames_from_text() trong notification_helper.
+     * Trích @mention — hỗ trợ username có dấu cách (khớp với danh sách users, dài nhất trước).
      *
      * @return list<string>
      */
     public static function parseMentionedUsernames(string $text): array
     {
-        if (preg_match_all('/@([\p{L}\p{N}_.-]+)/u', $text, $m)) {
-            return array_values(array_unique($m[1]));
-        }
-        return [];
+        require_once __DIR__ . '/../helpers/notification_helper.php';
+        return parse_mentioned_usernames_from_text(notification_db(), $text);
     }
 }

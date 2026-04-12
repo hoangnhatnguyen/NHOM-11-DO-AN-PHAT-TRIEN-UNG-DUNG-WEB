@@ -29,25 +29,132 @@ function notification_mark_read(PDO $conn, int $userId, int $notificationId): vo
     $stmt->execute([$notificationId, $userId]);
 }
 
+/**
+ * Usernames dài trước để khớp @mention có dấu cách (vd. @Cam Chillj) đúng user.
+ *
+ * @return list<string>
+ */
+function mention_usernames_longest_first(PDO $conn): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    try {
+        $stmt = $conn->query('SELECT username FROM users ORDER BY CHAR_LENGTH(username) DESC');
+        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $cache = array_values(array_filter(array_map('strval', is_array($rows) ? $rows : [])));
+    } catch (Throwable $e) {
+        $cache = [];
+    }
+    return $cache;
+}
+
+function mention_after_char_ends_mention(string $after): bool
+{
+    if ($after === '') {
+        return true;
+    }
+    return (bool) preg_match('/^[\s.,;:!?)\]}]/u', $after);
+}
+
+/**
+ * @return list<string>
+ */
+function parse_mentioned_usernames_from_text(PDO $conn, string $text): array
+{
+    $names = mention_usernames_longest_first($conn);
+    if ($names === [] || $text === '') {
+        return [];
+    }
+    $found = [];
+    $len = mb_strlen($text, 'UTF-8');
+    $i = 0;
+    while ($i < $len) {
+        $at = mb_strpos($text, '@', $i, 'UTF-8');
+        if ($at === false) {
+            break;
+        }
+        $rest = mb_substr($text, $at + 1, null, 'UTF-8');
+        $best = '';
+        foreach ($names as $uname) {
+            if ($uname === '') {
+                continue;
+            }
+            $ulen = mb_strlen($uname, 'UTF-8');
+            if (mb_substr($rest, 0, $ulen, 'UTF-8') !== $uname) {
+                continue;
+            }
+            $after = $ulen === mb_strlen($rest, 'UTF-8') ? '' : mb_substr($rest, $ulen, 1, 'UTF-8');
+            if (!mention_after_char_ends_mention($after)) {
+                continue;
+            }
+            $best = $uname;
+            break;
+        }
+        if ($best !== '') {
+            $found[] = $best;
+            $i = $at + 1 + mb_strlen($best, 'UTF-8');
+        } else {
+            $i = $at + 1;
+        }
+    }
+
+    return array_values(array_unique($found));
+}
+
 function format_notification_snippet(?string $raw): string
 {
     if ($raw === null || $raw === '') {
         return '';
     }
-    $e = htmlspecialchars($raw, ENT_QUOTES, 'UTF-8');
     $base = rtrim((string) (defined('BASE_URL') ? BASE_URL : ''), '/');
-    return (string) preg_replace_callback(
-        '/@([a-zA-Z0-9_.]+)/u',
-        static function (array $m) use ($base): string {
-            $u = $m[1];
-            $profilePath = rtrim($base, '/') . '/profile?u=' . rawurlencode($u);
+    $names = mention_usernames_longest_first(notification_db());
+    if ($names === []) {
+        return htmlspecialchars($raw, ENT_QUOTES, 'UTF-8');
+    }
+
+    $out = '';
+    $len = mb_strlen($raw, 'UTF-8');
+    $i = 0;
+    while ($i < $len) {
+        $at = mb_strpos($raw, '@', $i, 'UTF-8');
+        if ($at === false) {
+            $out .= htmlspecialchars(mb_substr($raw, $i, null, 'UTF-8'), ENT_QUOTES, 'UTF-8');
+            break;
+        }
+        $out .= htmlspecialchars(mb_substr($raw, $i, $at - $i, 'UTF-8'), ENT_QUOTES, 'UTF-8');
+        $rest = mb_substr($raw, $at + 1, null, 'UTF-8');
+        $best = '';
+        foreach ($names as $uname) {
+            if ($uname === '') {
+                continue;
+            }
+            $ulen = mb_strlen($uname, 'UTF-8');
+            if (mb_substr($rest, 0, $ulen, 'UTF-8') !== $uname) {
+                continue;
+            }
+            $after = $ulen === mb_strlen($rest, 'UTF-8') ? '' : mb_substr($rest, $ulen, 1, 'UTF-8');
+            if (!mention_after_char_ends_mention($after)) {
+                continue;
+            }
+            $best = $uname;
+            break;
+        }
+        if ($best !== '') {
+            $profilePath = rtrim($base, '/') . '/profile?u=' . rawurlencode($best);
             $href = htmlspecialchars($profilePath, ENT_QUOTES, 'UTF-8');
-            $label = htmlspecialchars($u, ENT_QUOTES, 'UTF-8');
-            return '<a class="text-primary fw-semibold text-decoration-none mention-profile-link position-relative" style="z-index:3" href="'
+            $label = htmlspecialchars($best, ENT_QUOTES, 'UTF-8');
+            $out .= '<a class="text-primary fw-semibold text-decoration-none mention-profile-link position-relative" style="z-index:3" href="'
                 . $href . '">@' . $label . '</a>';
-        },
-        $e
-    );
+            $i = $at + 1 + mb_strlen($best, 'UTF-8');
+        } else {
+            $out .= htmlspecialchars('@', ENT_QUOTES, 'UTF-8');
+            $i = $at + 1;
+        }
+    }
+
+    return $out;
 }
 
 /** Nội dung bài / bình luận hiển thị: escape + tô @username + xuống dòng. */
@@ -162,7 +269,7 @@ function notify_for_new_comment(
     $ownerId = (int) $stmt->fetchColumn();
 
     $mentionedIds = [];
-    foreach (NotificationService::parseMentionedUsernames($content) as $username) {
+    foreach (parse_mentioned_usernames_from_text($conn, $content) as $username) {
         $stmt = $conn->prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1');
         $stmt->execute([$username]);
         $mentionedId = (int) $stmt->fetchColumn();
@@ -187,7 +294,7 @@ function notify_for_new_comment(
 
 function notify_for_post_content_mentions(PDO $conn, int $postId, int $authorId, string $content): void
 {
-    foreach (NotificationService::parseMentionedUsernames($content) as $username) {
+    foreach (parse_mentioned_usernames_from_text($conn, $content) as $username) {
         $stmt = $conn->prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1');
         $stmt->execute([$username]);
         $mentionedId = (int) $stmt->fetchColumn();

@@ -64,8 +64,21 @@
 			}
 		}
 		const after = slice.slice(at + 1);
+		const names = typeof window.__MENTION_USERNAMES__ !== 'undefined' && Array.isArray(window.__MENTION_USERNAMES__)
+			? window.__MENTION_USERNAMES__
+			: [];
 		if (/\s/.test(after)) {
-			return null;
+			let prefixOk = false;
+			for (let ni = 0; ni < names.length; ni++) {
+				const uname = names[ni];
+				if (uname && uname.startsWith(after)) {
+					prefixOk = true;
+					break;
+				}
+			}
+			if (!prefixOk) {
+				return null;
+			}
 		}
 		return { at, query: after, end };
 	}

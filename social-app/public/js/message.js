@@ -151,6 +151,7 @@ if (!root) {
 	}
 
 	async function init() {
+		setupMobileViewportFix();
 		bindStaticEvents();
 		setDetailPanelOpen(false);
 		toggleEmptyState(true);
@@ -383,6 +384,52 @@ if (!root) {
 		ui.detailBackBtn.addEventListener('click', () => {
 			setDetailPanelOpen(false);
 		});
+	}
+
+	function setupMobileViewportFix() {
+		if (!ui.root) return;
+		if (!window.matchMedia('(max-width: 767.98px)').matches) return;
+
+		const vv = window.visualViewport;
+		const hasVisualViewport = !!vv;
+
+		const applyViewportHeight = () => {
+			const nextHeight = hasVisualViewport
+				? Math.max(320, Math.round(vv.height))
+				: Math.max(320, window.innerHeight);
+
+			document.documentElement.style.setProperty('--chat-visual-vh', `${nextHeight}px`);
+
+			if (hasVisualViewport) {
+				const keyboardOpen = (window.innerHeight - vv.height) > 120;
+				ui.root.classList.toggle('chat-keyboard-open', keyboardOpen);
+			} else {
+				ui.root.classList.remove('chat-keyboard-open');
+			}
+		};
+
+		applyViewportHeight();
+
+		if (hasVisualViewport) {
+			vv.addEventListener('resize', applyViewportHeight);
+			vv.addEventListener('scroll', applyViewportHeight);
+		}
+
+		window.addEventListener('resize', applyViewportHeight);
+		window.addEventListener('orientationchange', applyViewportHeight);
+
+		if (ui.textInput) {
+			ui.textInput.addEventListener('focus', () => {
+				window.setTimeout(() => {
+					applyViewportHeight();
+					ui.textInput.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				}, 80);
+			});
+
+			ui.textInput.addEventListener('blur', () => {
+				window.setTimeout(applyViewportHeight, 120);
+			});
+		}
 	}
 
 	const openActivePeerProfile = () => {

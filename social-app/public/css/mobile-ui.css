@@ -443,15 +443,18 @@
 
 	body.app-bg:has(#chatApp) {
 		overflow: hidden !important;
-		position: fixed;
-		inset: 0;
+		position: relative;
 		width: 100%;
-		height: 100%;
-		max-height: 100dvh;
-		max-height: 100svh;
+		height: var(--chat-visual-vh, 100dvh);
+		max-height: var(--chat-visual-vh, 100dvh);
 		min-height: 0 !important;
 		touch-action: manipulation;
 		background: #eaf8ff !important;
+	}
+
+	body.app-bg:has(#chatApp) .mobile-topbar,
+	body.app-bg:has(#chatApp) .mobile-bottom-nav {
+		display: none !important;
 	}
 
 	main.container-fluid:has(#chatApp) {
@@ -460,9 +463,8 @@
 		margin: 0 !important;
 		max-width: none !important;
 		width: 100% !important;
-		height: 100% !important;
-		max-height: 100dvh !important;
-		max-height: 100svh !important;
+		height: var(--chat-visual-vh, 100dvh) !important;
+		max-height: var(--chat-visual-vh, 100dvh) !important;
 		min-height: 0 !important;
 		overflow: hidden !important;
 		display: flex !important;
@@ -744,6 +746,10 @@
 		position: relative;
 		z-index: 2;
 		box-sizing: border-box;
+	}
+
+	#chatApp.chat-keyboard-open .chat-composer {
+		margin-bottom: 8px !important;
 	}
 
 	#chatApp .chat-detail-panel {

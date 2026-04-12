@@ -38,7 +38,7 @@
 		if (el.name !== 'content') {
 			return false;
 		}
-		if (el.closest('#feedComposerForm, #comment-box, form.reply-form, form.js-post-edit-form')) {
+		if (el.closest('#feedComposerForm, #createPostForm, #comment-box, form.reply-form, form.js-post-edit-form')) {
 			return true;
 		}
 		const form = el.closest('form');

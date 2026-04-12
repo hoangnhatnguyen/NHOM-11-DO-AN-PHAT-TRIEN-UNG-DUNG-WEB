@@ -69,6 +69,10 @@
 	<script src="<?= BASE_URL ?>/public/js/ajax-post-actions.js"></script>
 	<?php
 	$__jsAppBase = trim((string) BASE_URL);
+	if ($__jsAppBase !== '' && preg_match('#^https?://#i', $__jsAppBase)) {
+		$__u = parse_url($__jsAppBase, PHP_URL_PATH);
+		$__jsAppBase = ($__u !== null && $__u !== false) ? rtrim((string) $__u, '/') : '';
+	}
 	if ($__jsAppBase === '') {
 		$__jsAppBase = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
 	}
@@ -90,6 +94,8 @@
 	window.__MENTION_USERS_URL__ = <?= json_encode($__mentionUsersUrl, JSON_UNESCAPED_UNICODE) ?>;
 	window.__MENTION_USERNAMES__ = <?= $__mentionUsernamesJson ?>;
 	</script>
+	<script src="<?= BASE_URL ?>/public/js/app-url.js"></script>
+	<script src="<?= BASE_URL ?>/public/js/post-store-submit.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/message-badge.js" type="module"></script>
 	<script src="<?= BASE_URL ?>/public/js/right_widgets.js"></script>
 	<script src="<?= BASE_URL ?>/public/js/notification.js"></script>

@@ -4,12 +4,17 @@
 (function () {
 	'use strict';
 
-	function loadEditFormIntoModal(baseUrl, contentEl, bsModal, postId) {
+	function loadEditFormIntoModal(contentEl, bsModal, postId) {
 		contentEl.innerHTML =
 			'<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
 		bsModal.show();
 
-		fetch(baseUrl + '/api/post-edit-form.php?id=' + encodeURIComponent(postId))
+		var formUrl =
+			typeof window.__appUrl === 'function'
+				? window.__appUrl('api/post-edit-form.php?id=' + encodeURIComponent(postId))
+				: '/api/post-edit-form.php?id=' + encodeURIComponent(postId);
+
+		fetch(formUrl)
 			.then(function (res) {
 				return res.json();
 			})
@@ -33,7 +38,6 @@
 	}
 
 	document.addEventListener('DOMContentLoaded', function () {
-		var baseUrl = (window.__APP_BASE__ || '/').replace(/\/$/, '');
 		var modalEl = document.getElementById('postEditModal');
 		var contentEl = document.getElementById('postEditModalContent');
 		if (!modalEl || !contentEl) return;
@@ -58,14 +62,14 @@
 						'hidden.bs.modal',
 						function onDetailClosed() {
 							detailModal.removeEventListener('hidden.bs.modal', onDetailClosed);
-							loadEditFormIntoModal(baseUrl, contentEl, bsModal, postId);
+							loadEditFormIntoModal(contentEl, bsModal, postId);
 						}
 					);
 					dInst.hide();
 					return;
 				}
 
-				loadEditFormIntoModal(baseUrl, contentEl, bsModal, postId);
+				loadEditFormIntoModal(contentEl, bsModal, postId);
 			},
 			true
 		);

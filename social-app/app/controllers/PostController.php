@@ -21,7 +21,15 @@ class PostController extends BaseController {
     public function store() {
         $this->requireAuth();
 
+        $isAjax = $this->isAjaxRequest();
+
         if (!$this->verifyCsrf($_POST['_csrf'] ?? null)) {
+            if ($isAjax) {
+                header('Content-Type: application/json; charset=utf-8');
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'msg' => 'csrf_invalid']);
+                exit;
+            }
             die('CSRF invalid');
         }
 
@@ -31,6 +39,11 @@ class PostController extends BaseController {
         $visible = $_POST['privacy'] ?? 'public';
         $hasUpload = has_post_media_upload();
         if ($content === '' && !$hasUpload) {
+            if ($isAjax) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'empty']);
+                exit;
+            }
             $this->redirect('/?composer_error=empty');
             return;
         }
@@ -49,6 +62,12 @@ class PostController extends BaseController {
         $authorId = (int) ($_SESSION['user']['id'] ?? 0);
         if ($authorId > 0 && $content !== '') {
             notify_for_post_content_mentions(notification_db(), $postId, $authorId, $content);
+        }
+
+        if ($isAjax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => true, 'postId' => $postId]);
+            exit;
         }
 
         $this->redirect('/');

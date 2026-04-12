@@ -4,7 +4,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-	const baseUrl = window.__APP_BASE__ || '/';
 	const modal = document.getElementById('postDetailModal');
 	const modalContent = document.getElementById('postDetailContent');
 	
@@ -21,7 +20,11 @@ document.addEventListener('DOMContentLoaded', function() {
 		modalContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>';
 
 		// Fetch post detail
-		fetch(`${baseUrl}api/post-detail.php?id=${postId}`)
+		const detailUrl =
+			typeof window.__appUrl === 'function'
+				? window.__appUrl('api/post-detail.php?id=' + encodeURIComponent(postId))
+				: '/' + 'api/post-detail.php?id=' + encodeURIComponent(postId);
+		fetch(detailUrl)
 			.then(res => res.json())
 			.then(data => {
 				if (data.success && data.html) {

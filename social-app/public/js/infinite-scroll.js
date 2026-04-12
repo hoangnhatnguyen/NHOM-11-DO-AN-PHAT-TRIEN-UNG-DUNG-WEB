@@ -11,8 +11,12 @@ document.addEventListener('DOMContentLoaded', function() {
 	const mainColumn = document.querySelector('.feed-main-column');
 	const useInternalFeedScroll = window.matchMedia('(min-width: 992px)').matches && !!mainColumn;
 	const scrollContainer = useInternalFeedScroll ? mainColumn : window;
-	const baseUrl = window.__APP_BASE__ || '/';
-	const apiUrl = baseUrl + 'api/load_more_posts.php';
+	const apiUrl =
+		typeof window.__appUrl === 'function'
+			? window.__appUrl('api/load_more_posts.php')
+			: '/api/load_more_posts.php';
+	const basePathForRender =
+		typeof window.__appBasePath === 'function' ? window.__appBasePath() : '';
 
 	let isLoading = false;
 	let hasMore = feedContainer.dataset.hasMore === 'true';
@@ -59,12 +63,16 @@ document.addEventListener('DOMContentLoaded', function() {
 			}
 
 			// Step 2: Render posts HTML using the backend template
-			const renderResponse = await fetch(baseUrl + 'api/render_posts.php', {
+			const renderUrl =
+				typeof window.__appUrl === 'function'
+					? window.__appUrl('api/render_posts.php')
+					: '/api/render_posts.php';
+			const renderResponse = await fetch(renderUrl, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/x-www-form-urlencoded',
 				},
-				body: `posts_json=${encodeURIComponent(JSON.stringify(data.posts))}&base_url=${encodeURIComponent(baseUrl)}`
+				body: `posts_json=${encodeURIComponent(JSON.stringify(data.posts))}&base_url=${encodeURIComponent(basePathForRender)}`
 			});
 
 			if (!renderResponse.ok) {
@@ -119,8 +127,20 @@ document.addEventListener('DOMContentLoaded', function() {
 	 * Create post card HTML from post data
 	 */
 	function createPostCard(post) {
-		const baseUrl = window.__APP_BASE__ || '/';
-		const authorAvatarUrl = post.author_avatar_url || baseUrl + 'images/default-avatar.png';
+		const joinApp =
+			typeof window.__appUrl === 'function'
+				? function (rel) {
+						return window.__appUrl(rel);
+					}
+				: function (rel) {
+						rel = String(rel).replace(/^\/+/, '');
+						const p = String(window.__APP_BASE__ || '')
+							.replace(/\/+$/, '')
+							.replace(/^https?:\/\/[^/]+/i, '');
+						return p === '' ? '/' + rel : p.replace(/\/+$/, '') + '/' + rel;
+					};
+		const authorAvatarUrl =
+			post.author_avatar_url || joinApp('public/images/default-avatar.png');
 		const isLiked = post.is_liked ? 'true' : 'false';
 		const isSaved = post.is_saved ? 'true' : 'false';
 
@@ -145,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		if (post.hashtag_names && post.hashtag_names.length > 0) {
 			hashtagHtml = '<div class="post-hashtags mt-2">';
 			post.hashtag_names.forEach(tag => {
-				hashtagHtml += `<a href="${baseUrl}search?q=%23${htmlEscape(tag)}" class="badge bg-secondary me-2">#${htmlEscape(tag)}</a>`;
+				hashtagHtml += `<a href="${htmlEscape(joinApp('search?q=' + encodeURIComponent('#' + tag)))}" class="badge bg-secondary me-2">#${htmlEscape(tag)}</a>`;
 			});
 			hashtagHtml += '</div>';
 		}
@@ -159,14 +179,14 @@ document.addEventListener('DOMContentLoaded', function() {
 		});
 
 		return `
-			<div class="card border-0 shadow-sm rounded-4 mb-3 post-card js-post-card" data-post-id="${post.id}" data-post-url="${baseUrl}post/${post.id}">
+			<div class="card border-0 shadow-sm rounded-4 mb-3 post-card js-post-card" data-post-id="${post.id}" data-post-url="${htmlEscape(joinApp('post/' + post.id))}">
 				<div class="card-body p-3 p-md-4">
 					<div class="d-flex align-items-center mb-3">
-						<a href="${baseUrl}user/${post.user_id}" class="me-3">
+						<a href="${htmlEscape(joinApp('user/' + post.user_id))}" class="me-3">
 							<img src="${htmlEscape(authorAvatarUrl)}" alt="${htmlEscape(post.author_name)}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">
 						</a>
 						<div class="flex-grow-1">
-							<a href="${baseUrl}user/${post.user_id}" class="text-decoration-none text-dark">
+							<a href="${htmlEscape(joinApp('user/' + post.user_id))}" class="text-decoration-none text-dark">
 								<strong>${htmlEscape(post.author_name)}</strong>
 							</a>
 							<div class="text-secondary" style="font-size: 12px;">

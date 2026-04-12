@@ -185,6 +185,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     checkEnableButton();
+
+    window.syncFeedComposerFilesToInput = syncFeedComposerFilesToInput;
 });
 
 function setPrivacy(value, icon, label) {

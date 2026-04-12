@@ -1,4 +1,4 @@
-<form method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
+<form id="createPostForm" method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
     <?php if (($_GET['composer_error'] ?? '') === 'empty'): ?>
         <div class="alert alert-warning py-2 mb-3" role="alert">Bạn cần nhập nội dung hoặc chọn ít nhất 1 ảnh trước khi đăng.</div>
@@ -170,6 +170,8 @@ document.addEventListener("DOMContentLoaded", function () {
         syncCreateFilesToInput();
         renderCreatePreview();
     };
+
+    window.syncCreatePostFilesToInput = syncCreateFilesToInput;
 
 });
 function setPrivacy(value, icon, label) {

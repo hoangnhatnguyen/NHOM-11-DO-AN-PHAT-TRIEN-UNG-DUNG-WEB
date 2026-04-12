@@ -161,9 +161,16 @@
 			return;
 		}
 
-		var cardUrl = (appBase ? appBase : '') + '/api/post-card.php?id=' + encodeURIComponent(postId);
+		/* Tránh cache GET: feed vẫn hiển thị thẻ cũ (thiếu ảnh sau khi sửa) nếu trình duyệt dùng bản JSON/HTML cũ */
+		var cardUrl =
+			(appBase ? appBase : '') +
+			'/api/post-card.php?id=' +
+			encodeURIComponent(postId) +
+			'&_=' +
+			Date.now();
 		fetch(cardUrl, {
 			credentials: 'same-origin',
+			cache: 'no-store',
 			headers: {
 				'X-Requested-With': 'XMLHttpRequest',
 				Accept: 'application/json',

@@ -12,6 +12,7 @@ return [
 
         // ============ AUTHENTICATION ============
         '/login' => 'AuthController@showLogin',
+        '/logout' => 'AuthController@logout',
         '/register' => 'AuthController@showRegister',
         '/forgot-password' => 'AuthController@showForgotPassword',
         '/reset-password/{token}' => 'AuthController@showResetPassword',
@@ -43,6 +44,7 @@ return [
         '/user-api/following' => 'UserController@apiFollowing',
         '/user-api/activity' => 'UserController@apiActivity',
         '/user-api/search-badge' => 'UserController@searchBadge',
+        '/user-api/mention-users' => 'UserController@apiMentionUsers',
 
         // ============ NOTIFICATIONS ============
         '/notifications' => 'NotificationController@index',

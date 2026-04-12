@@ -1,6 +1,10 @@
 <?php
-// API endpoint to fetch post detail for modal
-session_start();
+/**
+ * API modal chi tiết bài viết — phải dùng cùng cấu hình phiên với index.php (SESSION_NAME, cookie…).
+ * Không gọi session_start() trước config/session.php (sẽ lệch cookie → CSRF trong modal sai → 403).
+ */
+require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/../config/session.php';
 header('Content-Type: application/json; charset=utf-8');
 
 if (!isset($_SESSION['user']['id'])) {
@@ -10,8 +14,6 @@ if (!isset($_SESSION['user']['id'])) {
 }
 
 try {
-    // Load config & helpers
-    require_once __DIR__ . '/../config/env.php';
     require_once __DIR__ . '/../config/constants.php';
     require_once __DIR__ . '/../config/database.php';
     require_once __DIR__ . '/../app/core/Database.php';
@@ -93,7 +95,10 @@ try {
     // Get comments tree (used by detail.php template)
     $commentsTree = $postModel->getCommentTreeByPost($postId) ?? [];
 
-    $csrfToken = $_SESSION['_csrf_token'] ?? '';
+    if (empty($_SESSION['_csrf_token'])) {
+        $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+    }
+    $csrfToken = (string) $_SESSION['_csrf_token'];
     $currentUser = $_SESSION['user'] ?? null;
     $baseUrl = BASE_URL;
     $profileBaseUrl = preg_replace('#/api$#', '', rtrim((string) BASE_URL, '/')) ?: '';

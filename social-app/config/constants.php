@@ -7,9 +7,9 @@ define('APP_NAME', (string) env('APP_NAME', 'Social App'));
 
 $detectBaseFromScript = function (): string {
 	$scriptName = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/')));
-	// Khi include view từ api/*.php, dirname là .../api — URL ứng dụng thật dưới .../public (index.php).
-	if (preg_match('#/api$#', $scriptName)) {
-		$scriptName = preg_replace('#/api$#', '/public', $scriptName);
+	// Request từ api/*.php: dirname kết thúc bằng /api — BASE_URL phải là thư mục cha (cùng cấp index.php), không phải .../public (dễ gây link /public/profile → 404).
+	while (preg_match('#/api$#', $scriptName)) {
+		$scriptName = str_replace('\\', '/', dirname($scriptName));
 	}
 	return rtrim($scriptName, '/');
 };

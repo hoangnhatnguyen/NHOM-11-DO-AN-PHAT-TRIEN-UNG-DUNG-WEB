@@ -344,6 +344,52 @@ class UserController extends BaseController {
         ]);
     }
 
+    /**
+     * GET ?q=&limit= — gợi ý user khi gõ @ (không gồm admin; không gồm block hai chiều).
+     */
+    public function apiMentionUsers(): void {
+        header('Content-Type: application/json; charset=UTF-8');
+        $this->requireAuth();
+
+        $q = trim((string) ($_GET['q'] ?? ''));
+        $limit = (int) ($_GET['limit'] ?? 12);
+        if ($limit <= 0) {
+            $limit = 12;
+        }
+        if ($limit > 50) {
+            $limit = 50;
+        }
+
+        $viewerId = (int) ($_SESSION['user']['id'] ?? 0);
+        if ($viewerId <= 0) {
+            echo json_encode(['items' => []], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $rows = $this->userModel->searchForMention($viewerId, $q, $limit);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'mention_search_failed'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        require_once __DIR__ . '/../helpers/media.php';
+        $items = [];
+        foreach ($rows as $row) {
+            $uname = (string) ($row['username'] ?? '');
+            $rawAvatar = (string) ($row['avatar_url'] ?? '');
+            $items[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'username' => $uname,
+                'displayName' => $uname,
+                'avatarSrc' => $rawAvatar !== '' ? media_public_src($rawAvatar) : '',
+            ];
+        }
+
+        echo json_encode(['items' => $items], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
     // ===== SEARCH BADGE =====
     public function searchBadge(): void {
         header('Content-Type: application/json');

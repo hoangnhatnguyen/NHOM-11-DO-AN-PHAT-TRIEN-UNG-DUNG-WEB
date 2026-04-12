@@ -1428,6 +1428,15 @@
 	padding: 0.5rem !important;
 	border-color: #dee2e6 !important;
 	background: #f0f2f5 !important;
+	overflow: visible;
+}
+
+.comment-node .comment-bubble .mention-profile-link {
+	line-height: 1.45;
+	display: inline-block;
+	vertical-align: baseline;
+	padding-bottom: 0.12em;
+	overflow: visible;
 }
 
 /* Action buttons row */
@@ -1458,4 +1467,29 @@
 	width: 100% !important;
 	box-sizing: border-box;
 	display: block !important;
+}
+
+/* @mention autocomplete: flex + text-truncate cần min-w-0; không dùng bg-primary/text-white trên button (lỗi màu chữ khi hover) */
+.mention-autocomplete-dropdown {
+	background: #fff;
+}
+
+.mention-autocomplete-dropdown .mention-ac-item {
+	background: transparent;
+	color: var(--bs-body-color, #212529);
+}
+.mention-autocomplete-dropdown .mention-ac-item .mention-ac-label {
+	color: inherit;
+	min-width: 0;
+	display: block;
+}
+.mention-autocomplete-dropdown .mention-ac-item.mention-ac-highlight {
+	background-color: var(--bs-primary) !important;
+	color: #fff !important;
+}
+.mention-autocomplete-dropdown .mention-ac-item.mention-ac-highlight .mention-ac-label {
+	color: #fff !important;
+}
+.mention-autocomplete-dropdown .mention-ac-item.mention-ac-highlight .mention-ac-avatar {
+	color: #fff !important;
 }

@@ -34,7 +34,8 @@ class HomeController extends BaseController {
 			'feedTab' => $feedTab,
 			'currentUser' => $_SESSION['user'] ?? null,
 			'csrfToken' => $this->csrfToken(),
-			'activeMenu' => 'home'
+			'activeMenu' => 'home',
+			'error' => $this->flash('error'),
 		], 'feed');
 	}
 }

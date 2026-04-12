@@ -1,4 +1,7 @@
 <?php $feedTab = $feedTab ?? 'foryou'; ?>
+<?php if (!empty($error ?? null)): ?>
+	<div class="alert alert-warning rounded-4 mb-3" role="alert"><?= htmlspecialchars((string) $error) ?></div>
+<?php endif; ?>
 <ul class="nav nav-underline justify-content-center mb-3 feed-tabs">
 	<li class="nav-item">
 		<a class="nav-link <?= $feedTab === 'foryou' ? 'active' : '' ?>" href="<?= BASE_URL ?>/">Dành cho bạn</a>

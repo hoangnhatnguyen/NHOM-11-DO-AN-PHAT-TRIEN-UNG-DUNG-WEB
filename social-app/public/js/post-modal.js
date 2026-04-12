@@ -4,6 +4,7 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
+	const baseUrl = window.__APP_BASE__ || '/';
 	const modal = document.getElementById('postDetailModal');
 	const modalContent = document.getElementById('postDetailContent');
 	
@@ -20,13 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		modalContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>';
 
 		// Fetch post detail
-		const detailUrl =
-			typeof window.__appUrl === 'function'
-				? window.__appUrl(
-						'api/post-detail.php?id=' + encodeURIComponent(postId) + '&_=' + String(Date.now())
-					)
-				: '/' + 'api/post-detail.php?id=' + encodeURIComponent(postId) + '&_=' + String(Date.now());
-		fetch(detailUrl, { cache: 'no-store', credentials: 'same-origin' })
+		fetch(`${baseUrl}api/post-detail.php?id=${postId}`)
 			.then(res => res.json())
 			.then(data => {
 				if (data.success && data.html) {
@@ -131,7 +126,3 @@ document.addEventListener('DOMContentLoaded', function() {
 	// Expose function globally for other scripts
 	window.openPostDetail = openPostDetail;
 });
-
-
-
-

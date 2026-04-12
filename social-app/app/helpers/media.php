@@ -137,3 +137,14 @@ function delete_stored_media(string $path): void {
 		(new S3Service())->deleteFile($path);
 	}
 }
+
+/**
+ * Có file upload trong input name="media[]" (không truy cập $_FILES['media'] khi chưa tồn tại — tránh cảnh báo PHP 8+ làm hỏng JSON AJAX).
+ */
+function has_post_media_upload(): bool {
+	if (!isset($_FILES['media']['name']) || !is_array($_FILES['media']['name'])) {
+		return false;
+	}
+	$first = $_FILES['media']['name'][0] ?? '';
+	return is_string($first) && trim($first) !== '';
+}

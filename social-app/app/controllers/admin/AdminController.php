@@ -19,6 +19,6 @@ class AdminController extends BaseController {
                 'newUsersToday' => $userModel->countNewUsersToday(),
                 'totalPosts' => $postModel->countAllPosts(),
             ],
-        ], 'feed');
+        ], 'admin');
     }
 }

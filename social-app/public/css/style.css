@@ -5,8 +5,72 @@
 	--brand-primary-soft: #e6f1f9;
 	--bs-primary: #1A6291;
 	--bs-primary-rgb: 26, 98, 145;
+	--bs-primary-hover: #155a82;
+	--bs-primary-active: #134d75;
+	--bs-link-color: #1A6291;
+	--bs-link-hover-color: #134d75;
+	--bs-pagination-active-bg: var(--bs-primary);
+	--bs-pagination-active-border-color: var(--bs-primary);
+	--bs-primary-bg-subtle: #e6f1f9;
+	--bs-primary-border-subtle: #b8d4e8;
+	--bs-primary-text-emphasis: #134d75;
+	--bs-focus-ring-color: rgba(var(--bs-primary-rgb), 0.25);
 	--bs-modal-bg: #fff;
 	--bs-modal-border-color: #dee2e6;
+}
+
+/* Primary Bootstrap: mọi layout (kể cả admin chỉ có style.css) */
+.btn-primary,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary.active,
+.btn-check:checked + .btn-primary,
+.show > .btn-primary.dropdown-toggle {
+	background-color: var(--bs-primary);
+	border-color: var(--bs-primary);
+	color: #fff;
+}
+
+.btn-primary:hover {
+	background-color: var(--bs-primary-hover);
+	border-color: var(--bs-primary-hover);
+	color: #fff;
+}
+
+.btn-outline-primary {
+	color: var(--bs-primary);
+	border-color: var(--bs-primary);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active,
+.btn-outline-primary.active,
+.btn-check:checked + .btn-outline-primary {
+	background-color: var(--bs-primary);
+	border-color: var(--bs-primary);
+	color: #fff;
+}
+
+.btn-outline-primary:hover {
+	background-color: var(--bs-primary-hover);
+	border-color: var(--bs-primary-hover);
+}
+
+.admin-pagination.pagination {
+	gap: 0.45rem;
+	flex-wrap: wrap;
+}
+
+.admin-pagination .page-item .page-link {
+	margin-left: 0;
+	border-radius: 50rem;
+}
+
+.admin-pagination .page-item.active .page-link {
+	background-color: var(--bs-primary);
+	border-color: var(--bs-primary);
+	color: #fff;
 }
 
 /* Nút Theo dõi / CTA đồng bộ màu thương hiệu (badge, tab profile) */
@@ -139,14 +203,6 @@
 		width: 0;
 		height: 0;
 	}
-}
-
-:root {
-	--app-nav-height: 64px;
-	--brand-primary: #1A6291;
-	--brand-primary-soft: #e6f1f9;
-	--bs-primary: #1A6291;
-	--bs-primary-rgb: 26, 98, 145;
 }
 
 .left-sidebar {
@@ -1062,39 +1118,6 @@
 	.chat-shell.chat-detail-open .chat-detail-panel {
 		transform: translateX(0);
 	}
-}
-
-/* ============ FEED RESPONSIVE ============ */
-.preview-wrapper {
-    position: relative;
-    border-radius: 16px;
-    overflow: hidden;
-}
-
-.preview-remove {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0,0,0,0.6);
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-}
-#previewContainer {
-    width: 100%;
-}
-#previewImage {
-    width: 100%;
-    height: auto;
-    display: block;
-}
-.feed-post {
-    width: 100%;
-}
-
-.post-action-menu {
-	z-index: 2000;
-	min-width: 11rem;
 }
 
 .profile-post-grid {

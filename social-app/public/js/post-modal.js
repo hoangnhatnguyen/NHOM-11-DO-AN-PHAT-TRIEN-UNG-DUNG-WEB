@@ -22,9 +22,11 @@ document.addEventListener('DOMContentLoaded', function() {
 		// Fetch post detail
 		const detailUrl =
 			typeof window.__appUrl === 'function'
-				? window.__appUrl('api/post-detail.php?id=' + encodeURIComponent(postId))
-				: '/' + 'api/post-detail.php?id=' + encodeURIComponent(postId);
-		fetch(detailUrl)
+				? window.__appUrl(
+						'api/post-detail.php?id=' + encodeURIComponent(postId) + '&_=' + String(Date.now())
+					)
+				: '/' + 'api/post-detail.php?id=' + encodeURIComponent(postId) + '&_=' + String(Date.now());
+		fetch(detailUrl, { cache: 'no-store', credentials: 'same-origin' })
 			.then(res => res.json())
 			.then(data => {
 				if (data.success && data.html) {
@@ -129,3 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	// Expose function globally for other scripts
 	window.openPostDetail = openPostDetail;
 });
+
+
+
+

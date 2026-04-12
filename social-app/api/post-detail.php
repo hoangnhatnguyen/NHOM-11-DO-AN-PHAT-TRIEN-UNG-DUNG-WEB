@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/session.php';
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate');
 
 if (!isset($_SESSION['user']['id'])) {
     http_response_code(401);
@@ -49,7 +50,10 @@ try {
         // Fallback: get basic post info
         $pdo = Database::getInstance()->getConnection();
         $stmt = $pdo->prepare('
-            SELECT p.*, u.name as user_name, u.avatar_url, p.user_id
+            SELECT
+                p.*,
+                u.username AS author_name,
+                u.avatar_url AS author_avatar_url
             FROM posts p
             LEFT JOIN users u ON u.id = p.user_id
             WHERE p.id = ? LIMIT 1
@@ -76,10 +80,11 @@ try {
             exit;
         }
         
-        // Add stats
+        // Add stats (khớp findDetailWithStats)
         $post['like_count'] = $postModel->countLikes($postId);
         $post['comment_count'] = $postModel->countComments($postId);
         $post['share_count'] = $postModel->countShares($postId);
+        $post['save_count'] = $postModel->countSavedPosts($postId);
         $post['is_liked'] = $postModel->isLiked($postId, $viewerId);
         $post['is_saved'] = $postModel->isSaved($postId, $viewerId);
     }
@@ -91,6 +96,7 @@ try {
     // Get hashtags
     $postHashtagModel = new PostHashtag();
     $hashtag_names = $postHashtagModel->getTagNamesByPostId($postId) ?? [];
+    $post['hashtag_names'] = $hashtag_names;
 
     // Get comments tree (used by detail.php template)
     $commentsTree = $postModel->getCommentTreeByPost($postId) ?? [];

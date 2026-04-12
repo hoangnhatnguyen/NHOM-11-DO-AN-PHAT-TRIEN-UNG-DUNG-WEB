@@ -493,20 +493,7 @@
 		overflow-x: hidden !important;
 	}
 
-	body.app-bg:has(#chatApp.chat-ios-safari) {
-		position: fixed;
-		inset: 0;
-		height: 100% !important;
-		max-height: 100% !important;
-	}
-
 	#chatApp.chat-ios-safari {
-		position: fixed !important;
-		left: 0 !important;
-		right: 0 !important;
-		top: var(--chat-vv-offset-top, 0px) !important;
-		height: var(--chat-visual-vh, 100dvh) !important;
-		max-height: var(--chat-visual-vh, 100dvh) !important;
 		padding-bottom: env(safe-area-inset-bottom, 0px);
 	}
 
@@ -765,10 +752,23 @@
 	}
 
 	#chatApp .chat-message-row,
-	#chatApp .chat-message-body,
 	#chatApp .chat-bubble {
 		min-width: 0 !important;
 		max-width: 100% !important;
+	}
+
+	#chatApp .chat-message-row {
+		width: 100% !important;
+		overflow-x: hidden !important;
+	}
+
+	#chatApp .chat-message-body {
+		min-width: 0 !important;
+		max-width: min(82%, calc(100% - 40px)) !important;
+	}
+
+	#chatApp .chat-message-row.mine .chat-message-body {
+		margin-left: auto;
 	}
 
 	#chatApp .chat-bubble img,

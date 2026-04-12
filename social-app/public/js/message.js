@@ -406,13 +406,12 @@ if (!root) {
 			const nextHeight = hasVisualViewport
 				? Math.max(320, Math.round(vv.height))
 				: Math.max(320, window.innerHeight);
-			const vvOffsetTop = hasVisualViewport ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
 
 			document.documentElement.style.setProperty('--chat-visual-vh', `${nextHeight}px`);
-			document.documentElement.style.setProperty('--chat-vv-offset-top', `${vvOffsetTop}px`);
+			document.documentElement.style.setProperty('--chat-vv-offset-top', '0px');
 
 			if (hasVisualViewport) {
-				const keyboardOpen = (window.innerHeight - vv.height - vvOffsetTop) > 100;
+				const keyboardOpen = (window.innerHeight - vv.height) > 120;
 				ui.root.classList.toggle('chat-keyboard-open', keyboardOpen);
 			} else {
 				ui.root.classList.remove('chat-keyboard-open');
@@ -423,7 +422,6 @@ if (!root) {
 
 		if (hasVisualViewport) {
 			vv.addEventListener('resize', applyViewportHeight);
-			vv.addEventListener('scroll', applyViewportHeight);
 		}
 
 		window.addEventListener('resize', applyViewportHeight);
@@ -431,13 +429,17 @@ if (!root) {
 
 		if (ui.textInput) {
 			ui.textInput.addEventListener('focus', () => {
+				ui.root.classList.add('chat-keyboard-open');
 				window.setTimeout(() => {
 					applyViewportHeight();
 				}, 80);
 			});
 
 			ui.textInput.addEventListener('blur', () => {
-				window.setTimeout(applyViewportHeight, 120);
+				window.setTimeout(() => {
+					ui.root.classList.remove('chat-keyboard-open');
+					applyViewportHeight();
+				}, 120);
 			});
 		}
 	}

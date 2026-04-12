@@ -573,6 +573,13 @@
 	font-size: 1.03rem;
 }
 
+/* Mobile-only controls (hidden by default on desktop/tablet) */
+.chat-mobile-list-head,
+.chat-mobile-back-btn,
+.mobile-only-back {
+	display: none;
+}
+
 .chat-section-title {
 	font-size: 1.25rem;
 	font-weight: 700;

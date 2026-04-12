@@ -296,6 +296,8 @@ if (!root) {
 	}
 
 	function bindStaticEvents() {
+		setupMobileViewportFix();
+
 		ui.composerForm.addEventListener('submit', async (event) => {
 			event.preventDefault();
 			await sendTextMessage();
@@ -383,6 +385,81 @@ if (!root) {
 		ui.detailBackBtn.addEventListener('click', () => {
 			setDetailPanelOpen(false);
 		});
+	}
+
+	function setupMobileViewportFix() {
+		if (!ui.root) return;
+		if (!window.matchMedia('(max-width: 767.98px)').matches) return;
+
+		const ua = String(window.navigator?.userAgent || '');
+		const platform = String(window.navigator?.platform || '');
+		const isIOS = /iP(hone|od|ad)/i.test(ua) || (platform === 'MacIntel' && Number(window.navigator?.maxTouchPoints || 0) > 1);
+		const isWebKit = /WebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+		const isIOSSafari = isIOS && isWebKit;
+
+		ui.root.classList.toggle('chat-ios-safari', isIOSSafari);
+
+		const vv = window.visualViewport;
+		const hasVisualViewport = !!vv;
+		const viewportMeta = document.querySelector('meta[name="viewport"]');
+		const originalViewportContent = viewportMeta?.getAttribute('content') || '';
+
+		const lockViewportScaleForInput = () => {
+			if (!isIOSSafari || !viewportMeta) return;
+			if (originalViewportContent.includes('maximum-scale=')) return;
+			viewportMeta.setAttribute('content', `${originalViewportContent}, maximum-scale=1, viewport-fit=cover`);
+		};
+
+		const restoreViewportScale = () => {
+			if (!isIOSSafari || !viewportMeta) return;
+			if (!originalViewportContent) return;
+			viewportMeta.setAttribute('content', originalViewportContent);
+		};
+
+		const applyViewportHeight = () => {
+			const nextHeight = hasVisualViewport
+				? Math.max(320, Math.round(vv.height))
+				: Math.max(320, window.innerHeight);
+
+			document.documentElement.style.setProperty('--chat-visual-vh', `${nextHeight}px`);
+			document.documentElement.style.setProperty('--chat-vv-offset-top', '0px');
+
+			if (hasVisualViewport) {
+				const keyboardOpen = (window.innerHeight - vv.height) > 120;
+				ui.root.classList.toggle('chat-keyboard-open', keyboardOpen);
+			} else {
+				ui.root.classList.remove('chat-keyboard-open');
+			}
+		};
+
+		applyViewportHeight();
+
+		if (hasVisualViewport) {
+			vv.addEventListener('resize', applyViewportHeight);
+		}
+
+		window.addEventListener('resize', applyViewportHeight);
+		window.addEventListener('orientationchange', applyViewportHeight);
+
+		if (ui.textInput) {
+			ui.textInput.style.fontSize = '16px';
+
+			ui.textInput.addEventListener('focus', () => {
+				ui.root.classList.add('chat-keyboard-open');
+				lockViewportScaleForInput();
+				window.setTimeout(() => {
+					applyViewportHeight();
+				}, 80);
+			});
+
+			ui.textInput.addEventListener('blur', () => {
+				window.setTimeout(() => {
+					ui.root.classList.remove('chat-keyboard-open');
+					restoreViewportScale();
+					applyViewportHeight();
+				}, 120);
+			});
+		}
 	}
 
 	const openActivePeerProfile = () => {

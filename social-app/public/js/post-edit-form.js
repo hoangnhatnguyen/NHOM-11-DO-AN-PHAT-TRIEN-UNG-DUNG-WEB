@@ -161,9 +161,15 @@
 			return;
 		}
 
-		var cardUrl = (appBase ? appBase : '') + '/api/post-card.php?id=' + encodeURIComponent(postId);
+		var cardUrl =
+			(appBase ? appBase : '') +
+			'/api/post-card.php?id=' +
+			encodeURIComponent(postId) +
+			'&_=' +
+			Date.now();
 		fetch(cardUrl, {
 			credentials: 'same-origin',
+			cache: 'no-store',
 			headers: {
 				'X-Requested-With': 'XMLHttpRequest',
 				Accept: 'application/json',

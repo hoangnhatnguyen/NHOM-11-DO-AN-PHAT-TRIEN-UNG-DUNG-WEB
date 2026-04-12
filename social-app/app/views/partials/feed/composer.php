@@ -184,6 +184,13 @@ document.addEventListener("DOMContentLoaded", function () {
         checkEnableButton();
     });
 
+    var feedComposerForm = document.getElementById("feedComposerForm");
+    if (feedComposerForm) {
+        feedComposerForm.addEventListener("submit", function () {
+            syncFeedComposerFilesToInput();
+        });
+    }
+
     checkEnableButton();
 });
 

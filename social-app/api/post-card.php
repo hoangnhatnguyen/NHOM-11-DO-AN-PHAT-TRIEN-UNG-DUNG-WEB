@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/session.php';
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 if (!isset($_SESSION['user']['id'])) {
 	http_response_code(401);

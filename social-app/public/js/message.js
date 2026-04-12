@@ -401,6 +401,20 @@ if (!root) {
 
 		const vv = window.visualViewport;
 		const hasVisualViewport = !!vv;
+		const viewportMeta = document.querySelector('meta[name="viewport"]');
+		const originalViewportContent = viewportMeta?.getAttribute('content') || '';
+
+		const lockViewportScaleForInput = () => {
+			if (!isIOSSafari || !viewportMeta) return;
+			if (originalViewportContent.includes('maximum-scale=')) return;
+			viewportMeta.setAttribute('content', `${originalViewportContent}, maximum-scale=1, viewport-fit=cover`);
+		};
+
+		const restoreViewportScale = () => {
+			if (!isIOSSafari || !viewportMeta) return;
+			if (!originalViewportContent) return;
+			viewportMeta.setAttribute('content', originalViewportContent);
+		};
 
 		const applyViewportHeight = () => {
 			const nextHeight = hasVisualViewport
@@ -428,8 +442,11 @@ if (!root) {
 		window.addEventListener('orientationchange', applyViewportHeight);
 
 		if (ui.textInput) {
+			ui.textInput.style.fontSize = '16px';
+
 			ui.textInput.addEventListener('focus', () => {
 				ui.root.classList.add('chat-keyboard-open');
+				lockViewportScaleForInput();
 				window.setTimeout(() => {
 					applyViewportHeight();
 				}, 80);
@@ -438,6 +455,7 @@ if (!root) {
 			ui.textInput.addEventListener('blur', () => {
 				window.setTimeout(() => {
 					ui.root.classList.remove('chat-keyboard-open');
+					restoreViewportScale();
 					applyViewportHeight();
 				}, 120);
 			});

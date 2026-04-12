@@ -75,6 +75,17 @@ class PostHashtag extends BaseModel {
         $tagNames = array_values(array_unique(array_filter(array_map('trim', $tagNames), static function ($n) {
             return $n !== '';
         })));
+        // Cùng nội dung khác hoa/thường → một hashtag_id; tránh INSERT trùng (post_id, hashtag_id).
+        $seenLower = [];
+        $deduped = [];
+        foreach ($tagNames as $name) {
+            $key = function_exists('mb_strtolower') ? mb_strtolower($name, 'UTF-8') : strtolower($name);
+            if (!isset($seenLower[$key])) {
+                $seenLower[$key] = true;
+                $deduped[] = $name;
+            }
+        }
+        $tagNames = $deduped;
         $del = $this->db->prepare("DELETE FROM {$this->table} WHERE post_id = ?");
         $del->execute([$postId]);
         $hashtagModel = new Hashtag();

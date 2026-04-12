@@ -78,8 +78,13 @@ class PostHashtag extends BaseModel {
         $del = $this->db->prepare("DELETE FROM {$this->table} WHERE post_id = ?");
         $del->execute([$postId]);
         $hashtagModel = new Hashtag();
+        $attachedIds = [];
         foreach ($tagNames as $name) {
             $hid = $hashtagModel->findOrCreate((string) $name);
+            if (isset($attachedIds[$hid])) {
+                continue;
+            }
+            $attachedIds[$hid] = true;
             $this->attach($postId, $hid);
         }
     }

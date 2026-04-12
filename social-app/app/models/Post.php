@@ -682,6 +682,13 @@ class Post extends BaseModel {
         }
         unset($p);
 
+        $mediaModel = new PostMedia();
+        foreach ($posts as &$p) {
+            $pid = (int) ($p['id'] ?? 0);
+            $p['media'] = $pid > 0 ? $mediaModel->getByPost($pid) : [];
+        }
+        unset($p);
+
         return $posts;
     }
 

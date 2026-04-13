@@ -31,23 +31,22 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 
 		try {
-			// Step 1: Fetch posts JSON
 			const response = await fetch(apiUrl, {
 				method: 'POST',
+				credentials: 'same-origin',
 				headers: {
 					'Content-Type': 'application/x-www-form-urlencoded',
+					Accept: 'text/html',
 				},
-				body: `offset=${currentOffset}&tab=${encodeURIComponent(feedTab)}`
+				body: `offset=${currentOffset}&tab=${encodeURIComponent(feedTab)}`,
 			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 
-			const data = await response.json();
-
-			if (!data.success || !data.posts || data.posts.length === 0) {
-
+			const html = await response.text();
+			if (!html.trim()) {
 				hasMore = false;
 				if (noMoreIndicator) {
 					noMoreIndicator.style.display = 'block';
@@ -58,32 +57,49 @@ document.addEventListener('DOMContentLoaded', function() {
 				return;
 			}
 
-			// Step 2: Render posts HTML using the backend template
-			const renderResponse = await fetch(baseUrl + 'api/render_posts.php', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-				},
-				body: `posts_json=${encodeURIComponent(JSON.stringify(data.posts))}&base_url=${encodeURIComponent(baseUrl)}`
-			});
-
-			if (!renderResponse.ok) {
-
+			const beforeArticleCount = feedContainer.querySelectorAll('article.js-post-card').length;
+			const anchor = feedContainer.querySelector('.feed-loading');
+			if (anchor) {
+				anchor.insertAdjacentHTML('beforebegin', html);
+			} else {
+				feedContainer.insertAdjacentHTML('beforeend', html);
 			}
 
-			const postsHtml = await renderResponse.text();
-			
-			if (!postsHtml || postsHtml.trim() === '') {
+			const articles = feedContainer.querySelectorAll('article.js-post-card');
+			const added = articles.length - beforeArticleCount;
+			for (let i = beforeArticleCount; i < articles.length; i++) {
+				articles[i].querySelectorAll('img.js-open-post-modal-media').forEach(function (img) {
+					img.loading = 'eager';
+					const src = img.getAttribute('src');
+					if (src) {
+						img.removeAttribute('src');
+						img.setAttribute('src', src);
+					}
+				});
+			}
+
+			if (added <= 0) {
 				hasMore = false;
+				if (noMoreIndicator) {
+					noMoreIndicator.style.display = 'block';
+				}
+				if (loadingIndicator) {
+					loadingIndicator.style.display = 'none';
+				}
 				return;
 			}
 
-			// Step 3: Append rendered HTML to feed
-			feedContainer.insertAdjacentHTML('beforeend', postsHtml);
+			let batchCount = parseInt(response.headers.get('X-Load-More-Count') || '0', 10);
+			if (batchCount <= 0) {
+				batchCount = added;
+			}
+			let hasMoreHeader = response.headers.get('X-Load-More-Has-More') === '1';
+			if (response.headers.get('X-Load-More-Has-More') === null) {
+				hasMoreHeader = added >= 5;
+			}
 
-			// Update offset and hasMore status
-			currentOffset += data.count;
-			hasMore = data.hasMore === true;
+			currentOffset += batchCount;
+			hasMore = hasMoreHeader;
 			feedContainer.dataset.offset = currentOffset;
 			feedContainer.dataset.hasMore = hasMore ? 'true' : 'false';
 
@@ -105,111 +121,6 @@ document.addEventListener('DOMContentLoaded', function() {
 	}
 
 	/**
-	 * Render posts HTML from JSON data
-	 */
-	async function renderPosts(posts) {
-		let html = '';
-		for (const post of posts) {
-			html += createPostCard(post);
-		}
-		return html;
-	}
-
-	/**
-	 * Create post card HTML from post data
-	 */
-	function createPostCard(post) {
-		const baseUrl = window.__APP_BASE__ || '/';
-		const authorAvatarUrl = post.author_avatar_url || baseUrl + 'images/default-avatar.png';
-		const isLiked = post.is_liked ? 'true' : 'false';
-		const isSaved = post.is_saved ? 'true' : 'false';
-
-		let mediaHtml = '';
-		if (post.media && post.media.length > 0) {
-			mediaHtml = '<div class="post-media-container mt-3">';
-			post.media.forEach((m, idx) => {
-				const mediaUrl = m.media_url || '';
-				const mediaType = m.media_type || 'image';
-				if (mediaType === 'video') {
-					mediaHtml += `<video class="post-media img-fluid rounded-3 me-2" style="max-width: 100%; margin-bottom: 8px;" controls>
-						<source src="${htmlEscape(mediaUrl)}" type="video/mp4">
-					</video>`;
-				} else {
-					mediaHtml += `<img class="post-media img-fluid rounded-3 js-open-post-modal-media" src="${htmlEscape(mediaUrl)}" alt="Post media" style="max-width: 100%; margin-bottom: 8px;">`;
-				}
-			});
-			mediaHtml += '</div>';
-		}
-
-		let hashtagHtml = '';
-		if (post.hashtag_names && post.hashtag_names.length > 0) {
-			hashtagHtml = '<div class="post-hashtags mt-2">';
-			post.hashtag_names.forEach(tag => {
-				hashtagHtml += `<a href="${baseUrl}search?q=%23${htmlEscape(tag)}" class="badge bg-secondary me-2">#${htmlEscape(tag)}</a>`;
-			});
-			hashtagHtml += '</div>';
-		}
-
-		const createdAt = new Date(post.created_at).toLocaleDateString('vi-VN', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-
-		return `
-			<div class="card border-0 shadow-sm rounded-4 mb-3 post-card js-post-card" data-post-id="${post.id}" data-post-url="${baseUrl}post/${post.id}">
-				<div class="card-body p-3 p-md-4">
-					<div class="d-flex align-items-center mb-3">
-						<a href="${baseUrl}user/${post.user_id}" class="me-3">
-							<img src="${htmlEscape(authorAvatarUrl)}" alt="${htmlEscape(post.author_name)}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">
-						</a>
-						<div class="flex-grow-1">
-							<a href="${baseUrl}user/${post.user_id}" class="text-decoration-none text-dark">
-								<strong>${htmlEscape(post.author_name)}</strong>
-							</a>
-							<div class="text-secondary" style="font-size: 12px;">
-								${createdAt}
-							</div>
-						</div>
-					</div>
-					<div class="post-content">
-						${htmlEscape(post.content)}
-					</div>
-					${mediaHtml}
-					${hashtagHtml}
-					<div class="post-stats mt-3 pt-3 border-top d-flex justify-content-around">
-						<small class="text-secondary">
-							<span class="like-count">${post.like_count || 0}</span> thích
-						</small>
-						<small class="text-secondary">
-							<span class="comment-count">${post.comment_count || 0}</span> bình luận
-						</small>
-						<small class="text-secondary">
-							<span class="share-count">${post.share_count || 0}</span> chia sẻ
-						</small>
-					</div>
-					<div class="post-actions mt-3 pt-3 border-top d-flex justify-content-around">
-						<button class="btn btn-sm btn-light flex-grow-1 me-2 like-btn" data-post-id="${post.id}" data-is-liked="${isLiked}">
-							<i class="bi bi-heart${isLiked === 'true' ? '-fill text-danger' : ''}"></i> Thích
-						</button>
-						<button type="button" class="btn btn-sm btn-light flex-grow-1 me-2 js-comment-btn comment-btn" data-post-id="${post.id}">
-							<i class="bi bi-chat"></i> Bình luận
-						</button>
-						<button class="btn btn-sm btn-light flex-grow-1 me-2 share-btn" data-post-id="${post.id}">
-							<i class="bi bi-share"></i> Chia sẻ
-						</button>
-						<button class="btn btn-sm btn-light flex-grow-1 save-btn" data-post-id="${post.id}" data-is-saved="${isSaved}">
-							<i class="bi bi-bookmark${isSaved === 'true' ? '-fill text-warning' : ''}"></i> Lưu
-						</button>
-					</div>
-				</div>
-			</div>
-		`;
-	}
-
-	/**
 	 * Initialize event handlers for post cards
 	 */
 	function initializePostHandlers() {
@@ -217,64 +128,6 @@ document.addEventListener('DOMContentLoaded', function() {
 		if (window.initAjaxHandlers && typeof window.initAjaxHandlers === 'function') {
 			window.initAjaxHandlers();
 		}
-	}
-
-	/**
-	 * Handle like button click
-	 */
-	function handleLikeClick(e) {
-		e.preventDefault();
-		const btn = e.currentTarget;
-		const postId = btn.dataset.postId;
-		const isLiked = btn.dataset.isLiked === 'true';
-
-		// Update UI optimistically
-		btn.dataset.isLiked = !isLiked ? 'true' : 'false';
-		const icon = btn.querySelector('i');
-		if (icon) {
-			icon.classList.toggle('bi-heart');
-			icon.classList.toggle('bi-heart-fill');
-			icon.classList.toggle('text-danger');
-		}
-
-		// Send request to server
-		const formData = new FormData();
-		formData.append('post_id', postId);
-		formData.append('action', isLiked ? 'unlike' : 'like');
-
-		fetch('/api/like.php', {
-			method: 'POST',
-			body: formData
-		}).catch(err => {});
-	}
-
-	/**
-	 * Handle comment button click
-	 */
-	function handleCommentClick(e) {
-		e.preventDefault();
-		const btn = e.currentTarget;
-		const postId = btn.dataset.postId;
-		const postCard = document.querySelector(`[data-post-id="${postId}"]`);
-
-		if (postCard) {
-			// Scroll to post and show comment section
-			postCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		}
-	}
-
-	/**
-	 * Escape HTML special characters
-	 */
-	function htmlEscape(text) {
-		const map = {
-			'&': '&amp;',
-			'<': '&lt;',
-			'>': '&gt;',
-			'"': '&quot;',
-			"'": '&#039;'
-		};
-		return String(text).replace(/[&<>"']/g, m => map[m]);
 	}
 
 	/**

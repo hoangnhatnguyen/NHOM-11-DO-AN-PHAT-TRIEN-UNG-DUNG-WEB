@@ -185,6 +185,17 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     checkEnableButton();
+
+    var feedForm = document.getElementById("feedComposerForm");
+    if (feedForm) {
+        feedForm.addEventListener(
+            "submit",
+            function () {
+                syncFeedComposerFilesToInput();
+            },
+            true
+        );
+    }
 });
 
 function setPrivacy(value, icon, label) {

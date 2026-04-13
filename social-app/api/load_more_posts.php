@@ -1,12 +1,16 @@
 <?php
 // Load more posts with AJAX — cùng phiên với index.php
+// Bắt buộc: Composer autoload (AWS SDK) — media_public_src() presign S3 cần Aws\S3\S3Client.
+// Không có file này, render post_card trong API trả src="" cho ảnh S3 dù SSR trên index.php vẫn đúng.
+require_once __DIR__ . '/../vendor/autoload.php';
+
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/session.php';
-header('Content-Type: application/json');
 
 // Check if user is logged in
 if (!isset($_SESSION['user']['id'])) {
     http_response_code(401);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['error' => 'Unauthorized', 'success' => false]);
     exit;
 }
@@ -35,23 +39,37 @@ try {
         ? $postModel->getFeedFollowingPaginated($viewerId, $limit, $offset)
         : $postModel->getFeedPaginated($viewerId, $limit, $offset);
 
-    // Return posts as JSON data, not HTML
+    // Render HTML trên server — tránh gửi JSON qua form-urlencoded (dễ hỏng URL media, vd. ký tự +).
+    if (empty($_SESSION['_csrf_token'])) {
+        $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+    }
+    $csrfToken = (string) $_SESSION['_csrf_token'];
+    $currentUser = $_SESSION['user'] ?? null;
+
+    $html = '';
+    foreach ($posts as $post) {
+        ob_start();
+        include __DIR__ . '/../app/views/partials/post_card.php';
+        $html .= ob_get_clean();
+    }
+
+    $n = count($posts);
+    // Trả fragment HTML trực tiếp (không bọc JSON) — tránh escape/parse lỗi với URL presign S3 dài.
     http_response_code(200);
-    echo json_encode([
-        'success' => true,
-        'posts' => $posts,
-        'count' => count($posts),
-        'hasMore' => count($posts) === $limit
-    ]);
+    header('Content-Type: text/html; charset=utf-8');
+    header('X-Load-More-Count: ' . $n);
+    header('X-Load-More-Has-More: ' . ($n === $limit ? '1' : '0'));
+    echo $html;
 } catch (Throwable $e) {
     http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
     $errorMsg = $e->getMessage();
     $errorTrace = $e->getTraceAsString();
     error_log("Load more posts error: " . $errorMsg . "\n" . $errorTrace);
-    
+
     echo json_encode([
         'error' => $errorMsg,
         'success' => false,
-        'trace' => $errorTrace
+        'trace' => $errorTrace,
     ]);
 }

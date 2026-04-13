@@ -469,6 +469,41 @@
 		flex-direction: column !important;
 	}
 
+	/*
+	 * iOS Safari: body { position: fixed } + bàn phím làm lệch visual viewport → ô nhập “lơ lửng”, khe trắng.
+	 * Chỉ WebKit (iOS / Safari): bỏ fixed, dùng flex + chiều cao -webkit-fill-available. Không áp Chrome Android.
+	 */
+	@supports (-webkit-touch-callout: none) {
+		html:has(#chatApp) {
+			height: 100%;
+			height: -webkit-fill-available;
+		}
+
+		body.app-bg:has(#chatApp) {
+			position: relative !important;
+			inset: auto !important;
+			display: flex;
+			flex-direction: column;
+			width: 100%;
+			min-height: 0;
+			height: 100%;
+			height: -webkit-fill-available;
+			max-height: none !important;
+		}
+
+		main.container-fluid:has(#chatApp) {
+			flex: 1 1 auto !important;
+			height: 100% !important;
+			max-height: none !important;
+			min-height: 0 !important;
+		}
+
+		/* Tránh zoom focus 13–14px gây nhảy layout trên iOS */
+		#chatApp .chat-text-input {
+			font-size: max(16px, 0.85rem);
+		}
+	}
+
 	#chatApp {
 		margin: 0 !important;
 		flex: 1 1 auto;
@@ -806,6 +841,11 @@
 
 	#postDetailModal {
 		z-index: 3200 !important;
+	}
+
+	/* @mention dropdown (fixed, appended to body): inline z-index 1080 is below post modal — lift on mobile only */
+	.mention-autocomplete-dropdown {
+		z-index: 3250 !important;
 	}
 
 	/* Only lift backdrop when delete-chat modal is open */

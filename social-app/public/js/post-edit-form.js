@@ -143,7 +143,7 @@
 	 * Sau khi lưu: cập nhật thẻ bài trên trang, làm mới modal chi tiết nếu đang mở, đóng modal sửa.
 	 * Trang /post/{id} hoặc form sửa trang riêng: dùng reload hoặc chuyển trang.
 	 */
-	function afterPostEditSaved(editForm, data) {
+function afterPostEditSaved(editForm, data) {
 		var postId = data && data.postId;
 		if (!postId) return;
 
@@ -161,25 +161,11 @@
 			return;
 		}
 
-		/* Tránh cache GET: feed vẫn hiển thị thẻ cũ (thiếu ảnh sau khi sửa) nếu trình duyệt dùng bản JSON/HTML cũ */
-		var cardUrl =
-			(appBase ? appBase : '') +
-			'/api/post-card.php?id=' +
-			encodeURIComponent(postId) +
-			'&_=' +
-			Date.now();
-		fetch(cardUrl, {
-			credentials: 'same-origin',
-			cache: 'no-store',
-			headers: {
-				'X-Requested-With': 'XMLHttpRequest',
-				Accept: 'application/json',
-			},
-		})
-			.then(function (r) {
-				return r.json();
-			})
-			.then(function (cardData) {
+		// 1. Cập nhật Card ở News Feed
+		var cardUrl = (appBase ? appBase : '') + '/api/post-card.php?id=' + encodeURIComponent(postId) + '&_=' + Date.now();
+		fetch(cardUrl, { credentials: 'same-origin', cache: 'no-store', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } })
+			.then(r => r.json())
+			.then(cardData => {
 				if (cardData && cardData.success && cardData.html) {
 					var wrap = document.createElement('div');
 					wrap.innerHTML = cardData.html.trim();
@@ -190,27 +176,77 @@
 						});
 					}
 				}
-				var dc = document.getElementById('postDetailContent');
-				if (
-					dc &&
-					dc.getAttribute('data-modal-post-id') === String(postId) &&
-					typeof window.openPostDetail === 'function'
-				) {
-					window.openPostDetail(String(postId));
-				}
-				var em = document.getElementById('postEditModal');
-				if (em && window.bootstrap) {
-					var inst = bootstrap.Modal.getInstance(em);
-					if (inst) inst.hide();
-				}
-			})
-			.catch(function () {
-				var em = document.getElementById('postEditModal');
-				if (em && window.bootstrap) {
-					var inst = bootstrap.Modal.getInstance(em);
-					if (inst) inst.hide();
-				}
-			});
+			}).catch(() => {});
+
+        // 2. Cập nhật Modal Detail và Tile ở Profile
+        var detailUrl = (appBase ? appBase : '') + '/api/post-detail.php?id=' + encodeURIComponent(postId) + '&_=' + Date.now();
+        fetch(detailUrl, { credentials: 'same-origin', cache: 'no-store' })
+            .then(r => r.json())
+            .then(detailData => {
+                // Đóng Modal Sửa
+                var em = document.getElementById('postEditModal');
+                if (em && window.bootstrap) {
+                    var inst = bootstrap.Modal.getInstance(em);
+                    if (inst) inst.hide();
+                }
+
+                if (detailData && detailData.success && detailData.html) {
+                    // Update content trong Modal Detail nếu đang mở
+                    var dc = document.getElementById('postDetailContent');
+                    if (dc && dc.getAttribute('data-modal-post-id') === String(postId)) {
+                        dc.innerHTML = detailData.html;
+                        // Gắn lại action forms
+                        dc.querySelectorAll('form').forEach(form => {
+                            let action = form.getAttribute('action');
+                            if (action && action.includes('/api/')) form.setAttribute('action', action.replace(/\/api\//, '/'));
+                        });
+                    }
+
+                    // --- LOGIC UPDATE TILE TRONG PROFILE ---
+                    var wrap = document.createElement('div');
+                    wrap.innerHTML = detailData.html;
+                    var tile = document.querySelector('.profile-post-tile[data-post-id="' + postId + '"]');
+                    
+                    if (tile) {
+                        // Lấy text mới
+                        var contentDiv = wrap.querySelector('.card-body > div.mt-3.mb-3.ms-1');
+                        var textContent = contentDiv ? contentDiv.innerText.trim() : 'Bài viết không có nội dung';
+                        if (!textContent) textContent = 'Bài viết không có nội dung';
+
+                        // Đếm lượng media (Video/Hình ảnh)
+                        var allMedia = wrap.querySelectorAll('.post-detail-media');
+                        var firstMedia = allMedia[0];
+                        var mediaCount = allMedia.length;
+
+                        // Tạo HTML cho Cover
+                        var coverHtml = '';
+                        if (firstMedia && firstMedia.tagName.toLowerCase() === 'video') {
+                            coverHtml = `<video class="profile-post-cover" src="${firstMedia.src}" muted playsinline></video>`;
+                        } else if (firstMedia && firstMedia.tagName.toLowerCase() === 'img') {
+                            coverHtml = `<img src="${firstMedia.src}" class="profile-post-cover" alt="">`;
+                        } else {
+                            coverHtml = `<div class="profile-post-cover profile-post-cover-text"><p>${textContent}</p></div>`;
+                        }
+
+                        // Replace Cover cũ
+                        var oldCover = tile.querySelector('.profile-post-cover');
+                        if (oldCover) oldCover.outerHTML = coverHtml;
+
+                        // Tạo HTML cho Meta Badge (Icon Góc trên)
+                        var metaHtml = '';
+                        if (firstMedia && firstMedia.tagName.toLowerCase() === 'video') {
+                            metaHtml += `<span class="profile-post-badge"><i class="bi bi-play-circle-fill"></i></span>`;
+                        }
+                        if (mediaCount > 1) {
+                            metaHtml += `<span class="profile-post-badge"><i class="bi bi-images"></i><span>${mediaCount}</span></span>`;
+                        }
+                        
+                        // Replace Meta cũ
+                        var metaEl = tile.querySelector('.profile-post-meta');
+                        if (metaEl) metaEl.innerHTML = metaHtml;
+                    }
+                }
+            });
 	}
 
 	function bindForm(root) {

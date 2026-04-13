@@ -71,17 +71,14 @@ $profileBase = rtrim((string) (($profileBaseUrl ?? BASE_URL) ?: ''), '/');
                         </li>
                         <li>
 							<button
-								type="button"
-								class="dropdown-item text-danger post-card-delete-btn js-app-confirm-trigger w-100 text-start border-0"
-								data-delete-action="<?= htmlspecialchars($profileBase . '/post/' . (int) $post['id'] . '/delete', ENT_QUOTES, 'UTF-8') ?>"
-								data-delete-csrf="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-								data-confirm-title="Xóa bài viết"
-								data-confirm-message="Bạn có chắc muốn xóa bài viết này?"
-								data-confirm-danger="1"
-								data-confirm-ok="Xóa"
-							>
-								Xóa bài viết
-							</button>
+    type="button"
+    class="dropdown-item text-danger post-card-delete-btn w-100 text-start border-0"
+    data-delete-action="<?= htmlspecialchars($profileBase . '/post/' . (int) $post['id'] . '/delete', ENT_QUOTES, 'UTF-8') ?>"
+    data-delete-csrf="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+    data-confirm-message="Bạn có chắc muốn xóa bài viết này?"
+>
+    Xóa bài viết
+</button>
                         </li>
                     </ul>
                 </div>

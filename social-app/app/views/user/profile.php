@@ -148,8 +148,7 @@ const PROFILE_CSRF = <?= json_encode((string) ($csrfToken ?? ''), JSON_UNESCAPED
                     </p>
 
                     <div class="d-flex flex-wrap gap-3 mt-2 small">
-                        <span class="px-2 py-1 rounded-pill bg-white border"><b><?= $stats['posts'] ?></b> bài viết</span>
-
+<span id="postsCountBtn" class="px-2 py-1 rounded-pill bg-white border"><b><?= $stats['posts'] ?></b> bài viết</span>
                         <span id="followersBtn" class="px-2 py-1 rounded-pill bg-white border" style="cursor:pointer">
                             <b><?= $stats['followers'] ?></b> followers
                         </span>

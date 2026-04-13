@@ -446,7 +446,7 @@ class PostController extends BaseController {
         $this->redirect('/post/edit/' . $postId . '?saved=1');
     }
 
-    public function delete($id) {
+   public function delete($id) {
         $this->requireAuth();
 
         if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
@@ -456,12 +456,22 @@ class PostController extends BaseController {
         }
 
         if (!$this->verifyCsrf($_POST['_csrf'] ?? null)) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'csrf_invalid']);
+                exit;
+            }
             die('CSRF invalid');
         }
 
         $postId = (int) $id;
         $post = (new Post())->findById($postId);
         if ($post === null) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'not_found']);
+                exit;
+            }
             http_response_code(404);
             echo 'Không tìm thấy bài viết';
             return;
@@ -469,12 +479,25 @@ class PostController extends BaseController {
 
         $currentUserId = (int) ($_SESSION['user']['id'] ?? 0);
         if ((int) ($post['user_id'] ?? 0) !== $currentUserId) {
+            if ($this->isAjaxRequest()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'msg' => 'forbidden']);
+                exit;
+            }
             http_response_code(403);
             echo '403 Forbidden';
             return;
         }
 
         (new Post())->delete($postId);
+
+        // NẾU LÀ AJAX -> TRẢ VỀ JSON THAY VÌ REDIRECT
+        if ($this->isAjaxRequest()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => true, 'postId' => $postId]);
+            exit;
+        }
+
         $this->redirect('/');
     }
 

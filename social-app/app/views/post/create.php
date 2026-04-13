@@ -1,4 +1,4 @@
-<form method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
+<form id="createPostForm" method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
     <?php if (($_GET['composer_error'] ?? '') === 'empty'): ?>
         <div class="alert alert-warning py-2 mb-3" role="alert">Bạn cần nhập nội dung hoặc chọn ít nhất 1 ảnh trước khi đăng.</div>
@@ -87,10 +87,11 @@ function autoResize(el) {
 }
 document.addEventListener("DOMContentLoaded", function () {
 
+    const form = document.getElementById("createPostForm");
     const fileInput = document.getElementById("fileInput");
     const previewContainer = document.getElementById("previewContainer");
     const previewGrid = document.getElementById("previewGrid");
-    const textarea = document.querySelector("textarea[name='content']");
+    const textarea = document.querySelector("#createPostForm textarea[name='content']");
     const submitBtn = document.getElementById("btnSubmit");
 
     if (!fileInput || !previewGrid) {
@@ -164,6 +165,16 @@ document.addEventListener("DOMContentLoaded", function () {
         this.value = "";
         renderCreatePreview();
     });
+
+    if (form) {
+        form.addEventListener(
+            "submit",
+            function () {
+                syncCreateFilesToInput();
+            },
+            true
+        );
+    }
 
     window.removePreview = function () {
         window.__createPostFiles = [];

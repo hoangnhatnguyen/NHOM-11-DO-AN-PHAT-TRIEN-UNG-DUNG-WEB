@@ -13,6 +13,13 @@ $media = is_array($media ?? null) ? $media : [];
 $__editActionBase = isset($formBaseUrl)
 	? rtrim((string) $formBaseUrl, '/')
 	: rtrim((string) BASE_URL, '/');
+$editReturnToRaw = (string) ($_GET['return_to'] ?? ($_SERVER['HTTP_REFERER'] ?? ''));
+$editReturnToPath = (string) (parse_url($editReturnToRaw, PHP_URL_PATH) ?? '');
+if ($editReturnToPath === '') {
+	$editReturnToPath = '/post/edit/' . $editPostId;
+}
+$editReturnToQuery = (string) (parse_url($editReturnToRaw, PHP_URL_QUERY) ?? '');
+$editReturnTo = $editReturnToPath . ($editReturnToQuery !== '' ? ('?' . $editReturnToQuery) : '');
 ?>
 <div class="js-post-edit-form-root">
 <article class="card border-0 shadow-sm rounded-4">
@@ -27,6 +34,7 @@ $__editActionBase = isset($formBaseUrl)
 		?>
 		<form method="POST" action="<?= htmlspecialchars($__editActionBase, ENT_QUOTES, 'UTF-8') ?>/post/update/<?= $editPostId ?>" data-post-id="<?= (int) $editPostId ?>" enctype="multipart/form-data" class="js-post-edit-form">
 			<input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) ($csrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+			<input type="hidden" name="return_to" value="<?= htmlspecialchars($editReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 			<div id="editSaveMsg" class="alert py-2 mb-3 d-none" role="alert"></div>
 			<?php if (($_GET['error'] ?? '') === 'empty'): ?>
 				<div class="alert alert-warning py-2 mb-3" role="alert">Bài viết phải có nội dung hoặc ít nhất 1 media.</div>

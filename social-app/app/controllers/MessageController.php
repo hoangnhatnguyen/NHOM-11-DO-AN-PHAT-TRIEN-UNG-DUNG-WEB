@@ -257,22 +257,56 @@ class MessageController extends BaseController {
 			return;
 		}
 
-		$s3 = new S3Service();
-		if (!$s3->isReady()) {
-			http_response_code(503);
-			echo 'S3 unavailable';
-			return;
-		}
+		try {
+			$s3 = new S3Service();
+			if (!$s3->isReady()) {
+				Logger::warn('Media view: S3 unavailable', ['key' => $key]);
+				http_response_code(503);
+				echo 'S3 unavailable';
+				return;
+			}
 
-		$url = $s3->getPresignedUrl($key, 86400);
-		if (!$url) {
-			http_response_code(404);
-			echo 'Not Found';
-			return;
-		}
+			// Try session cache first (với expiry check)
+			if (!isset($_SESSION['_media_cache'])) {
+				$_SESSION['_media_cache'] = [];
+			}
+			
+			if (isset($_SESSION['_media_cache'][$key])) {
+				$cached = $_SESSION['_media_cache'][$key];
+				$expiresAt = $cached['expiresAt'] ?? 0;
+				if ($expiresAt > 0 && time() < $expiresAt) {
+					// Use cached presigned URL
+					header('Cache-Control: private, max-age=300');
+					header('Location: ' . $cached['url'], true, 302);
+					return;
+				}
+				unset($_SESSION['_media_cache'][$key]);
+			}
 
-		header('Cache-Control: private, max-age=300');
-		header('Location: ' . $url, true, 302);
+			// Generate fresh presigned URL
+			$url = $s3->getPresignedUrl($key, 604800);
+			if (!$url) {
+				Logger::error('Media view: presigned URL empty', ['key' => $key]);
+				http_response_code(404);
+				echo 'Not Found';
+				return;
+			}
+
+			// Cache it
+			$expiresAt = time() + 604800;
+			$_SESSION['_media_cache'][$key] = [
+				'url' => $url,
+				'time' => time(),
+				'expiresAt' => $expiresAt
+			];
+
+			header('Cache-Control: private, max-age=300');
+			header('Location: ' . $url, true, 302);
+		} catch (Throwable $e) {
+			Logger::error('Media view error', ['key' => $key, 'error' => $e->getMessage()]);
+			http_response_code(500);
+			echo 'Error';
+		}
 	}
 
 	private function formatSessionUser(): array {
@@ -285,7 +319,7 @@ class MessageController extends BaseController {
 			'email' => (string) ($sessionUser['email'] ?? ''),
 			'role' => (string) ($sessionUser['role'] ?? 'user'),
 			'avatarUrl' => $rawAvatar,
-			'avatarSrc' => $rawAvatar !== '' ? media_public_src($rawAvatar) : '',
+			'avatarSrc' => $rawAvatar !== '' ? $this->chatAvatarSrc($rawAvatar) : '',
 			'firebaseUid' => 'app_' . (int) ($sessionUser['id'] ?? 0),
 		];
 	}
@@ -299,9 +333,177 @@ class MessageController extends BaseController {
 			'username' => $name,
 			'email' => (string) ($user['email'] ?? ''),
 			'avatarUrl' => $rawAvatar,
-			'avatarSrc' => $rawAvatar !== '' ? media_public_src($rawAvatar) : '',
+			'avatarSrc' => $rawAvatar !== '' ? $this->chatAvatarSrc($rawAvatar) : '',
 			'initials' => strtoupper(substr($name, 0, 1)),
 		];
+	}
+
+	private function chatAvatarSrc(string $avatarUrl): string {
+		$avatarUrl = trim(str_replace('\\', '/', $avatarUrl));
+		if ($avatarUrl === '') {
+			return '';
+		}
+
+		if (stripos($avatarUrl, 'https://') === 0 && strpos($avatarUrl, '.s3.') !== false) {
+			$extracted = S3Service::extractKeyFromS3Url($avatarUrl);
+			if ($extracted !== null && $extracted !== '') {
+				$avatarUrl = $extracted;
+			}
+		}
+
+		if (preg_match('#^https?://#i', $avatarUrl)) {
+			return $avatarUrl;
+		}
+
+		if (
+			strpos($avatarUrl, 'avatars/') === 0
+			|| strpos($avatarUrl, 'posts/') === 0
+			|| strpos($avatarUrl, 'chat/') === 0
+		) {
+			// Use media_public_src() to get presigned URL with session cache (like profile)
+			return media_public_src($avatarUrl);
+		}
+
+		return media_public_src($avatarUrl);
+	}
+
+	public function apiPresignUrl(): void {
+		$this->requireAuth();
+
+		$storagePath = trim((string) ($_GET['path'] ?? ''));
+		if ($storagePath === '') {
+			$this->json([
+				'error' => 'Missing storage path.',
+			], 422);
+			return;
+		}
+
+		// Validate that it's an S3 key (avatars/, posts/, chat/)
+		$isValidKey = preg_match('#^(avatars|posts|chat)/#i', $storagePath);
+		if (!$isValidKey) {
+			$this->json([
+				'error' => 'Invalid storage path.',
+			], 422);
+			return;
+		}
+
+		try {
+			$s3 = new S3Service();
+			if (!$s3->isReady()) {
+				Logger::error('Avatar presign failed: S3 not ready', [
+					'storagePath' => $storagePath,
+					'reason' => $s3->getNotReadyReason(),
+				]);
+				$this->json([
+					'error' => 'S3 service unavailable.',
+				], 503);
+				return;
+			}
+
+			// Generate presignedUrl with 7-day expiration
+			$presignedUrl = $s3->getPresignedUrl($storagePath, 604800);
+			if (!$presignedUrl) {
+				Logger::error('Avatar presign failed: empty URL', [
+					'storagePath' => $storagePath,
+				]);
+				$this->json([
+					'error' => 'Cannot generate presigned URL.',
+				], 500);
+				return;
+			}
+
+			// Cache vào session để tránh lặp lại
+			if (!isset($_SESSION['_media_cache'])) {
+				$_SESSION['_media_cache'] = [];
+			}
+			$expiresAt = time() + 604800; // 7 days
+			$_SESSION['_media_cache'][$storagePath] = [
+				'url' => $presignedUrl,
+				'time' => time(),
+				'expiresAt' => $expiresAt
+			];
+
+			$this->json([
+				'url' => $presignedUrl,
+				'expiresAt' => $expiresAt,
+				'expiresIn' => 604800,
+			]);
+		} catch (Throwable $e) {
+			Logger::error('Presign URL error', [
+				'message' => $e->getMessage(),
+				'path' => $storagePath,
+			]);
+
+			$this->json([
+				'error' => 'Cannot generate presigned URL.',
+			], 500);
+		}
+	}
+
+	/**
+	 * Check if S3 object exists and get metadata
+	 * GET /api/message/check-s3-object?path=avatars/85/123.jpg
+	 */
+	public function apiCheckS3Object(): void {
+		$this->requireAuth();
+
+		$storagePath = trim((string) ($_GET['path'] ?? ''));
+		if ($storagePath === '') {
+			$this->json([
+				'error' => 'Missing storage path.',
+			], 422);
+			return;
+		}
+
+		try {
+			$s3 = new S3Service();
+			if (!$s3->isReady()) {
+				$this->json([
+					'exists' => false,
+					'reason' => 'S3 service not configured',
+				], 200);
+				return;
+			}
+
+			// Check object existence using S3 SDK
+			$client = $s3->getClient();
+			try {
+				$result = $client->headObject([
+					'Bucket' => $s3->getBucket(),
+					'Key' => $storagePath,
+				]);
+				
+				$this->json([
+					'exists' => true,
+					'path' => $storagePath,
+					'bucket' => $s3->getBucket(),
+					'size' => $result['ContentLength'] ?? 0,
+					'lastModified' => ($result['LastModified'] ?? null)?->getTimestamp(),
+					'contentType' => $result['ContentType'] ?? 'unknown',
+				], 200);
+			} catch (\Exception $e) {
+				if (strpos($e->getMessage(), '404') !== false) {
+					$this->json([
+						'exists' => false,
+						'path' => $storagePath,
+						'bucket' => $s3->getBucket(),
+						'message' => 'Object not found in S3',
+					], 200);
+				} else {
+					throw $e;
+				}
+			}
+		} catch (Throwable $e) {
+			Logger::error('S3 object check failed', [
+				'message' => $e->getMessage(),
+				'path' => $storagePath,
+			]);
+
+			$this->json([
+				'error' => 'Cannot check S3 object.',
+				'message' => $e->getMessage(),
+			], 500);
+		}
 	}
 
 	private function json(array $payload, int $status = 200): void {

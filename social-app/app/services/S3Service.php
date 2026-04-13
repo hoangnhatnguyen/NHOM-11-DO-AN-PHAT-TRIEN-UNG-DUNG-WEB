@@ -65,6 +65,24 @@ class S3Service
         return $this->lastError;
     }
 
+    /**
+     * Get the AWS S3 client instance
+     * @return S3Client|null
+     */
+    public function getClient(): ?S3Client
+    {
+        return $this->s3Client;
+    }
+
+    /**
+     * Get the S3 bucket name
+     * @return string
+     */
+    public function getBucket(): string
+    {
+        return $this->bucket;
+    }
+
     public static function extractKeyFromS3Url(string $url): ?string
     {
         $url = trim($url);

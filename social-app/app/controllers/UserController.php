@@ -144,7 +144,7 @@ class UserController extends BaseController {
                 }
                 $this->userModel->updateAvatar($userId, $s3Key);
                 $_SESSION['user']['avatar_url'] = $s3Key;
-                $displayUrl = $s3Service->getPresignedUrl($s3Key, 86400) ?: $s3Url;
+                $displayUrl = $s3Service->getPresignedUrl($s3Key, 604800) ?: $s3Url;
                 echo json_encode(['url' => $displayUrl, 'success' => true], JSON_UNESCAPED_UNICODE);
             } else {
                 $detail = $s3Service->getLastError();

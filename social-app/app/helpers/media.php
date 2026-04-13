@@ -36,13 +36,12 @@ function media_public_src(string $mediaUrl): string {
 		// Nếu đã cache và còn hạn, return luôn
 		if (isset($_SESSION['_media_cache'][$mediaUrl])) {
 			$cached = $_SESSION['_media_cache'][$mediaUrl];
-			// Check if cache is still valid (expires in 12 hours from cache time, not 24 to be safe)
-			$cacheTime = $cached['time'] ?? 0;
-			$cacheExpires = $cacheTime + 43200; // 12 hours = 43200 seconds
-			if (time() < $cacheExpires) {
+			// Check if presigned URL is still valid (not expired)
+			$expiresAt = $cached['expiresAt'] ?? 0;
+			if ($expiresAt > 0 && time() < $expiresAt) {
 				return $cached['url'];
 			}
-			// Cache expired, remove it
+			// Cache expired or invalid, remove it
 			unset($_SESSION['_media_cache'][$mediaUrl]);
 		}
 		
@@ -50,17 +49,19 @@ function media_public_src(string $mediaUrl): string {
 		try {
 			require_once __DIR__ . '/../services/S3Service.php';
 			$s3Service = new S3Service();
-			// Presigned URL valid for 24 hours
-			$presignedUrl = $s3Service->getPresignedUrl($mediaUrl, 86400);
+			// Presigned URL valid for 7 days (604800 seconds)
+			$presignedUrl = $s3Service->getPresignedUrl($mediaUrl, 604800);
 			if (!$presignedUrl) {
 				error_log('Presigned URL is empty for key: ' . $mediaUrl);
 				return '';
 			}
 			
-			// Cache vào session with timestamp
+			// Cache vào session with expiry time
+			$expiresAt = time() + 604800; // 7 days from now
 			$_SESSION['_media_cache'][$mediaUrl] = [
 				'url' => $presignedUrl,
-				'time' => time()
+				'time' => time(),
+				'expiresAt' => $expiresAt
 			];
 			return $presignedUrl;
 		} catch (\Throwable $e) {

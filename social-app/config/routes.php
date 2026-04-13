@@ -24,6 +24,8 @@ return [
         '/chat-api/bootstrap' => 'MessageController@apiBootstrap',
         '/chat-api/users' => 'MessageController@apiUsers',
         '/chat-api/users/{id}' => 'MessageController@apiUser',
+        '/chat-api/presign-url' => 'MessageController@apiPresignUrl',
+        '/chat-api/check-s3-object' => 'MessageController@apiCheckS3Object',
         '/media/view' => 'MessageController@mediaView',
 
         // ============ USERS & DISCOVERY ============

@@ -59,8 +59,11 @@ if (!root) {
 		peerMetaCache: new Map(),
 		peerMetaPending: new Set(),
 		peerMetaNamePending: new Set(),
+		peerMetaLastUpdated: new Map(), // Track when peer meta was last updated (ms timestamp)
+		presignedUrlCache: new Map(), // Cache presigned URLs (key: storagePath, value: {url, expireAt})
 		blockedUserIds: new Set(),
 		blockedByUserIds: new Set(),
+		lastProactiveRefreshTime: 0, // NEW: Debounce proactive refresh to prevent loop
 	};
 
 	const ui = {
@@ -173,6 +176,14 @@ if (!root) {
 		await signInWithCustomToken(state.auth, bootstrapData.customToken);
 		setupPresence();
 		await subscribeConversations();
+
+		// Immediately refresh all avatar URLs on page load
+		setTimeout(() => {
+			console.log('[Avatar] Starting proactive avatar refresh on page load');
+			proactiveRefreshExpiredAvatars().catch(err => 
+				console.warn('[Avatar] Proactive refresh failed:', err)
+			);
+		}, 1000);
 
 		const urlParams = new URLSearchParams(window.location.search);
 		const peerId = Number(urlParams.get('user') || 0);
@@ -695,6 +706,7 @@ if (!root) {
 
 			rows.forEach((entry) => {
 				const peerId = Number(entry?.peer?.id || 0);
+				// Only fetch peer meta if missing avatar (fallback only)
 				if (peerId > 0 && !entry?.peer?.avatarSrc && !entry?.peer?.avatarUrl) {
 					ensurePeerMeta(peerId);
 				} else if (peerId <= 0 && !entry?.peer?.avatarSrc && !entry?.peer?.avatarUrl) {
@@ -734,6 +746,11 @@ if (!root) {
 			
 			// Update notification badge in left menu
 			updateMessageNotiBadge();
+			
+			// Proactively refresh expired avatar URLs
+			proactiveRefreshExpiredAvatars().catch(err => {
+				console.warn('[Avatar] Proactive refresh error:', err);
+			});
 
 			if (state.activeConversationId && state.conversationsMap.has(state.activeConversationId)) {
 				const updated = state.conversationsMap.get(state.activeConversationId);
@@ -880,8 +897,8 @@ if (!root) {
 		}).join('');
 
 		ui.conversationList.querySelectorAll('[data-conversation-id]').forEach((button) => {
-			button.addEventListener('click', () => {
-				selectConversation(button.dataset.conversationId);
+			button.addEventListener('click', async () => {
+				await selectConversation(button.dataset.conversationId);
 			});
 		});
 	}
@@ -981,13 +998,22 @@ if (!root) {
 				lastMessageType: 'text',
 			});
 		}
-		selectConversation(conversationId);
+		await selectConversation(conversationId);
 	}
 
-	function selectConversation(conversationId) {
+	async function selectConversation(conversationId) {
 		state.activeConversationId = conversationId;
 		const conversation = state.conversationsMap.get(conversationId);
-		syncHeaderAndDetails(conversation);
+		
+		// Fetch fresh peer metadata to ensure avatar is available BEFORE rendering
+		const peerId = Number(conversation?.peer?.id || 0);
+		if (peerId > 0) {
+			await ensurePeerMeta(peerId);
+		}
+		
+		// Now sync UI with fresh peer data
+		const updatedConv = state.conversationsMap.get(conversationId);
+		syncHeaderAndDetails(updatedConv);
 		subscribeMessages(conversationId);
 		subscribeAttachments(conversationId);
 		toggleEmptyState(false);
@@ -1268,6 +1294,13 @@ if (!root) {
 	}
 
 	function renderMessages(rows) {
+		const prevScrollTop = ui.messageList ? ui.messageList.scrollTop : 0;
+		const prevScrollHeight = ui.messageList ? ui.messageList.scrollHeight : 0;
+		const distanceFromBottom = ui.messageList
+			? (ui.messageList.scrollHeight - ui.messageList.scrollTop - ui.messageList.clientHeight)
+			: 0;
+		const shouldStickToBottom = distanceFromBottom <= 96;
+
 		// Don't render if conversation is deleted (activeConversationId is null)
 		if (!state.activeConversationId) {
 			return;
@@ -1285,30 +1318,73 @@ if (!root) {
 			const avatarUrl = mine
 				? resolveAvatarUrl(state.me.avatarSrc || state.me.avatarUrl || '')
 				: resolveAvatarUrl(state.activePeer?.avatarSrc || state.activePeer?.avatarUrl || '');
-			const avatarStyle = avatarStyleByName(avatarName);
-			const avatarHtml = avatarUrl
-				? `<span class="chat-message-avatar" style="position:relative; overflow:hidden; background:transparent; color:transparent;">
-						<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(avatarName)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none'; this.parentElement.style.background='${avatarStyle.match(/background:([^;]+)/)?.[1] || '#1a6291'}'; this.parentElement.style.color='${avatarStyle.match(/color:([^;]+)/)?.[1] || '#fff'}'; this.parentElement.textContent='${escapeHtml(avatarInitial)}';">
-				   </span>`
-				: `<span class="chat-message-avatar" style="${avatarStyle}">${escapeHtml(avatarInitial)}</span>`;
+			
+			// Avatar HTML - dùng placeholder, sẽ render via JS event listener
+			let avatarHtml = '';
+			if (!mine) {
+				// Placeholder element với data attributes
+				const avatarId = `msg_avatar_${Math.random().toString(36).substr(2, 9)}`;
+				avatarHtml = `<span class="chat-message-avatar" id="${avatarId}" data-avatar-url="${escapeHtml(avatarUrl)}" data-avatar-name="${escapeHtml(avatarName)}" data-avatar-initial="${escapeHtml(avatarInitial)}"></span>`;
+			}
+			
 			let messageContent = '';
+			const legacyText = String(
+				item.text
+					?? item.messageText
+					?? item.textContent
+					?? item.content
+					?? item.message
+					?? item.msg
+					?? item.body
+					?? item.caption
+					?? '',
+			).trim();
+			const inferredType = String(item.type || '').toLowerCase();
+			const hasAttachmentData = Boolean(item.fileUrl || item.storagePath || item.fileName || item.fileType);
+			const messageType = inferredType || (hasAttachmentData && !legacyText ? 'attachment' : 'text');
 
-			if (item.type === 'attachment') {
+			if (messageType === 'attachment') {
 				const fileType = (item.fileType || '').toLowerCase();
 				const fileName = item.fileName || 'Tệp đính kèm';
 				const ext = fileName.split('.').pop()?.toLowerCase() || '';
 				const isImage = fileType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
 				const isVideo = fileType.startsWith('video/') || ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv'].includes(ext);
+				
+				// Prefer fileUrl (already cached/available) over storagePath API call
+				const fileUrl = String(item.fileUrl || '').trim();
+				const storagePath = String(item.storagePath || '').trim();
+				const hasFileUrl = fileUrl && /^https?:\/\//.test(fileUrl);
 
 				if (isImage) {
-					messageContent = `<img src="${escapeHtml(item.fileUrl || '')}" alt="${escapeHtml(fileName)}" class="chat-attachment-image" data-viewer-image="${escapeHtml(item.fileUrl || '')}" style="cursor: pointer;">`;
+					if (hasFileUrl) {
+						messageContent = `<img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName)}" class="chat-attachment-image" data-viewer-image="${escapeHtml(fileUrl)}" style="cursor: pointer; max-width: 100%; height: auto; border-radius: 8px;" loading="lazy">`;
+					} else if (storagePath && /^(chat|avatars|posts)\//.test(storagePath)) {
+						const attachmentId = `img_${Math.random().toString(36).substr(2, 9)}`;
+						messageContent = `<img id="${attachmentId}" alt="${escapeHtml(fileName)}" class="chat-attachment-image" data-storage-path="${escapeHtml(storagePath)}" style="cursor: pointer; max-width: 100%; height: auto; border-radius: 8px; background: #f0f0f0; display: block; min-height: 100px;" loading="lazy">`;
+					} else {
+						messageContent = `<img alt="${escapeHtml(fileName)}" class="chat-attachment-image" style="cursor: pointer; max-width: 100%; height: auto; border-radius: 8px;">`;
+					}
 				} else if (isVideo) {
-					messageContent = `<video controls class="chat-attachment-video"><source src="${escapeHtml(item.fileUrl || '')}" type="${escapeHtml(fileType)}">Video không được hỗ trợ</video>`;
+					if (hasFileUrl) {
+						messageContent = `<video controls class="chat-attachment-video" style="max-width: 100%; border-radius: 8px;"><source src="${escapeHtml(fileUrl)}" type="${escapeHtml(fileType)}">Video không được hỗ trợ</video>`;
+					} else if (storagePath && /^(chat|avatars|posts)\//.test(storagePath)) {
+						const videoId = `vid_${Math.random().toString(36).substr(2, 9)}`;
+						messageContent = `<video id="${videoId}" controls class="chat-attachment-video" data-storage-path="${escapeHtml(storagePath)}" style="max-width: 100%; border-radius: 8px;"><source type="${escapeHtml(fileType)}">Video không được hỗ trợ</video>`;
+					} else {
+						messageContent = `<video controls class="chat-attachment-video" style="max-width: 100%; border-radius: 8px;"><source type="${escapeHtml(fileType)}">Video không được hỗ trợ</video>`;
+					}
 				} else {
-					messageContent = `<a href="${escapeHtml(item.fileUrl || '#')}" target="_blank" rel="noopener noreferrer" class="chat-attachment-link">📎 ${escapeHtml(fileName)}</a>`;
+					if (hasFileUrl) {
+						messageContent = `<a href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener noreferrer" class="chat-attachment-link">📎 ${escapeHtml(fileName)}</a>`;
+					} else if (storagePath && /^(chat|avatars|posts)\//.test(storagePath)) {
+						const linkId = `link_${Math.random().toString(36).substr(2, 9)}`;
+						messageContent = `<a id="${linkId}" class="chat-attachment-link" data-storage-path="${escapeHtml(storagePath)}" data-filename="${escapeHtml(fileName)}">📎 ${escapeHtml(fileName)}</a>`;
+					} else {
+						messageContent = `<a class="chat-attachment-link">📎 ${escapeHtml(fileName)}</a>`;
+					}
 				}
 			} else {
-				messageContent = `<span>${escapeHtml(item.text || '')}</span>`;
+				messageContent = escapeHtml(legacyText || item.fileName || '');
 			}
 
 			return `
@@ -1322,9 +1398,78 @@ if (!root) {
 			`;
 		}).join('');
 
-		ui.messageList.scrollTop = ui.messageList.scrollHeight;
+		if (!state.isLoadingMoreMessages && shouldStickToBottom) {
+			ui.messageList.scrollTop = ui.messageList.scrollHeight;
+		} else if (!state.isLoadingMoreMessages) {
+			const nextScrollHeight = ui.messageList.scrollHeight;
+			const delta = nextScrollHeight - prevScrollHeight;
+			ui.messageList.scrollTop = Math.max(0, prevScrollTop + delta);
+		}
 		
-		// Attach event listeners for image viewer
+		// Render avatars (via setAvatarElement pattern - proper image + fallback handling)
+		ui.messageList.querySelectorAll('.chat-message-avatar[data-avatar-url]').forEach((el) => {
+			const url = el.dataset.avatarUrl;
+			const name = el.dataset.avatarName;
+			const initial = el.dataset.avatarInitial;
+			setAvatarElement(el, { name, initials: initial, url });
+		});
+		
+		// Load attachment URLs with presign API (S3 keys with session cache like other screens)
+		ui.messageList.querySelectorAll('[data-storage-path]').forEach((el) => {
+			const storagePath = el.dataset.storagePath;
+			if (!storagePath) return;
+			
+			loadPresignedUrl(storagePath).then(url => {
+				if (!url) {
+					// Fallback to /media/view route if presignUrl fails
+					const fallbackUrl = `${state.baseUrl}/media/view?key=${encodeURIComponent(storagePath)}`;
+					console.warn(`Presigned URL failed for ${storagePath}, using fallback:`, fallbackUrl);
+					url = fallbackUrl;
+				}
+				
+				if (el.tagName === 'IMG') {
+					el.src = url;
+					el.dataset.viewerImage = url;
+					console.log(`Set IMG src: ${url.substring(0, 50)}...`);
+					el.addEventListener('click', () => {
+						const viewer = document.getElementById('chatImageViewer');
+						const viewerImg = document.getElementById('chatImageViewerImg');
+						if (viewer && viewerImg) {
+							viewerImg.src = url;
+							viewer.style.display = 'flex';
+						}
+					});
+				} else if (el.tagName === 'VIDEO') {
+					// Set src of first source child
+					const source = el.querySelector('source');
+					if (source) {
+						source.setAttribute('src', url);
+						console.log(`Set VIDEO src: ${url.substring(0, 50)}...`);
+						// Reload video
+						el.load();
+					}
+				} else if (el.tagName === 'A') {
+					el.href = url;
+					el.target = '_blank';
+					el.rel = 'noopener noreferrer';
+					console.log(`Set LINK href: ${url.substring(0, 50)}...`);
+				}
+			}).catch(err => {
+				console.error('Failed to load attachment for', storagePath, err);
+				// Fallback to /media/view
+				const fallbackUrl = `${state.baseUrl}/media/view?key=${encodeURIComponent(storagePath)}`;
+				if (el.tagName === 'IMG') {
+					el.src = fallbackUrl;
+				} else if (el.tagName === 'VIDEO') {
+					const source = el.querySelector('source');
+					if (source) source.setAttribute('src', fallbackUrl);
+				} else if (el.tagName === 'A') {
+					el.href = fallbackUrl;
+				}
+			});
+		});
+		
+		// Attach event listeners for image viewer (legacy fileUrl)
 		ui.messageList.querySelectorAll('[data-viewer-image]').forEach((img) => {
 			img.addEventListener('click', () => {
 				const imageUrl = img.dataset.viewerImage;
@@ -1336,6 +1481,38 @@ if (!root) {
 				}
 			});
 		});
+	}
+
+	async function loadPresignedUrl(storagePath) {
+		// Check client-side cache first (1 hour TTL)
+		const cached = state.presignedUrlCache.get(storagePath);
+		if (cached && cached.expireAt > Date.now()) {
+			return cached.url;
+		}
+
+		try {
+			const response = await fetch(`${state.baseUrl}/chat-api/presign-url?path=${encodeURIComponent(storagePath)}`, {
+				credentials: 'same-origin',
+			});
+			if (!response.ok) {
+				return null;
+			}
+			const json = await response.json();
+			const url = json.url || null;
+			
+			// Cache for 1 hour (3600000 ms)
+			if (url) {
+				state.presignedUrlCache.set(storagePath, {
+					url,
+					expireAt: Date.now() + 3600000,
+				});
+			}
+			
+			return url;
+		} catch (error) {
+			console.error('Error loading presigned URL:', error);
+			return null;
+		}
 	}
 
 	function subscribeAttachments(conversationId) {
@@ -1624,6 +1801,20 @@ if (!root) {
 			|| peerIdFromConversationId;
 		const cached = state.peerMetaCache.get(peerNumericId) || null;
 
+		// Get avatarUrl (raw path)
+		const avatarUrl = peer.avatarUrl || peer.avatar_url || cached?.avatarUrl || '';
+		
+		// Generate presigned URL from avatarUrl if available
+		// (Never use stale avatarSrc from Firestore)
+		let avatarSrc = '';
+		if (avatarUrl && /^(avatars|posts|chat)\//i.test(avatarUrl)) {
+			// S3 key → generate presigned URL endpoint
+			avatarSrc = `${state.baseUrl}/media/view?key=${encodeURIComponent(avatarUrl)}`;
+		} else if (avatarUrl && /^https?:\/\//i.test(avatarUrl)) {
+			// Already full URL (legacy S3 URL or external)
+			avatarSrc = avatarUrl;
+		}
+
 		return {
 			id,
 			participants: data.participants || [],
@@ -1639,8 +1830,9 @@ if (!root) {
 				username: peer.username || cached?.username || 'Người dùng',
 				email: peer.email || cached?.email || '',
 				initials: peer.initials || cached?.initials || ((peer.username || cached?.username || 'U').charAt(0).toUpperCase()),
-				avatarUrl: peer.avatarUrl || peer.avatar_url || cached?.avatarUrl || '',
-				avatarSrc: peer.avatarSrc || peer.avatar_src || cached?.avatarSrc || '',
+				avatarUrl: avatarUrl,
+				// Don't use stale avatarSrc from Firestore, generate fresh each time
+				avatarSrc: avatarSrc,
 			},
 		};
 	}
@@ -1648,8 +1840,20 @@ if (!root) {
 	async function ensurePeerMeta(peerId) {
 		const id = Number(peerId || 0);
 		if (id <= 0) return;
-		if (state.peerMetaCache.has(id)) return;
+		
+		// Skip if pending
 		if (state.peerMetaPending.has(id)) return;
+		
+		// Skip if updated recently (within 30 min)
+		const lastUpdated = state.peerMetaLastUpdated.get(id);
+		if (lastUpdated && Date.now() - lastUpdated < 30 * 60 * 1000) return;
+		
+		// Skip if already cached and not too old (24 hours)
+		if (state.peerMetaCache.has(id)) {
+			if (lastUpdated && Date.now() - lastUpdated < 24 * 60 * 60 * 1000) {
+				return;
+			}
+		}
 
 		state.peerMetaPending.add(id);
 		try {
@@ -1657,6 +1861,7 @@ if (!root) {
 			const item = data?.item;
 			if (!item) return;
 			state.peerMetaCache.set(id, item);
+			state.peerMetaLastUpdated.set(id, Date.now()); // Track update time
 
 			let mutated = false;
 			state.conversations = state.conversations.map((conv) => {
@@ -1680,6 +1885,32 @@ if (!root) {
 				renderConversationList(ui.searchInput.value.trim().toLowerCase());
 				if (state.activeConversationId && state.conversationsMap.has(state.activeConversationId)) {
 					syncHeaderAndDetails(state.conversationsMap.get(state.activeConversationId));
+				}
+				
+				// Also update Firestore participantMeta with fresh avatar
+				try {
+					const activeConv = state.conversationsMap.get(state.activeConversationId);
+					if (activeConv && Number(activeConv?.peer?.id || 0) === id) {
+						const convRef = doc(state.db, 'conversations', state.activeConversationId);
+						const convSnapshot = await getDoc(convRef);
+						const currentData = convSnapshot.data() || {};
+						const currentMeta = currentData.participantMeta || {};
+						const peerKey = `app_${id}`;
+						
+						const updatedMeta = {
+							...currentMeta,
+							[peerKey]: {
+								...(currentMeta[peerKey] || {}),
+								avatarSrc: item.avatarSrc || item.avatarUrl || '',
+							},
+						};
+						
+						await updateDoc(convRef, {
+							participantMeta: updatedMeta,
+						});
+					}
+				} catch (error) {
+					console.warn('Failed to update Firestore peer meta:', error);
 				}
 			}
 		} catch (error) {
@@ -1741,6 +1972,27 @@ if (!root) {
 		}
 	}
 
+	async function fetchFreshAvatarUrl(rawAvatarUrl) {
+		const raw = String(rawAvatarUrl || '').trim();
+		if (!raw) return '';
+		
+		// Extract storage path from avatar URL
+		const normalized = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+		if (!/^(avatars|posts|chat)\//i.test(normalized)) {
+			// Not an S3 key, return as-is
+			return resolveAvatarUrl(raw);
+		}
+
+		// Fetch fresh presigned URL from backend (with session cache)
+		try {
+			const url = await loadPresignedUrl(normalized);
+			return url || resolveAvatarUrl(raw);
+		} catch (error) {
+			console.warn('Failed to fetch fresh avatar URL:', error);
+			return resolveAvatarUrl(raw);
+		}
+	}
+
 	function resolveAvatarUrl(rawValue) {
 		const raw = String(rawValue || '').trim();
 		if (!raw) return '';
@@ -1770,6 +2022,28 @@ if (!root) {
 		el.textContent = initials || '?';
 	}
 
+	/**
+	 * Debug helper: Check if S3 object exists and get presigned URL
+	 */
+	async function debugS3Avatar(storagePath) {
+		try {
+			// Check object existence
+			const checkResponse = await fetch(`${state.baseUrl}/chat-api/check-s3-object?path=${encodeURIComponent(storagePath)}`, {
+				credentials: 'same-origin',
+			});
+			const checkData = await checkResponse.json();
+			
+			if (checkData.exists === false) {
+				console.warn(`[Avatar] S3 object NOT FOUND: ${storagePath}`);
+				return;
+			}
+			
+			console.log(`[Avatar] S3 object found: ${storagePath}`, checkData);
+		} catch (error) {
+			console.error('[Avatar] Failed to check S3 object:', error);
+		}
+	}
+
 	function setAvatarElement(el, { name, initials, url }) {
 		if (!el) return;
 		const safeInitials = String(initials || '?').charAt(0).toUpperCase() || '?';
@@ -1789,7 +2063,84 @@ if (!root) {
 		img.style.objectFit = 'cover';
 		img.style.borderRadius = '50%';
 
-		img.addEventListener('error', () => {
+		// Timeout fallback: if image doesn't load after 10s, show text avatar
+		const timeoutId = setTimeout(() => {
+			if (el.querySelector('img') === img && !img.complete) {
+				console.warn(`[Avatar] Image timeout for ${name}, showing text avatar`);
+				el.innerHTML = '';
+				setAvatarFallback(el, name, safeInitials);
+			}
+		}, 10000);
+
+		img.addEventListener('load', () => {
+			clearTimeout(timeoutId);
+		});
+
+		img.addEventListener('error', async () => {
+			clearTimeout(timeoutId);
+			
+			// URL expired or failed - try to get fresh presignedUrl from backend
+			try {
+				// Try to extract storagePath from presigned URL
+				let storagePath = null;
+				
+				// Method 1: Look for key= parameter (from /media/view)
+				const keyMatch = resolved.match(/[?&]key=([^&]+)/);
+				if (keyMatch && keyMatch[1]) {
+					storagePath = decodeURIComponent(keyMatch[1]);
+				}
+				
+				// Method 2: If it looks like S3 presigned URL, extract path
+				if (!storagePath && resolved.includes('amazonaws.com')) {
+					const pathMatch = resolved.match(/https?:\/\/[^\/]+\.s3[\w.-]*\.amazonaws\.com\/([^?]+)/);
+					if (pathMatch && pathMatch[1]) {
+						storagePath = pathMatch[1];
+					}
+				}
+				
+				if (storagePath) {
+					console.log(`[Avatar] Image load failed for ${storagePath}, attempting recovery...`);
+					
+					// Debug: Check if S3 object actually exists
+					debugS3Avatar(storagePath).catch(() => {});
+					
+					const freshUrl = await fetchPresignedUrlWithRetry(storagePath, 2, 500);
+					if (freshUrl && freshUrl !== resolved) {
+						// Got fresh URL - retry image load
+						console.log(`[Avatar] Retrying image load with fresh presigned URL`);
+						img.src = freshUrl;
+						
+						// Set up retry timeout (5 more seconds)
+						const retryTimeoutId = setTimeout(() => {
+							if (el.querySelector('img') === img && !img.complete) {
+								console.error(`[Avatar] Image still failed after retry, showing text avatar`);
+								el.innerHTML = '';
+								setAvatarFallback(el, name, safeInitials);
+							}
+						}, 5000);
+						
+						img.addEventListener('load', () => {
+							clearTimeout(retryTimeoutId);
+						});
+						
+						img.addEventListener('error', () => {
+							clearTimeout(retryTimeoutId);
+							console.error(`[Avatar] Image retry failed, showing text avatar`);
+							el.innerHTML = '';
+							setAvatarFallback(el, name, safeInitials);
+						}, { once: true });
+						
+						// Update Firestore with fresh presigned URL
+						updatePeerAvatarSrcInFirestore(storagePath, freshUrl);
+						return;
+					}
+				}
+			} catch (error) {
+				console.warn('[Avatar] Failed to recover from image error:', error);
+			}
+
+			// Fallback to text avatar
+	
 			el.innerHTML = '';
 			setAvatarFallback(el, name, safeInitials);
 		});
@@ -1797,6 +2148,88 @@ if (!root) {
 		el.style.background = 'transparent';
 		el.style.color = 'transparent';
 		el.appendChild(img);
+	}
+
+	async function updatePeerAvatarSrcInFirestore(storagePath, presignedUrl) {
+		if (!state.activeConversationId) return;
+		
+		try {
+			const convRef = doc(state.db, 'conversations', state.activeConversationId);
+			const peerId = state.activePeer?.id;
+			if (!peerId) return;
+			
+			// Get current document to preserve existing participantMeta
+			const convSnapshot = await getDoc(convRef);
+			const currentData = convSnapshot.data() || {};
+			const currentMeta = currentData.participantMeta || {};
+			const peerKey = `app_${peerId}`;
+			
+			// Update nested field: participantMeta.app_{peerId}.avatarSrc
+			const updatedMeta = {
+				...currentMeta,
+				[peerKey]: {
+					...(currentMeta[peerKey] || {}),
+					avatarSrc: presignedUrl,
+				},
+			};
+			
+			await updateDoc(convRef, {
+				participantMeta: updatedMeta,
+			});
+			console.log(`Updated Firestore avatar for peer ${peerId}: ${presignedUrl.substring(0, 50)}...`);
+		} catch (error) {
+			console.warn('Failed to update Firestore avatar:', error);
+		}
+	}
+
+	async function fetchPresignedUrl(storagePath, attemptNumber = 1) {
+		const startTime = performance.now();
+		try {
+			const response = await fetch(`${state.baseUrl}/chat-api/presign-url?path=${encodeURIComponent(storagePath)}`, {
+				credentials: 'same-origin',
+			});
+			
+			const duration = performance.now() - startTime;
+			
+			if (!response.ok) {
+				console.warn(`[Avatar] Presign failed (${response.status}): ${storagePath} (${duration.toFixed(0)}ms) - attempt ${attemptNumber}`);
+				return null;
+			}
+			
+			const json = await response.json();
+			if (!json.url) {
+				console.warn(`[Avatar] Empty presigned URL response for ${storagePath} (${duration.toFixed(0)}ms)`);
+				return null;
+			}
+			
+			console.log(`[Avatar] Presign success: ${storagePath} (${duration.toFixed(0)}ms) expires in ${Math.floor((json.expiresIn || 604800) / 3600)}h`);
+			return json.url;
+		} catch (error) {
+			const duration = performance.now() - startTime;
+			console.error(`[Avatar] Presign error: ${error.message} - ${storagePath} (${duration.toFixed(0)}ms) - attempt ${attemptNumber}`);
+			return null;
+		}
+	}
+	
+	async function fetchPresignedUrlWithRetry(storagePath, maxRetries = 2, initialDelay = 1000) {
+		for (let attempt = 1; attempt <= maxRetries; attempt++) {
+			const url = await fetchPresignedUrl(storagePath, attempt);
+			if (url) {
+				if (attempt > 1) {
+					console.log(`[Avatar] Retry success on attempt ${attempt} for ${storagePath}`);
+				}
+				return url;
+			}
+			
+			if (attempt < maxRetries) {
+				const delay = initialDelay * Math.pow(2, attempt - 1);
+				console.log(`[Avatar] Retry attempt ${attempt + 1} in ${delay}ms...`);
+				await new Promise(resolve => setTimeout(resolve, delay));
+			}
+		}
+		
+		console.error(`[Avatar] All retry attempts (${maxRetries}) failed for ${storagePath}`);
+		return null;
 	}
 
 	function isHiddenByDelete(conversation) {
@@ -1847,6 +2280,181 @@ if (!root) {
 	function avatarStyleByName(name) {
 		const color = avatarColorByName(name);
 		return `background:${color.bg};color:${color.fg};`;
+	}
+
+	/**
+	 * Check if presigned URL is expired or about to expire
+	 * Returns: { isExpired: bool, expiresAt: timestamp, timeRemaining: seconds }
+	 */
+	function checkPresignedUrlExpiry(presignedUrl) {
+		const result = { isExpired: false, expiresAt: 0, timeRemaining: 0 };
+		
+		if (!presignedUrl || typeof presignedUrl !== 'string') {
+			return result;
+		}
+		
+		// If not a presigned URL (plain path), assume valid
+		if (!presignedUrl.includes('http')) {
+			result.timeRemaining = 7 * 24 * 3600; // Assume 7 days valid
+			return result;
+		}
+		
+		// Check 1: Look for X-Amz-Expires parameter (e.g., ?X-Amz-Expires=604800 = 7 days in seconds, NOT unix timestamp)
+		const expiresSecondsMatch = presignedUrl.match(/[?&]X-Amz-Expires=(\d+)/);
+		if (expiresSecondsMatch && expiresSecondsMatch[1]) {
+			// This is the TTL, not the actual expiry time
+			// We need X-Amz-Date to calculate actual expiry
+			const dateMatch = presignedUrl.match(/[?&]X-Amz-Date=(\d{8}T\d{6}Z)/);
+			if (dateMatch && dateMatch[1]) {
+				const dateStr = dateMatch[1]; // e.g., "20260414T150000Z"
+				const date = new Date(
+					dateStr.substring(0, 4) + '-' +
+					dateStr.substring(4, 6) + '-' +
+					dateStr.substring(6, 8) + 'T' +
+					dateStr.substring(9, 11) + ':' +
+					dateStr.substring(11, 13) + ':' +
+					dateStr.substring(13, 15) + 'Z'
+				);
+				const expirySeconds = Number(expiresSecondsMatch[1]);
+				const expiresAt = date.getTime() + expirySeconds * 1000;
+				const timeRemaining = Math.floor((expiresAt - Date.now()) / 1000);
+				
+				result.expiresAt = expiresAt;
+				result.timeRemaining = timeRemaining;
+				result.isExpired = timeRemaining < 3600; // Less than 1 hour
+				
+				console.log(`[Avatar] Parsed presigned URL: expires in ${Math.floor(timeRemaining / 3600)}h`);
+				return result;
+			}
+		}
+		
+		// Check 2: Look for standard Expires parameter (unix timestamp in seconds)
+		// This is used by some S3 clients
+		const expiresMatch = presignedUrl.match(/[?&]Expires=(\d+)/);
+		if (expiresMatch && expiresMatch[1]) {
+			const expiresAt = Number(expiresMatch[1]) * 1000; // Convert to ms
+			const timeRemaining = Math.floor((expiresAt - Date.now()) / 1000);
+			
+			result.expiresAt = expiresAt;
+			result.timeRemaining = timeRemaining;
+			result.isExpired = timeRemaining < 3600;
+			
+			console.log(`[Avatar] Parsed presigned URL: expires in ${Math.floor(timeRemaining / 3600)}h`);
+			return result;
+		}
+		
+		// Not a presigned URL we recognize, assume it's valid
+		result.timeRemaining = 7 * 24 * 3600;
+		return result;
+	}
+	
+	/**
+	 * Proactively refresh avatar URLs in all conversations if expired or stale
+	 * Called after loading conversations from Firestore
+	 */
+	async function proactiveRefreshExpiredAvatars() {
+		// DEBOUNCE: Only run once every 5 minutes to prevent infinite loop
+		const now = Date.now();
+		const timeSinceLastRefresh = now - state.lastProactiveRefreshTime;
+		const DEBOUNCE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+		
+		if (timeSinceLastRefresh < DEBOUNCE_INTERVAL) {
+			return;
+		}
+		
+		state.lastProactiveRefreshTime = now;
+		
+		const conversationsToRefresh = [];
+		let skipped = 0;
+		
+		// Find conversations with avatar URLs that need refresh
+		state.conversations.forEach((conv) => {
+			const peerId = conv.peer?.id;
+			const peerName = conv.peer?.username || '(unknown)';
+			const avatarSrc = conv.peer?.avatarSrc || '';
+			const avatarUrl = conv.peer?.avatarUrl || '';
+			
+			if (!avatarUrl || !/^(avatars|posts|chat)\//i.test(avatarUrl)) {
+				// Not an S3 key, skip
+				skipped++;
+				return;
+			}
+			
+			// Check if presigned URL is expiring
+			const expiry = checkPresignedUrlExpiry(avatarSrc);
+			
+			// Refresh if:
+			// 1. Expired (< 1h remaining)
+			// 2. OR less than 6 hours remaining  
+			// 3. OR avatarSrc is missing/empty (use avatarUrl to generate fresh)
+			// 4. OR avatarSrc doesn't look like a presigned URL
+			const needsRefresh = 
+				!avatarSrc ||  // No presigned URL cached
+				expiry.isExpired ||  // Expired
+				expiry.timeRemaining < 6 * 3600 ||  // Expiring soon
+				(!avatarSrc.includes('http') && avatarSrc !== '');  // Not a URL format
+			
+			if (needsRefresh) {
+				conversationsToRefresh.push({
+					convId: conv.id,
+					peerId: peerId,
+					peerName: peerName,
+					avatarUrl: avatarUrl,
+					currentAvatarSrc: avatarSrc,
+					expiresIn: expiry.timeRemaining,
+				});
+			}
+		});
+		
+		if (conversationsToRefresh.length === 0) {
+			return;
+		}
+		
+		console.log(`[Avatar] Proactive refresh: ${conversationsToRefresh.length} avatar(s) need updating`);
+		
+		// Batch refresh (throttle API calls)
+		for (const item of conversationsToRefresh) {
+			try {
+				const freshUrl = await fetchPresignedUrl(item.avatarUrl);
+				
+				if (freshUrl && freshUrl !== item.currentAvatarSrc) {
+					// Update Firestore with fresh URL (silent)
+					updateConversationAvatarInFirestore(item.convId, item.peerId, item.avatarUrl, freshUrl).catch(() => {});
+					
+					// Update local state
+					const conv = state.conversationsMap.get(item.convId);
+					if (conv) {
+						conv.peer.avatarSrc = freshUrl;
+					}
+				}
+			} catch (error) {
+				console.warn(`[Avatar] Failed to refresh ${item.peerName}:`, error);
+			}
+			
+			// Throttle: wait 300ms between refreshes
+			await new Promise(resolve => setTimeout(resolve, 300));
+		}
+	}
+	
+	/**
+	 * Update conversation avatar URL in Firestore
+	 */
+	async function updateConversationAvatarInFirestore(convId, peerId, avatarUrl, freshPresignedUrl) {
+		try {
+			const convRef = doc(state.db, 'conversations', convId);
+			const peerKey = `app_${peerId}`;
+			
+			// Update participantMeta with fresh presigned URL
+			await updateDoc(convRef, {
+				[`participantMeta.${peerKey}.avatarSrc`]: freshPresignedUrl,
+				[`participantMeta.${peerKey}.avatarUrl`]: avatarUrl,
+			});
+			
+			console.log(`[Avatar] Firestore updated for conversation ${convId}`);
+		} catch (error) {
+			console.error('[Avatar] Failed to update Firestore:', error);
+			throw error;
+		}
 	}
 
 	function parseAppUserId(value) {

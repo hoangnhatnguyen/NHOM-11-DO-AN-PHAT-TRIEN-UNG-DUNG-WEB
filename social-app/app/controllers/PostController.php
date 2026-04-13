@@ -11,6 +11,42 @@ require_once __DIR__ . '/../helpers/post_media_upload.php';
 
 class PostController extends BaseController {
 
+    private function sanitizeReturnTo(?string $raw, string $fallback = '/'): string {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return $fallback;
+        }
+
+        $parts = @parse_url($raw);
+        if ($parts === false) {
+            return $fallback;
+        }
+
+        $path = (string) ($parts['path'] ?? '');
+        if ($path === '' || $path[0] !== '/') {
+            return $fallback;
+        }
+
+        $query = isset($parts['query']) && $parts['query'] !== '' ? ('?' . $parts['query']) : '';
+        $fragment = isset($parts['fragment']) && $parts['fragment'] !== '' ? ('#' . $parts['fragment']) : '';
+
+        return $path . $query . $fragment;
+    }
+
+    private function appendQueryToPath(string $path, string $key, string $value): string {
+        $sep = (strpos($path, '?') !== false) ? '&' : '?';
+        return $path . $sep . rawurlencode($key) . '=' . rawurlencode($value);
+    }
+
+    private function resolveReturnTo(string $fallback = '/'): string {
+        $posted = (string) ($_POST['return_to'] ?? '');
+        if ($posted !== '') {
+            return $this->sanitizeReturnTo($posted, $fallback);
+        }
+        $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+        return $this->sanitizeReturnTo($ref, $fallback);
+    }
+
     public function create() {
         $this->requireAuth();
         $this->render('post/create', [
@@ -20,6 +56,7 @@ class PostController extends BaseController {
 
     public function store() {
         $this->requireAuth();
+        $returnTo = $this->resolveReturnTo('/');
 
         if (!$this->verifyCsrf($_POST['_csrf'] ?? null)) {
             die('CSRF invalid');
@@ -31,7 +68,7 @@ class PostController extends BaseController {
         $visible = $_POST['privacy'] ?? 'public';
         $hasUpload = has_post_media_upload();
         if ($content === '' && !$hasUpload) {
-            $this->redirect('/?composer_error=empty');
+            $this->redirect($this->appendQueryToPath($returnTo, 'composer_error', 'empty'));
             return;
         }
 
@@ -51,7 +88,7 @@ class PostController extends BaseController {
             notify_for_post_content_mentions(notification_db(), $postId, $authorId, $content);
         }
 
-        $this->redirect('/');
+        $this->redirect($returnTo);
     }
 
     public function detail($id) {
@@ -348,6 +385,7 @@ class PostController extends BaseController {
 
     public function update($id) {
         $this->requireAuth();
+        $returnTo = $this->resolveReturnTo('/post/edit/' . (int) $id);
         if (!$this->verifyCsrf($_POST['_csrf'] ?? null)) {
             if ($this->isAjaxRequest()) {
                 header('Content-Type: application/json; charset=utf-8');
@@ -443,11 +481,12 @@ class PostController extends BaseController {
             exit;
         }
 
-        $this->redirect('/post/edit/' . $postId . '?saved=1');
+        $this->redirect($this->appendQueryToPath($returnTo, 'saved', '1'));
     }
 
    public function delete($id) {
         $this->requireAuth();
+        $returnTo = $this->resolveReturnTo('/');
 
         if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
             http_response_code(405);
@@ -498,7 +537,7 @@ class PostController extends BaseController {
             exit;
         }
 
-        $this->redirect('/');
+        $this->redirect($returnTo);
     }
 
     /**

@@ -1,5 +1,15 @@
+<?php
+$createReturnToRaw = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+$createReturnToPath = (string) (parse_url($createReturnToRaw, PHP_URL_PATH) ?? '/');
+if ($createReturnToPath === '' || $createReturnToPath === '/post/create') {
+    $createReturnToPath = '/';
+}
+$createReturnToQuery = (string) (parse_url($createReturnToRaw, PHP_URL_QUERY) ?? '');
+$createReturnTo = $createReturnToPath . ($createReturnToQuery !== '' ? ('?' . $createReturnToQuery) : '');
+?>
 <form id="createPostForm" method="POST" action="<?= BASE_URL ?>/post/store" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($createReturnTo, ENT_QUOTES, 'UTF-8') ?>">
     <?php if (($_GET['composer_error'] ?? '') === 'empty'): ?>
         <div class="alert alert-warning py-2 mb-3" role="alert">Bạn cần nhập nội dung hoặc chọn ít nhất 1 ảnh trước khi đăng.</div>
     <?php endif; ?>

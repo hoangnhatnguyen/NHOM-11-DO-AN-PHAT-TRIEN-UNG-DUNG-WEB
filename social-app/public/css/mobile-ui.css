@@ -1082,11 +1082,13 @@
 		z-index: 4290 !important;
 	}
 
-	#appConfirmModal {
+	#appConfirmModal,
+	#customDeletePostModal {
 		z-index: 4400 !important;
 	}
 
-	body:has(#appConfirmModal.show) .modal-backdrop.show {
+	body:has(#appConfirmModal.show) .modal-backdrop.show,
+	body:has(#customDeletePostModal.show) .modal-backdrop.show {
 		z-index: 4390 !important;
 	}
 }

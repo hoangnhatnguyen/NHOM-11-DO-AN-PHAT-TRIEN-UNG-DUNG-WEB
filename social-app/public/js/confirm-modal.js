@@ -76,16 +76,74 @@
 		}
 		var act = btn.getAttribute('data-delete-action');
 		if (!act) return;
-		var f = document.createElement('form');
-		f.method = 'POST';
-		f.action = act;
-		var inp = document.createElement('input');
-		inp.type = 'hidden';
-		inp.name = '_csrf';
-		inp.value = btn.getAttribute('data-delete-csrf') || '';
-		f.appendChild(inp);
-		document.body.appendChild(f);
-		f.submit();
+		var csrf = btn.getAttribute('data-delete-csrf') || '';
+		var fd = new FormData();
+		fd.append('_csrf', csrf);
+		fetch(act, {
+			method: 'POST',
+			body: fd,
+			credentials: 'same-origin',
+			headers: {
+				'X-Requested-With': 'XMLHttpRequest',
+			},
+		})
+			.then(function (res) {
+				return res.text().then(function (text) {
+					try {
+						return JSON.parse(text);
+					} catch (err) {
+						return null;
+					}
+				});
+			})
+			.then(function (data) {
+				if (!data || !data.ok) {
+					window.location.reload();
+					return;
+				}
+				var postId = parseInt(data.postId || btn.getAttribute('data-post-id') || '0', 10);
+				if (postId > 0) {
+					removePostCards(postId);
+					closePostDetailModal(postId);
+				}
+			})
+			.catch(function () {
+				window.location.reload();
+			});
+	}
+
+	function removePostCards(postId) {
+		document.querySelectorAll('.js-post-card[data-post-id="' + postId + '"]').forEach(function (card) {
+			card.remove();
+		});
+		document.querySelectorAll('.profile-post-tile[data-post-id="' + postId + '"]').forEach(function (tile) {
+			tile.remove();
+		});
+		renderProfileEmptyState();
+	}
+
+	function renderProfileEmptyState() {
+		var grid = document.querySelector('.profile-post-grid');
+		if (!grid) return;
+		if (grid.querySelector('.profile-post-tile')) return;
+		if (document.getElementById('profilePostsEmptyState')) return;
+		var empty = document.createElement('p');
+		empty.id = 'profilePostsEmptyState';
+		empty.className = 'text-muted mb-0';
+		empty.textContent = 'Chưa có bài viết nào';
+		grid.replaceWith(empty);
+	}
+
+	function closePostDetailModal(postId) {
+		var modalEl = document.getElementById('postDetailModal');
+		var modalContent = document.getElementById('postDetailContent');
+		if (!modalEl || !modalContent) return;
+		var modalPostId = parseInt(modalContent.getAttribute('data-modal-post-id') || '0', 10);
+		if (modalPostId !== postId) return;
+		try {
+			var inst = window.bootstrap && window.bootstrap.Modal && window.bootstrap.Modal.getOrCreateInstance(modalEl);
+			if (inst) inst.hide();
+		} catch (err) {}
 	}
 
 	document.addEventListener(

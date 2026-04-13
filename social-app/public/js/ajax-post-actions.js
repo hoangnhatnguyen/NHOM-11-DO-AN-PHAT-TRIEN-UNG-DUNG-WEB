@@ -195,4 +195,128 @@
 			if (dest) window.location.href = dest;
 		}
 	});
+// --- HÀM TẠO GIAO DIỆN MODAL XÓA (Chỉ tạo 1 lần) ---
+function ensureCustomDeleteModal() {
+    if (document.getElementById('customDeletePostModal')) return;
+
+    // HTML của Modal giống hệt hình bạn gửi
+    const modalHtml = `
+        <div class="modal fade" id="customDeletePostModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content border-0 shadow-lg text-center p-4 rounded-4" style="max-width: 320px; margin: auto;">
+                    <div class="modal-body p-0">
+                        <div class="mb-3">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                        </div>
+                        <h4 class="fw-bold mb-2">Xóa bài viết?</h4>
+                        <p class="text-secondary mb-4 small">Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể khôi phục.</p>
+                        <div class="d-flex justify-content-center gap-2">
+                            <button type="button" class="btn btn-light rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Hủy</button>
+                            <button type="button" class="btn btn-danger rounded-pill px-4 fw-semibold" id="confirmRealDeleteBtn" style="background-color: #dc3445; border-color: #df737b;">
+                                Xóa bài viết
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// --- XỬ LÝ SỰ KIỆN CLICK NÚT XÓA ---
+document.addEventListener('click', function (e) {
+    const deleteBtn = e.target.closest('.post-card-delete-btn');
+    if (!deleteBtn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const actionUrl = deleteBtn.getAttribute('data-delete-action');
+    const csrf = deleteBtn.getAttribute('data-delete-csrf');
+    if (!actionUrl || !csrf) return;
+
+    // 1. Tạo modal nếu chưa có và hiển thị nó lên
+    ensureCustomDeleteModal();
+    const modalEl = document.getElementById('customDeletePostModal');
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const confirmBtn = document.getElementById('confirmRealDeleteBtn');
+
+    // Reset lại trạng thái nút (Phòng trường hợp trước đó xóa lỗi)
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = 'Xóa bài viết';
+
+    // Hiển thị modal lên màn hình
+    bsModal.show();
+
+    // 2. Gán sự kiện khi bấm nút Xóa bên trong Modal
+    // Dùng .onclick thay vì addEventListener để đảm bảo mỗi lần bật Modal chỉ giữ 1 hành động duy nhất
+    confirmBtn.onclick = async function () {
+        
+        // Đổi UI sang trạng thái "Đang xóa..."
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang xóa...';
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('_csrf', csrf);
+
+            const res = await fetch(actionUrl, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const data = await res.json();
+            
+            if (data.ok) {
+                const postId = data.postId;
+
+                // Xóa trên Grid Profile
+                const profileTile = document.querySelector(`.profile-post-tile[data-post-id="${postId}"]`);
+                if (profileTile) {
+                    profileTile.remove();
+                    const countEl = document.getElementById('postsCountBtn');
+                    if (countEl) {
+                        const bTag = countEl.querySelector('b');
+                        if (bTag) bTag.innerText = Math.max(0, (parseInt(bTag.innerText) || 0) - 1);
+                    }
+                }
+
+                // Xóa Card ngoài News Feed
+                document.querySelectorAll(`.js-post-card[data-post-id="${postId}"]`).forEach(card => card.remove());
+
+                // Đóng Detail Modal (nếu có)
+                const detailModal = document.getElementById('postDetailModal');
+                if (detailModal && typeof bootstrap !== 'undefined') {
+                    const inst = bootstrap.Modal.getInstance(detailModal);
+                    if (inst) inst.hide();
+                }
+
+                // Cập nhật thông báo nếu hết bài
+                const grid = document.querySelector('.profile-post-grid');
+                if (grid && grid.children.length === 0) {
+                    grid.parentElement.innerHTML = '<p class="text-muted mb-0">Chưa có bài viết nào</p>';
+                }
+
+                // Tắt Custom Modal báo thành công
+                bsModal.hide();
+
+            } else {
+                alert('Lỗi xóa bài viết: ' + (data.msg || 'Không rõ lỗi.'));
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = 'Xóa bài viết';
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Không thể kết nối máy chủ để xóa bài viết.');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Xóa bài viết';
+        }
+    };
+});
 })();

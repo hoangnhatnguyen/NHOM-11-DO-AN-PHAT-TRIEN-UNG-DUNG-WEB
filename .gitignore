@@ -1,5 +1,14 @@
 .idea/
 *.iml
+.vs/
 .vscode/
 .DS_Store
 social-app/.env
+social-app/vendor/
+social-app/storage/logs/*.log
+!social-app/storage/logs/.gitkeep
+social-app/public/uploads/*
+!social-app/public/uploads/.gitkeep
+social-app/public/media/*
+!social-app/public/media/.gitkeep
+composer.phar

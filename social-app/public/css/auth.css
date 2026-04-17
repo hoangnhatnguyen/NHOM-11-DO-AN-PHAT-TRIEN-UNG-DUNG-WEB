@@ -1,0 +1,159 @@
+:root {
+    --auth-primary: #1A6291;
+    --auth-bg-start: #b6d7ee;
+    --auth-bg-end: #4f98c8;
+}
+
+.auth-page-bg {
+    background: #f3f4f6;
+    min-height: 100vh;
+}
+
+.auth-shell {
+    max-width: 1360px;
+    margin: 0 auto;
+}
+
+.auth-stage {
+    background: linear-gradient(135deg, var(--auth-bg-start) 0%, var(--auth-bg-end) 100%);
+    border-radius: 0;
+    min-height: 74vh;
+    padding: 2rem 6.5rem;
+}
+
+.auth-brand-panel {
+    color: #0f172a;
+    max-width: 420px;
+    text-align: left;
+    padding-left: 0;
+    margin-left: 0;
+    margin-top: -10rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.auth-brand-logo {
+    width: 300px;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    object-position: left center;
+    margin-left: -35px;
+    margin-bottom: -2rem;
+}
+
+.auth-brand-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+}
+
+.auth-brand-tagline {
+    font-size: 2rem;
+    font-weight: 500;
+}
+
+.auth-brand-desc {
+    font-size: 0.95rem;
+    color: #1f2937;
+}
+
+.auth-card {
+    width: 100%;
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 10px 28px rgba(20, 44, 67, 0.16);
+    padding: 1.3rem 1.35rem;
+}
+
+.auth-card-sm {
+    max-width: 360px;
+}
+
+.auth-card-lg {
+    max-width: 560px;
+}
+
+.auth-welcome {
+    font-size: 0.78rem;
+    margin-bottom: 0.5rem;
+    color: #334155;
+}
+
+.auth-title {
+    font-size: 2.1rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #111827;
+}
+
+.auth-label {
+    font-size: 0.82rem;
+    color: #1f2937;
+}
+
+.auth-input {
+    border-radius: 8px;
+    border: 1px solid #9fc1db;
+    min-height: 42px;
+}
+
+.auth-input:focus {
+    border-color: var(--auth-primary);
+    box-shadow: 0 0 0 .15rem rgba(26, 98, 145, 0.16);
+}
+
+.auth-btn-primary {
+    background: var(--auth-primary);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    min-height: 42px;
+    font-weight: 600;
+}
+
+.auth-btn-primary:hover {
+    background: #144f76;
+    color: #fff;
+}
+
+.auth-helper-row,
+.auth-helper-row a {
+    color: var(--auth-primary);
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+
+.auth-helper-row a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 991.98px) {
+    .auth-stage {
+        min-height: auto;
+        padding: 1.5rem;
+    }
+
+    .auth-brand-panel {
+        margin-top: 0;
+    }
+
+    .auth-brand-logo {
+        width: 120px;
+        height: 120px;
+    }
+
+    .auth-brand-title {
+        font-size: 1.8rem;
+    }
+
+    .auth-brand-tagline {
+        font-size: 1.4rem;
+    }
+
+    .auth-card-sm,
+    .auth-card-lg {
+        max-width: 100%;
+    }
+}
